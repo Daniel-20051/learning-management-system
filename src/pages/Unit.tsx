@@ -22,7 +22,6 @@ import { modules } from "@/lib/modulesData";
 import React from "react";
 import { getAdminConfig } from "@/lib/adminConfig";
 import {
-  saveQuizResult,
   getQuizResult,
   canAccessModule,
   canTakeQuiz,
@@ -85,8 +84,7 @@ const Unit = () => {
           setModule(module + 1);
           setSelectedIndex(0);
         } else {
-          const previousModuleResult = getQuizResult(module);
-          showQuizRequirementError(module, !!previousModuleResult);
+          showQuizRequirementError(module);
         }
       }
       return;
@@ -105,8 +103,7 @@ const Unit = () => {
           setModule(module + 1);
           setSelectedIndex(0);
         } else {
-          const previousModuleResult = getQuizResult(module);
-          showQuizRequirementError(module, !!previousModuleResult);
+          showQuizRequirementError(module);
         }
       }
     } else {
@@ -178,10 +175,7 @@ const Unit = () => {
     ? Math.max(0, remainingAttempts - 1)
     : remainingAttempts;
 
-  const showQuizRequirementError = (
-    moduleIndex: number,
-    hasAttempted: boolean
-  ) => {
+  const showQuizRequirementError = (moduleIndex: number) => {
     const moduleHasQuiz =
       modules[moduleIndex] &&
       modules[moduleIndex].quiz &&

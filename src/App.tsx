@@ -6,7 +6,6 @@ import Home from "./pages/Home";
 import LoginPage from "./pages/Login";
 
 import Unit from "./pages/Unit";
-import PrivateRoute from "@/routes/PrivateRoute";
 import { SidebarSelectionProvider } from "@/context/SidebarSelectionContext";
 import CertificatePage from "./pages/CertificatePage";
 

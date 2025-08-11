@@ -7,7 +7,8 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/Components/ui/dropdown-menu";
-import { LogOut, User, Award } from "lucide-react";
+import { LogOut, User, Award, Settings } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
 
 interface UserCardProps {
   sidebar: boolean;
@@ -16,9 +17,13 @@ interface UserCardProps {
 const UserCard = ({ sidebar }: UserCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
+  const { user, setIsLoggedIn, setUser, isAdmin } = useAuth();
 
   const handleLogout = () => {
-    localStorage.setItem("isLoggedIn", "false");
+    setIsLoggedIn(false);
+    setUser(null);
+    localStorage.removeItem("isLoggedIn");
+    localStorage.removeItem("user");
     navigate("/");
   };
 
@@ -36,8 +41,10 @@ const UserCard = ({ sidebar }: UserCardProps) => {
               />
             )}
             <div>
-              <p className="text-sm font-bold">John Doe</p>
-              {!sidebar && <p className="text-sm">john.doe@example.com</p>}
+              <p className="text-sm font-bold">{user?.name || "User"}</p>
+              {!sidebar && (
+                <p className="text-sm">{user?.email || "user@example.com"}</p>
+              )}
             </div>
             {!sidebar && (
               <img
@@ -49,6 +56,15 @@ const UserCard = ({ sidebar }: UserCardProps) => {
           </div>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-48">
+          {isAdmin && (
+            <DropdownMenuItem
+              className="cursor-pointer"
+              onClick={() => navigate("/admin")}
+            >
+              <Settings className="mr-2 h-4 w-4" />
+              <span>Admin Panel</span>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem
             className="cursor-pointer"
             onClick={() => navigate("/profile")}

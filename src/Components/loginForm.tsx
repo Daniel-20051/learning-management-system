@@ -5,34 +5,74 @@ import { Input } from "@/Components/ui/input";
 import { Label } from "@/Components/ui/label";
 import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
+import { Api } from "@/api";
+import { Eye, EyeOff } from "lucide-react";
 
 export function LoginForm({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  const { setIsLoggedIn } = useAuth();
+  const { setIsLoggedIn, setUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
-  // Dummy credentials
-  const DUMMY_EMAIL = "test@example.com";
-  const DUMMY_PASSWORD = "password123";
+  const api = new Api();
 
   useEffect(() => {
-    if (localStorage.getItem("isLoggedIn") === "true") {
-      setIsLoggedIn(true);
-    }
-  }, []);
+    const savedUser = localStorage.getItem("user");
+    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email === DUMMY_EMAIL && password === DUMMY_PASSWORD) {
+    if (isLoggedIn && savedUser) {
       setIsLoggedIn(true);
-      localStorage.setItem("isLoggedIn", "true");
-      setError("");
-    } else {
-      setError("Invalid email or password");
+      setUser(JSON.parse(savedUser));
+    }
+  }, [setIsLoggedIn, setUser]);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+
+    try {
+      const response = await api.LoginUser({ email, password });
+
+      if (response && response.data) {
+        const userData = response.data;
+        console.log(userData);
+
+        // Store the auth token if provided
+        if (userData.token) {
+          localStorage.setItem("authToken", userData.token);
+        }
+
+        const user = {
+          id: userData.user?.id || email,
+          email: userData.data.user?.email,
+          matricNumber: userData.data.user?.matricNumber,
+          name:
+            userData.data.user?.firstName + " " + userData.data.user?.lastName,
+          role: userData.data.user?.userType,
+        };
+
+        setIsLoggedIn(true);
+        setUser(user);
+        localStorage.setItem("isLoggedIn", "true");
+        localStorage.setItem("user", JSON.stringify(user));
+      } else {
+        setError("Login failed. Please check your credentials.");
+      }
+    } catch (err: any) {
+      console.error("Login error:", err);
+      if (err.response?.data?.message) {
+        setError(err.response.data.message);
+      } else {
+        setError("An error occurred during login. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -47,7 +87,7 @@ export function LoginForm({
               className="absolute inset-0 h-full w-full object-cover dark:brightness-[0.2] dark:grayscale"
             />
           </div>
-          <form className="p-6 md:p-8" onSubmit={handleSubmit}>
+          <form className="p-6  md:p-8" onSubmit={handleSubmit}>
             <div className="flex flex-col gap-6">
               <div className="flex flex-col items-center text-center">
                 <h1 className="text-2xl font-bold">Welcome back</h1>
@@ -76,27 +116,38 @@ export function LoginForm({
                     Forgot your password?
                   </a>
                 </div>
-                <Input
-                  id="password"
-                  type="password"
-                  required
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                />
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    required
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="pr-10"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  >
+                    {showPassword ? (
+                      <EyeOff className="h-4 cursor-pointer w-4" />
+                    ) : (
+                      <Eye className="h-4 cursor-pointer w-4" />
+                    )}
+                  </button>
+                </div>
               </div>
               {error && (
                 <div className="text-red-500 text-sm text-center">{error}</div>
               )}
-              <Button type="submit" className="w-full">
-                Login
+              <Button
+                type="submit"
+                className="w-full cursor-pointer"
+                disabled={isLoading}
+              >
+                {isLoading ? "Logging in..." : "Login"}
               </Button>
-
-              <div className="text-center text-sm">
-                Don&apos;t have an account?{" "}
-                <a href="#" className="underline underline-offset-4">
-                  Sign up
-                </a>
-              </div>
             </div>
           </form>
         </CardContent>

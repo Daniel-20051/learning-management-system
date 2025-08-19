@@ -16,7 +16,9 @@ export class Api {
               payload
             
           )
+          console.log(response);
           return response;
+
         }catch(err: any){
           console.error("Error during login:", err);
           return err;

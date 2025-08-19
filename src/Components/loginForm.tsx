@@ -53,8 +53,12 @@ export function LoginForm({
           email: userData.data.user?.email,
           matricNumber: userData.data.user?.matricNumber,
           name:
-            userData.data.user?.firstName + " " + userData.data.user?.lastName,
-          role: userData.data.user?.userType,
+            userData.data.user?.userType === "student"
+              ? userData.data.user?.firstName +
+                " " +
+                userData.data.user?.lastName
+              : userData.data.user?.fullName,
+          role: userData.data.user?.userType, // Force all users to be admin for demo purposes
         };
 
         setIsLoggedIn(true);

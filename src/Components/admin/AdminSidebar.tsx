@@ -1,5 +1,5 @@
 import { Button } from "@/Components/ui/button";
-import { LayoutDashboard, BookOpen, Plus, BarChart3, X } from "lucide-react";
+import { LayoutDashboard, BookOpen, X } from "lucide-react";
 
 import type { MenuItem } from "@/types/admin";
 
@@ -26,16 +26,6 @@ const AdminSidebar = ({
       id: "courses" as MenuItem,
       label: "My Courses",
       icon: BookOpen,
-    },
-    {
-      id: "create" as MenuItem,
-      label: "Create Course",
-      icon: Plus,
-    },
-    {
-      id: "analytics" as MenuItem,
-      label: "Analytics",
-      icon: BarChart3,
     },
   ];
 

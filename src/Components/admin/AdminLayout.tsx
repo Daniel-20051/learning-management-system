@@ -17,8 +17,6 @@ const AdminLayout = () => {
     if (path === "/admin" || path === "/admin/dashboard") return "dashboard";
     if (path === "/admin/courses" || path.startsWith("/admin/courses/"))
       return "courses";
-    if (path === "/admin/create") return "create";
-    if (path === "/admin/analytics") return "analytics";
     return "dashboard";
   };
 
@@ -26,17 +24,11 @@ const AdminLayout = () => {
 
   const handleMenuChange = (menu: MenuItem) => {
     switch (menu) {
-      case "dashboard":
-        navigate("/admin/dashboard");
-        break;
       case "courses":
         navigate("/admin/courses");
         break;
-      case "create":
-        navigate("/admin/create");
-        break;
-      case "analytics":
-        navigate("/admin/analytics");
+      case "dashboard":
+        navigate("/admin/dashboard");
         break;
     }
   };

@@ -26,4 +26,4 @@ export interface Unit {
   order: number;
 }
 
-export type MenuItem = "dashboard" | "courses" | "create" | "analytics"; 
+export type MenuItem = "dashboard" | "courses" ; 

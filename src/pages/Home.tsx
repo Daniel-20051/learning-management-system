@@ -58,8 +58,8 @@ const Home = () => {
     <div className="flex flex-col max-h-screen ">
       <Navbar sidebar={false} />
       <div className="flex-1 pt-10 px-7 md:px-12 lg:px-15 xl:px-20 flex flex-col gap-10  overflow-y-auto pb-10">
-        <div className="flex justify-between items-center">
-          <p className="text-2xl font-bold">Available Courses</p>
+        <div className="md:flex justify-between items-center">
+          <p className="text-2xl mb-5 font-bold">Available Courses</p>
           <SessionSemesterDialog
             onSelectionChange={handleSessionSemesterChange}
           />
@@ -69,14 +69,14 @@ const Home = () => {
 
         {isLoading ? (
           // Show skeleton loading state
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
-            {Array.from({ length: 6 }).map((_, index) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {Array.from({ length: 3 }).map((_, index) => (
               <CourseCardSkeleton key={index} />
             ))}
           </div>
         ) : courses.length > 0 ? (
           // Show actual courses
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-10">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {courses.map((course, index) => (
               <CourseCards
                 key={course.id || index}

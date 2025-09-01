@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Api } from "@/api";
 import { Eye, EyeOff } from "lucide-react";
+import { setAccessToken } from "@/lib/cookies";
 
 export function LoginForm({
   className,
@@ -43,22 +44,25 @@ export function LoginForm({
         const userData = response.data;
         console.log(userData);
 
-        // Store the auth token if provided
-        if (userData.token) {
-          localStorage.setItem("authToken", userData.token);
+        // Store the access token in cookie if provided
+        if (userData.data?.accessToken) {
+          setAccessToken(userData.data.accessToken);
+          console.log("Access token stored in cookie");
         }
 
         const user = {
-          id: userData.user?.id || email,
-          email: userData.data.user?.email,
-          matricNumber: userData.data.user?.matricNumber,
+          id: userData.data?.user?.id || email,
+          email: userData.data?.user?.email,
+          matricNumber: userData.data?.user?.matricNumber,
           name:
-            userData.data.user?.userType === "student"
-              ? userData.data.user?.firstName +
+            userData.data?.user?.userType === "student"
+              ? userData.data?.user?.firstName +
                 " " +
-                userData.data.user?.lastName
-              : userData.data.user?.fullName,
-          role: userData.data.user?.userType, // Force all users to be admin for demo purposes
+                userData.data?.user?.lastName
+              : userData.data?.user?.fullName,
+          role: (userData.data?.user?.userType === "student"
+            ? "student"
+            : "staff") as "student" | "staff",
         };
 
         setIsLoggedIn(true);

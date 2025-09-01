@@ -36,11 +36,15 @@ const Home = () => {
       if (selectedSession && selectedSemester) {
         setIsLoading(true);
         try {
+          // Add a small delay to ensure token is available
+          await new Promise((resolve) => setTimeout(resolve, 100));
+
           const response = await api.GetCourses(
             selectedSession,
             selectedSemester
           );
           if (response.data) {
+            console.log("Courses loaded:", response.data);
             setCourses(response.data.data);
           }
         } catch (error) {

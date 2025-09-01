@@ -1,5 +1,6 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
+import { hasValidToken, removeAccessToken } from "../lib/cookies";
 
 interface User {
   id: string;
@@ -15,6 +16,7 @@ interface AuthContextType {
   setUser: (user: User | null) => void;
   isAdmin: boolean;
   isInitializing: boolean;
+  logout: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,16 +28,31 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
   const isAdmin = user?.role === "staff";
 
+  const logout = () => {
+    removeAccessToken();
+    setIsLoggedIn(false);
+    setUser(null);
+    localStorage.removeItem("user");
+    localStorage.removeItem("isLoggedIn");
+  };
+
   useEffect(() => {
     try {
       const savedUser = localStorage.getItem("user");
       const savedIsLoggedIn = localStorage.getItem("isLoggedIn") === "true";
-      if (savedIsLoggedIn && savedUser) {
+      const hasToken = hasValidToken();
+
+      // Check if user is logged in and has a valid token
+      if (savedIsLoggedIn && savedUser && hasToken) {
         setIsLoggedIn(true);
         setUser(JSON.parse(savedUser));
+      } else if (savedIsLoggedIn && !hasToken) {
+        // Token expired, logout user
+        logout();
       }
     } catch (error) {
       // Ignore storage errors and start unauthenticated
+      logout();
     } finally {
       setIsInitializing(false);
     }
@@ -50,6 +67,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         setUser,
         isAdmin,
         isInitializing,
+        logout,
       }}
     >
       {children}

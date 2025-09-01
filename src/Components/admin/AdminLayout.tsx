@@ -6,7 +6,7 @@ import AdminSidebar from "./AdminSidebar";
 import type { MenuItem } from "@/types/admin";
 
 const AdminLayout = () => {
-  const { user, setIsLoggedIn, setUser } = useAuth();
+  const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
@@ -34,10 +34,8 @@ const AdminLayout = () => {
   };
 
   const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUser(null);
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("user");
+    logout();
+    navigate("/");
   };
 
   return (

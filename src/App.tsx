@@ -17,7 +17,7 @@ function App() {
 
   return (
     <SidebarSelectionProvider>
-      <ThemeProvider defaultTheme="system" storageKey="vite-ui-theme">
+      <ThemeProvider defaultTheme="light">
         {isInitializing ? null : (
           <BrowserRouter>
             <Routes>

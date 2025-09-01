@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ModeToggle } from "./mode-toggle";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,19 +16,15 @@ interface UserCardProps {
 const UserCard = ({ sidebar }: UserCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
   const navigate = useNavigate();
-  const { user, setIsLoggedIn, setUser, isAdmin } = useAuth();
+  const { user, isAdmin, logout } = useAuth();
 
   const handleLogout = () => {
-    setIsLoggedIn(false);
-    setUser(null);
-    localStorage.removeItem("isLoggedIn");
-    localStorage.removeItem("user");
+    logout();
     navigate("/");
   };
 
   return (
     <div className="flex items-center gap-3">
-      {!sidebar && <ModeToggle />}
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
           <div className=" hidden md:flex items-center gap-3 cursor-pointer">
@@ -88,7 +83,6 @@ const UserCard = ({ sidebar }: UserCardProps) => {
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
-      {sidebar && <ModeToggle />}
     </div>
   );
 };

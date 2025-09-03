@@ -11,6 +11,7 @@ import CourseDetailPage from "./pages/admin/CourseDetailPage";
 import Unit from "./pages/Unit";
 import { SidebarSelectionProvider } from "@/context/SidebarSelectionContext";
 import CertificatePage from "./pages/CertificatePage";
+import NotFoundPage from "./pages/NotFoundPage";
 
 function App() {
   const { isLoggedIn, isAdmin, isInitializing } = useAuth();
@@ -58,6 +59,7 @@ function App() {
               </Route>
               <Route path="/course/:id/" element={<Unit />} />
               <Route path="/certificate" element={<CertificatePage />} />
+              <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </BrowserRouter>
         )}

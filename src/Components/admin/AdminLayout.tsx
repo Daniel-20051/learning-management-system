@@ -8,6 +8,7 @@ import type { MenuItem } from "@/types/admin";
 const AdminLayout = () => {
   const { user, logout } = useAuth();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -52,9 +53,15 @@ const AdminLayout = () => {
           onMenuChange={handleMenuChange}
           isOpen={sidebarOpen}
           onClose={() => setSidebarOpen(false)}
+          isCollapsed={sidebarCollapsed}
+          onToggleCollapse={() => setSidebarCollapsed((v) => !v)}
         />
 
-        <main className="flex-1 overflow-y-auto p-6">
+        <main
+          className={`flex-1 overflow-y-auto p-6 transition-all duration-200 ${
+            sidebarCollapsed ? "md:ml-12" : ""
+          }`}
+        >
           <Outlet />
         </main>
       </div>

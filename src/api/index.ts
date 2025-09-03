@@ -113,11 +113,110 @@ async GetStaffCourses(session: string) {
       }
     });
     
-    console.log(response);
     return response;
 
   }catch(err: any){
     console.error("Error during getting courses:", err);
+    
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    return err;
+  }
+}
+async GetStaffCoursesbyId(id :string) {
+  try{
+    
+    
+    // Always fetch the latest token at request time
+    const token = getAccessToken();
+
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+
+    const response = await axios.get(`${BASE_URL}/api/courses/single/${id}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    
+    return response;
+
+  }catch(err: any){
+    console.error("Error during getting courses:", err);
+    
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    return err;
+  }
+}
+async GetCourseModules(courseId: string) {
+  try{
+    
+    
+    // Always fetch the latest token at request time
+    const token = getAccessToken();
+
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+
+    const response = await axios.get(`${BASE_URL}/api/courses/${courseId}/modules`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+   
+    return response;
+
+  }catch(err: any){
+    console.error("Error during getting course modules:", err);
+    
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    return err;
+  }
+}
+async AddModule(courseId: string, title: string, description: string) {
+  try{
+    
+    
+    // Always fetch the latest token at request time
+    const token = getAccessToken();
+
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+
+    const payload = {
+      course_id: courseId,
+      title: title,
+      description: description,
+      status: "uncompleted"
+    } 
+
+    const response = await axios.post(`${BASE_URL}/api/courses/${courseId}/modules`,
+      payload,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`
+          }
+        }
+    );
+    
+    console.log(response);
+    return response;
+
+  }catch(err: any){
+    console.error("Error during adding course modules:", err);
     
     if (err.response?.status === 401) {
       removeAccessToken();

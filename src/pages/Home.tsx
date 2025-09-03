@@ -8,20 +8,10 @@ import { useEffect, useState } from "react";
 
 const Home = () => {
   const api = new Api();
-  // Get current academic year for default selection
-  const getCurrentAcademicYear = () => {
-    const currentDate = new Date();
-    const currentYear = currentDate.getFullYear();
-    const currentMonth = currentDate.getMonth() + 1;
-    const academicYear = currentMonth >= 9 ? currentYear : currentYear - 1;
-    return `${academicYear}/${academicYear + 1}`;
-  };
 
   // Set default values to match SessionSemesterDialog defaults
-  const [selectedSession, setSelectedSession] = useState<string>(
-    getCurrentAcademicYear()
-  );
-  const [selectedSemester, setSelectedSemester] = useState<string>("1ST");
+  const [selectedSession, setSelectedSession] = useState<string>("");
+  const [selectedSemester, setSelectedSemester] = useState<string>("");
   const [courses, setCourses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -36,15 +26,11 @@ const Home = () => {
       if (selectedSession && selectedSemester) {
         setIsLoading(true);
         try {
-          // Add a small delay to ensure token is available
-          await new Promise((resolve) => setTimeout(resolve, 100));
-
           const response = await api.GetCourses(
             selectedSession,
             selectedSemester
           );
           if (response.data) {
-            console.log("Courses loaded:", response.data);
             setCourses(response.data.data);
           }
         } catch (error) {

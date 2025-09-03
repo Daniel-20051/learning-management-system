@@ -2,8 +2,6 @@ import axios  from 'axios';
 import { setAccessToken, getAccessToken, removeAccessToken } from '../lib/cookies';
 
 const BASE_URL = 'https://lms-work.onrender.com';
-
-const token = getAccessToken();
 export class Api {
     async LoginUser(data:{
         email: string;
@@ -40,6 +38,9 @@ export class Api {
       try{
         
         
+        // Always fetch the latest token at request time
+        const token = getAccessToken();
+
         if (!token) {
           throw new Error("No access token found. Please login again.");
         }
@@ -68,5 +69,62 @@ export class Api {
   async logout() {
     removeAccessToken();
   }
+  async Getsessions() {
+    try{
+      const token = getAccessToken();
+
+      if (!token) {
+        throw new Error("No access token found. Please login again.");
+      }
+
+      const response = await axios.get(`${BASE_URL}/api/semesters/get-semesters`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      
+      return response;
+
+    }catch(err: any){
+      console.error("Error during getting sessions:", err);
+      
+      if (err.response?.status === 401) {
+        removeAccessToken();
+        console.log("Token expired or invalid, removed from cookie");
+      }
+      return err;
+    }
+}
+async GetStaffCourses(session: string) {
+  try{
+    
+    
+    // Always fetch the latest token at request time
+    const token = getAccessToken();
+
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+
+    const response = await axios.get(`${BASE_URL}/api/courses/staff/${session}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    
+    console.log(response);
+    return response;
+
+  }catch(err: any){
+    console.error("Error during getting courses:", err);
+    
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    return err;
+  }
+}
 }
 

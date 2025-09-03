@@ -7,7 +7,6 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Api } from "@/api";
 import { Eye, EyeOff } from "lucide-react";
-import { setAccessToken } from "@/lib/cookies";
 
 export function LoginForm({
   className,
@@ -42,27 +41,23 @@ export function LoginForm({
 
       if (response && response.data) {
         const userData = response.data;
-        console.log(userData);
 
-        // Store the access token in cookie if provided
-        if (userData.data?.accessToken) {
-          setAccessToken(userData.data.accessToken);
-          console.log("Access token stored in cookie");
+        // Store the auth token if provided
+        if (userData.token) {
+          localStorage.setItem("authToken", userData.token);
         }
 
         const user = {
-          id: userData.data?.user?.id || email,
-          email: userData.data?.user?.email,
-          matricNumber: userData.data?.user?.matricNumber,
+          id: userData.user?.id || email,
+          email: userData.data.user?.email,
+          matricNumber: userData.data.user?.matricNumber,
           name:
-            userData.data?.user?.userType === "student"
-              ? userData.data?.user?.firstName +
+            userData.data.user?.userType === "student"
+              ? userData.data.user?.firstName +
                 " " +
-                userData.data?.user?.lastName
-              : userData.data?.user?.fullName,
-          role: (userData.data?.user?.userType === "student"
-            ? "student"
-            : "staff") as "student" | "staff",
+                userData.data.user?.lastName
+              : userData.data.user?.fullName,
+          role: userData.data.user?.userType, // Force all users to be admin for demo purposes
         };
 
         setIsLoggedIn(true);
@@ -154,7 +149,7 @@ export function LoginForm({
                 className="w-full cursor-pointer"
                 disabled={isLoading}
               >
-                {isLoading ? "Logging in..." : "Login"}
+                {isLoading ? "Loading..." : "Login"}
               </Button>
             </div>
           </form>

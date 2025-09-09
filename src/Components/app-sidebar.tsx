@@ -51,7 +51,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
               {currentModule ? (
                 <SidebarMenuItem key={currentModule.id}>
                   <SidebarMenuButton asChild>
-                    <a href="#" className="font-bold text-xl">
+                    <a href="#" className="font-bold h-auto text-xl">
                       {currentModule.title}
                     </a>
                   </SidebarMenuButton>

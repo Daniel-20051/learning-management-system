@@ -17,8 +17,7 @@ import {
 } from "@/Components/ui/breadcrumb";
 import UserCard from "@/Components/user-card";
 import { useSidebarSelection } from "@/context/SidebarSelectionContext";
-import { useState } from "react";
-import { modules } from "@/lib/modulesData";
+import { useState, useEffect } from "react";
 import React from "react";
 import { getAdminConfig } from "@/lib/adminConfig";
 import {
@@ -34,23 +33,91 @@ import QuizTimer from "@/Components/quiz-timer";
 import QuizResults from "@/Components/quiz-results";
 import QuizQuestions from "@/Components/quiz-questions";
 import AccessDenied from "@/Components/access-denied";
+import { useNavigate, useParams } from "react-router-dom";
+import { Api } from "@/api/index";
 
 const Unit = () => {
-  const { selectedIndex, setSelectedIndex, module, setModule } =
-    useSidebarSelection();
-  const currentModule = modules[module];
-  const units = currentModule.units;
+  const navigate = useNavigate();
+  const { courseId } = useParams<{ courseId: string }>();
+  const {
+    selectedIndex,
+    setSelectedIndex,
+    module,
+    setModule,
+    setCourseId,
+    modules,
+    setModules,
+    isLoading,
+    setIsLoading,
+  } = useSidebarSelection();
+
+  const api = new Api();
+
+  // Fetch course modules when component mounts or courseId changes
+  useEffect(() => {
+    const fetchCourseModules = async () => {
+      if (!courseId) return;
+
+      setIsLoading(true);
+      setCourseId(courseId);
+
+      try {
+        const response = await api.GetCourseModules(courseId);
+        console.log("Modules response:", response.data);
+
+        if (response.data?.status && response.data?.data) {
+          // Units are already included in the modules response
+          const modulesWithUnits = response.data.data.map((mod: any) => ({
+            ...mod,
+            units: mod.units || [], // Use the units that come with the module
+          }));
+
+          setModules(modulesWithUnits);
+
+          // Default to first unit of first module if no selection exists
+          if (modulesWithUnits.length > 0) {
+            const firstModule = modulesWithUnits[0];
+            const sortedUnits = firstModule.units
+              ? [...firstModule.units].sort((a, b) => a.order - b.order)
+              : [];
+
+            // Only set defaults if not already set
+            if (module === 0 && selectedIndex === 0 && sortedUnits.length > 0) {
+              setModule(0);
+              setSelectedIndex(0);
+            }
+          }
+        } else {
+          console.log("Invalid response structure:", response.data);
+        }
+      } catch (error) {
+        console.error("Error fetching course modules:", error);
+        toast.error("Failed to load course modules");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchCourseModules();
+  }, [courseId]);
+
+  // Current module and unit logic
+  const currentModule = modules[module] || null;
+  const units = currentModule?.units
+    ? [...currentModule.units].sort((a, b) => a.order - b.order)
+    : [];
   const unitNumber = selectedIndex + 1;
-  const currentUnit = units[unitNumber - 1];
-  const hasQuiz = currentModule.quiz && currentModule.quiz.length > 0;
+  const currentUnit = units[unitNumber - 1] || null;
+  const hasQuiz = currentModule?.quiz && currentModule.quiz.length > 0;
   const isQuizSelected = hasQuiz && selectedIndex === units.length;
   const isQuizActive = hasQuiz && selectedIndex === units.length + 1;
 
   // Admin configuration
   const adminConfig = getAdminConfig();
 
-  // Check if user can access current module
-  const canAccessCurrentModule = canAccessModule(module, adminConfig, modules);
+  // Check if user can access current module (temporarily disabled for dynamic loading)
+  // TODO: Implement proper access control for dynamic modules
+  const canAccessCurrentModule = true; // canAccessModule(module, adminConfig, modules);
   const previousModuleResult = getQuizResult(module - 1);
 
   // Quiz state
@@ -67,7 +134,7 @@ const Unit = () => {
   const [timeRemaining, setTimeRemaining] = useState<number>(0);
   const [isQuizTimerActive, setIsQuizTimerActive] = useState(false);
 
-  const quiz = hasQuiz ? currentModule.quiz[0] : null;
+  const quiz = hasQuiz && currentModule?.quiz ? currentModule.quiz[0] : null;
   const totalQuestions = quiz ? quiz.questions.length : 0;
   const existingQuizResult = getQuizResult(module);
 
@@ -122,7 +189,7 @@ const Unit = () => {
         const prevModule = module - 1;
         const prevUnits = modules[prevModule].units;
         const prevHasQuiz =
-          modules[prevModule].quiz && modules[prevModule].quiz.length > 0;
+          modules[prevModule]?.quiz && modules[prevModule].quiz!.length > 0;
         setModule(prevModule);
         setSelectedIndex(prevHasQuiz ? prevUnits.length : prevUnits.length - 1);
       }
@@ -276,6 +343,61 @@ const Unit = () => {
     (option) => option !== null
   );
 
+  // Show loading state while fetching modules - full page loader
+  if (isLoading) {
+    return (
+      <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
+        <div className="text-center">
+          <div className="relative inline-flex items-center justify-center">
+            {/* Outer ring */}
+            <div className="w-20 h-20 border-4 border-primary/20 rounded-full animate-spin"></div>
+            {/* Inner spinning dot */}
+            <div className="absolute w-20 h-20 border-4 border-transparent border-t-primary rounded-full animate-spin"></div>
+            {/* Center dot */}
+            <div className="absolute w-3 h-3 bg-primary rounded-full animate-pulse"></div>
+          </div>
+          <div className="mt-8 space-y-2">
+            <h3 className="text-xl font-semibold text-foreground">
+              Loading Course
+            </h3>
+            <p className="text-sm text-muted-foreground">
+              Fetching modules and content...
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show message if no modules are available
+  if (!isLoading && modules.length === 0) {
+    return (
+      <div>
+        <SidebarProvider style={{} as React.CSSProperties}>
+          <AppSidebar />
+          <SidebarInset>
+            <div className="flex items-center justify-center h-screen">
+              <div className="text-center">
+                <p className="text-lg text-gray-600">
+                  No modules available for this course
+                </p>
+                <p className="text-sm text-gray-500 mt-2">
+                  Course ID: {courseId}
+                </p>
+                <p className="text-sm text-gray-500">
+                  Modules loaded: {modules.length}
+                </p>
+                <Button onClick={() => navigate(-1)} className="mt-4">
+                  Go Back
+                </Button>
+              </div>
+            </div>
+          </SidebarInset>
+        </SidebarProvider>
+      </div>
+    );
+  }
+
   // Show access denied message if user can't access current module
   if (!canAccessCurrentModule) {
     return (
@@ -304,6 +426,9 @@ const Unit = () => {
             <div className="flex  px-5 justify-between w-full">
               <div className="flex items-center gap-2">
                 <SidebarTrigger />
+                <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
+                  <ArrowLeftIcon className="w-4 h-4 mr-1" /> Back
+                </Button>
                 <Breadcrumb className="hidden md:block">
                   <BreadcrumbList>
                     <BreadcrumbItem className="hidden md:block">
@@ -317,7 +442,7 @@ const Unit = () => {
                         {isQuizSelected || isQuizActive
                           ? "Quiz"
                           : `Unit ${unitNumber}: ${
-                              currentUnit?.topic || "Unknown Unit"
+                              currentUnit?.title || "Unknown Unit"
                             }`}
                       </BreadcrumbPage>
                     </BreadcrumbItem>
@@ -333,7 +458,7 @@ const Unit = () => {
                 <p className=" text-xl  md:text-3xl text-sidebar-foreground font-bold">
                   {isQuizSelected || isQuizActive
                     ? "Quiz"
-                    : `${currentUnit?.topic || "Unknown Unit"}`}
+                    : `${currentUnit?.title || "Unknown Unit"}`}
                 </p>
                 <div className="flex items-center gap-2 px-0 md:px-5  md:place-self-end text-[10px] md:text-sm text-sidebar-foreground font-bold">
                   {!isFirstUnitOfFirstModule && !isQuizActive && (
@@ -359,10 +484,10 @@ const Unit = () => {
               </div>
               <div className="flex flex-col gap-4">
                 {!isQuizSelected &&
-                  currentUnit?.videoSrc &&
-                  currentUnit.videoSrc !== "" && (
+                  currentUnit?.video_url &&
+                  currentUnit.video_url !== "" && (
                     <VideoControl
-                      src={currentUnit.videoSrc}
+                      src={currentUnit.video_url}
                       maxWidth="max-w-[100vw]"
                       maxHeight="max-h-135"
                       className="mx-auto"
@@ -428,14 +553,26 @@ const Unit = () => {
                     <TabsTrigger value="discussion">Discussion</TabsTrigger>
                   </TabsList>
                   <TabsContent value="lesson">
-                    {currentUnit?.lesson || "No lesson content available"}
+                    <div
+                      dangerouslySetInnerHTML={{
+                        __html:
+                          currentUnit?.content || "No lesson content available",
+                      }}
+                    />
                   </TabsContent>
                   <TabsContent value="notes">
-                    {currentUnit?.notes || "No notes available"}
+                    {/* TODO: Implement notes endpoint */}
+                    <p className="text-muted-foreground">
+                      Notes functionality will be implemented when endpoint is
+                      available
+                    </p>
                   </TabsContent>
                   <TabsContent value="discussion">
-                    {currentUnit?.discussion ||
-                      "No discussion content available"}
+                    {/* TODO: Implement discussion endpoint */}
+                    <p className="text-muted-foreground">
+                      Discussion functionality will be implemented when endpoint
+                      is available
+                    </p>
                   </TabsContent>
                 </Tabs>
               ) : (

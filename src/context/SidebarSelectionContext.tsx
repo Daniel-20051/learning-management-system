@@ -1,10 +1,41 @@
 import React, { createContext, useContext, useState } from "react";
 
+type Unit = {
+  id: string;
+  title: string;
+  content: string;
+  content_type: string;
+  order: number;
+  status: string;
+  video_url?: string;
+  module_id: string;
+  created_at: string;
+  updated_at: string;
+};
+
+type Module = {
+  id: string;
+  title: string;
+  description: string;
+  course_id: string;
+  status: string;
+  created_at: string;
+  updated_at: string;
+  units: Unit[];
+  quiz?: any[]; // TODO: Define proper quiz type when quiz endpoint is available
+};
+
 type SidebarSelectionContextType = {
   selectedIndex: number;
   setSelectedIndex: (index: number) => void;
   module: number;
   setModule: (module: number) => void;
+  courseId: string | null;
+  setCourseId: (courseId: string) => void;
+  modules: Module[];
+  setModules: (modules: Module[]) => void;
+  isLoading: boolean;
+  setIsLoading: (isLoading: boolean) => void;
 };
 
 const SidebarSelectionContext = createContext<
@@ -16,10 +47,24 @@ export const SidebarSelectionProvider: React.FC<{
 }> = ({ children }) => {
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [module, setModule] = useState(0);
+  const [courseId, setCourseId] = useState<string | null>(null);
+  const [modules, setModules] = useState<Module[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
 
   return (
     <SidebarSelectionContext.Provider
-      value={{ selectedIndex, setSelectedIndex, module, setModule }}
+      value={{
+        selectedIndex,
+        setSelectedIndex,
+        module,
+        setModule,
+        courseId,
+        setCourseId,
+        modules,
+        setModules,
+        isLoading,
+        setIsLoading,
+      }}
     >
       {children}
     </SidebarSelectionContext.Provider>

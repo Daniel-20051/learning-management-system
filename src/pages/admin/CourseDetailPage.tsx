@@ -10,6 +10,7 @@ import {
 import { Button } from "@/Components/ui/button";
 import { Badge } from "@/Components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/Components/ui/alert";
+import DeleteModuleDialog from "@/Components/admin/DeleteModuleDialog";
 
 import CourseDetailSkeleton from "@/Components/CourseDetailSkeleton";
 
@@ -26,29 +27,22 @@ import {
   BookOpen,
   CheckCircle2,
   AlertCircle,
+  Eye,
 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { Api } from "@/api";
 import CourseHeader from "@/Components/admin/CourseHeader";
 import CourseStats from "@/Components/admin/CourseStats";
 import EditCourseModal from "@/Components/admin/EditCourseModal";
-import AddUnitDialog from "@/Components/admin/AddUnitDialog";
+import AddUnitDialog, {
+  type UnitFormData,
+} from "@/Components/admin/AddUnitDialog";
 import AddModuleDialog, {
   type AddModuleDialogRef,
 } from "@/Components/admin/AddModuleDialog";
-
-// Types for unit creation (moved to AddUnitDialog component)
-interface UnitFormData {
-  title: string;
-  type: "lesson" | "quiz";
-  content?: string; // Rich text content for lessons
-  videoFiles?: File[];
-  quizQuestions?: Array<{
-    id: string;
-    question: string;
-    options: string[];
-    correctAnswer: number;
-  }>;
-}
+import EditUnitDialog from "@/Components/admin/EditUnitDialog";
+import DeleteUnitDialog from "@/Components/admin/DeleteUnitDialog";
+import UnitPreviewModal from "@/Components/admin/UnitPreviewModal";
 
 const CourseDetailPage = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -70,11 +64,81 @@ const CourseDetailPage = () => {
   const [showErrorAlert, setShowErrorAlert] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const addModuleDialogRef = useRef<AddModuleDialogRef>(null);
+  const [moduleToDelete, setModuleToDelete] = useState<any | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
+  const [showUnitUpdateSuccess, setShowUnitUpdateSuccess] = useState(false);
+  const [showUnitDeleteSuccess, setShowUnitDeleteSuccess] = useState(false);
 
-  // Handle unit creation
-  const handleAddUnit = (unitData: UnitFormData) => {
-    console.log("Creating unit:", unitData);
-    // TODO: Implement API call to create unit
+  // Per-module units loading state
+  const [loadingUnitsForModuleIds, setLoadingUnitsForModuleIds] = useState<
+    Set<string>
+  >(new Set());
+
+  // Unit editing state
+  const [isEditUnitOpen, setIsEditUnitOpen] = useState(false);
+  const [selectedUnit, setSelectedUnit] = useState<any | null>(null);
+
+  // Unit deletion state
+  const [isDeleteUnitOpen, setIsDeleteUnitOpen] = useState(false);
+  const [unitToDelete, setUnitToDelete] = useState<any | null>(null);
+
+  // Unit preview state
+  const [isPreviewUnitOpen, setIsPreviewUnitOpen] = useState(false);
+  const [unitToPreview, setUnitToPreview] = useState<any | null>(null);
+
+  // Helper: fetch modules (now includes units from the same endpoint)
+  const fetchModulesAndUnits = async (id: string) => {
+    setIsLoadingModules(true);
+    try {
+      const modulesResponse = await api.GetCourseModules(id);
+      const modulesData =
+        modulesResponse?.data?.data ?? modulesResponse?.data ?? [];
+      const modulesArray: any[] = Array.isArray(modulesData) ? modulesData : [];
+      setApiModules(modulesArray);
+    } catch (e: any) {
+      console.log(e);
+      setApiModules([]);
+    } finally {
+      setIsLoadingModules(false);
+    }
+  };
+
+  // Refresh only the units of a specific module by reusing the modules endpoint
+  const refreshUnitsFromModulesEndpoint = async (moduleId: string) => {
+    if (!courseId) return;
+    setLoadingUnitsForModuleIds((prev) => new Set(prev).add(moduleId));
+    try {
+      const modulesResponse = await api.GetCourseModules(String(courseId));
+      const modulesData =
+        modulesResponse?.data?.data ?? modulesResponse?.data ?? [];
+      const modulesArray: any[] = Array.isArray(modulesData) ? modulesData : [];
+      const updatedModule = modulesArray.find(
+        (m: any) => String(m.id) === String(moduleId)
+      );
+      const unitsArray = Array.isArray(updatedModule?.units)
+        ? updatedModule.units
+        : [];
+      setApiModules((prev) =>
+        prev.map((m: any) =>
+          m.id === moduleId ? { ...m, units: unitsArray } : m
+        )
+      );
+    } catch (e) {
+      // no-op
+    } finally {
+      setLoadingUnitsForModuleIds((prev) => {
+        const next = new Set(prev);
+        next.delete(moduleId);
+        return next;
+      });
+    }
+  };
+
+  // Handle unit creation (refresh only the affected module)
+  const handleAddUnit = async (moduleId: string, unitData: UnitFormData) => {
+    console.log("handleAddUnit", moduleId, unitData);
+    await refreshUnitsFromModulesEndpoint(moduleId);
   };
 
   const handleCancelEdit = () => {};
@@ -101,15 +165,9 @@ const CourseDetailPage = () => {
         moduleData.description
       );
 
-      if (response && !response.response) {
-        // Success - refresh the modules list
-        console.log("Module created successfully:", response.data);
-
-        // Reload modules to show the new module
-        const modulesResponse = await api.GetCourseModules(courseId);
-        const modulesData =
-          modulesResponse?.data?.data ?? modulesResponse?.data ?? [];
-        setApiModules(Array.isArray(modulesData) ? modulesData : []);
+      if (response.code === "201") {
+        // Reload modules (with units) to show the new module
+        await fetchModulesAndUnits(courseId);
 
         // Close dialog and reset form
         addModuleDialogRef.current?.closeDialog();
@@ -152,17 +210,7 @@ const CourseDetailPage = () => {
   useEffect(() => {
     const load = async () => {
       if (!courseId) return;
-      setIsLoadingModules(true);
-
-      try {
-        const resp = await api.GetCourseModules(String(courseId));
-        const data = resp?.data?.data ?? resp?.data ?? [];
-        setApiModules(Array.isArray(data) ? data : []);
-      } catch (e: any) {
-        console.log(e);
-      } finally {
-        setIsLoadingModules(false);
-      }
+      await fetchModulesAndUnits(String(courseId));
     };
     load();
   }, [courseId]);
@@ -220,6 +268,119 @@ const CourseDetailPage = () => {
     }, 0);
   };
 
+  const confirmDeleteModule = (module: any) => {
+    setModuleToDelete(module);
+  };
+
+  const openEditUnit = (unit: any) => {
+    setSelectedUnit(unit);
+    setIsEditUnitOpen(true);
+  };
+
+  const closeEditUnit = () => {
+    setIsEditUnitOpen(false);
+    setSelectedUnit(null);
+  };
+
+  const openDeleteUnit = (unit: any) => {
+    setUnitToDelete(unit);
+    setIsDeleteUnitOpen(true);
+  };
+
+  const closeDeleteUnit = () => {
+    setIsDeleteUnitOpen(false);
+    setUnitToDelete(null);
+  };
+
+  const handleDeleteUnit = async (unitId: string | number) => {
+    // Remove the deleted unit from the current state instead of refetching all data
+    setApiModules((prevModules) =>
+      prevModules.map((module) => ({
+        ...module,
+        units: Array.isArray(module.units)
+          ? module.units.filter((unit: any) => unit.id !== unitId)
+          : [],
+      }))
+    );
+
+    // Show success alert
+    setShowUnitDeleteSuccess(true);
+    setTimeout(() => setShowUnitDeleteSuccess(false), 4000);
+
+    closeDeleteUnit();
+  };
+
+  const openPreviewUnit = (unit: any) => {
+    setUnitToPreview(unit);
+    setIsPreviewUnitOpen(true);
+  };
+
+  const closePreviewUnit = () => {
+    setIsPreviewUnitOpen(false);
+    setUnitToPreview(null);
+  };
+
+  const handleUpdateUnit = (updatedUnit: {
+    id: string | number;
+    title: string;
+    content: string;
+    video_url?: string;
+  }) => {
+    // Update only the specific unit in the current state instead of refetching all data
+    setApiModules((prevModules) =>
+      prevModules.map((module) => ({
+        ...module,
+        units: Array.isArray(module.units)
+          ? module.units.map((unit: any) =>
+              unit.id === updatedUnit.id ? { ...unit, ...updatedUnit } : unit
+            )
+          : [],
+      }))
+    );
+
+    // Show success alert
+    setShowUnitUpdateSuccess(true);
+    setTimeout(() => setShowUnitUpdateSuccess(false), 4000);
+  };
+
+  const handleDeleteModule = async () => {
+    if (!moduleToDelete) return;
+    setIsDeleting(true);
+    try {
+      const resp = await api.DeleteModule(String(moduleToDelete.id));
+      const wasSuccessful =
+        (resp as any)?.status === 200 || (resp as any)?.data?.code === "200";
+      if (wasSuccessful) {
+        // Refresh modules list from server
+        if (courseId) {
+          try {
+            await fetchModulesAndUnits(String(courseId));
+          } catch (e) {
+            // Fallback to local removal if refresh fails
+            const remaining = apiModules.filter(
+              (m) => m.id !== moduleToDelete.id
+            );
+            setApiModules(remaining);
+          }
+        } else {
+          const remaining = apiModules.filter(
+            (m) => m.id !== moduleToDelete.id
+          );
+          setApiModules(remaining);
+        }
+        setModuleToDelete(null);
+        setShowDeleteSuccess(true);
+        setTimeout(() => setShowDeleteSuccess(false), 4000);
+      } else {
+        console.error("Failed to delete module:", resp);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   // Show loading state while course details or modules are loading
   if (isDetailsLoading) {
     return <CourseDetailSkeleton />;
@@ -247,6 +408,39 @@ const CourseDetailPage = () => {
         </Alert>
       )}
 
+      {/* Delete Success Alert */}
+      {showDeleteSuccess && (
+        <Alert className="border-green-200 bg-green-50 text-green-800">
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <AlertTitle className="text-green-800">Module Deleted</AlertTitle>
+          <AlertDescription className="text-green-700">
+            The module was deleted successfully.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Unit Update Success Alert */}
+      {showUnitUpdateSuccess && (
+        <Alert className="border-green-200 bg-green-50 text-green-800">
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <AlertTitle className="text-green-800">Unit Updated</AlertTitle>
+          <AlertDescription className="text-green-700">
+            The unit was updated successfully.
+          </AlertDescription>
+        </Alert>
+      )}
+
+      {/* Unit Delete Success Alert */}
+      {showUnitDeleteSuccess && (
+        <Alert className="border-green-200 bg-green-50 text-green-800">
+          <CheckCircle2 className="h-4 w-4 text-green-600" />
+          <AlertTitle className="text-green-800">Unit Deleted</AlertTitle>
+          <AlertDescription className="text-green-700">
+            The unit has been deleted successfully.
+          </AlertDescription>
+        </Alert>
+      )}
+
       {/* Error Alert */}
       {showErrorAlert && (
         <Alert className="border-red-200 bg-red-50 text-red-800">
@@ -266,22 +460,24 @@ const CourseDetailPage = () => {
       />
 
       {/* Course Actions */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-3xl font-bold">Modules & Units</h2>
-          <p className="text-muted-foreground text-lg">
+          <h2 className="text-2xl sm:text-3xl font-bold">Modules & Units</h2>
+          <p className="text-muted-foreground text-base sm:text-lg">
             Manage the content structure of your course
           </p>
         </div>
-        <AddModuleDialog
-          ref={addModuleDialogRef}
-          onAddModule={handleAddModule}
-          isLoading={isAddingModule}
-        />
+        <div className="w-full sm:w-auto">
+          <AddModuleDialog
+            ref={addModuleDialogRef}
+            onAddModule={handleAddModule}
+            isLoading={isAddingModule}
+          />
+        </div>
       </div>
 
       {/* Modules List - uses API modules */}
-      <div className="space-y-6">
+      <div className="space-y-6 mb-1">
         {!isLoadingModules && apiModules.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-16 text-center border rounded-xl bg-muted/20">
             <div className="p-4 bg-primary/10 rounded-full mb-4">
@@ -298,26 +494,29 @@ const CourseDetailPage = () => {
             (module: any, index: number) => (
               <Card
                 key={module.id}
-                className="border-1 border-gray-300 pt-3  transition-shadow"
+                className="border-1 border-gray-300 py-2 gap-2 transition-shadow"
               >
-                <CardHeader className="pb-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-4">
-                      <div className="flex items-center justify-center w-12 h-12 bg-gradient-to-br from-primary/10 to-primary/20 rounded-xl text-primary font-bold text-lg">
+                <CardHeader className="py-0">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex items-center gap-3 sm:gap-4">
+                      <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-primary/10 to-primary/20 rounded-xl text-primary font-bold text-base sm:text-lg">
                         {index + 1}
                       </div>
                       <div>
-                        <CardTitle className="text-xl">
+                        <CardTitle className="text-lg sm:text-xl">
                           {module.title}
                         </CardTitle>
-                        <CardDescription className="text-base">
+                        <CardDescription className="text-sm sm:text-base">
                           {module.description}
                         </CardDescription>
                       </div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2 sm:gap-3">
                       {Array.isArray(module.units) && (
-                        <Badge variant="outline" className="text-sm px-3 py-1">
+                        <Badge
+                          variant="outline"
+                          className="text-[10px] md:text-xs sm:text-sm px-2 sm:px-3 py-1"
+                        >
                           {module.units.length} units
                         </Badge>
                       )}
@@ -333,27 +532,47 @@ const CourseDetailPage = () => {
                           <ChevronRight className="h-5 w-5" />
                         )}
                       </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => confirmDeleteModule(module)}
+                        aria-label="Delete module"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
                   {expandedModules.has(module.id) && (
                     <div className="space-y-6">
-                      <div className="flex items-center justify-between">
-                        <h3 className="text-lg font-semibold">Units</h3>
-                        <AddUnitDialog
-                          moduleTitle={module.title}
-                          onAddUnit={handleAddUnit}
-                        >
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="shadow-sm"
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="flex items-center gap-2">
+                          <h3 className="text-base sm:text-lg font-semibold">
+                            Units
+                          </h3>
+                          {loadingUnitsForModuleIds.has(module.id) && (
+                            <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+                          )}
+                        </div>
+                        <div className="w-full sm:w-auto">
+                          <AddUnitDialog
+                            moduleTitle={module.title}
+                            moduleId={module.id}
+                            existingUnits={module.units || []}
+                            onAddUnit={handleAddUnit}
                           >
-                            <Plus className="mr-2 h-4 w-4" />
-                            Add Unit
-                          </Button>
-                        </AddUnitDialog>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="shadow-sm w-full"
+                            >
+                              <Plus className="mr-2 h-4 w-4" />
+                              Add Unit
+                            </Button>
+                          </AddUnitDialog>
+                        </div>
                       </div>
 
                       <div className="space-y-3">
@@ -361,16 +580,16 @@ const CourseDetailPage = () => {
                           (unit: any, unitIndex: number) => (
                             <div
                               key={unit.id}
-                              className="flex items-center justify-between p-4 bg-muted/30 rounded-xl border border-muted/50 hover:bg-muted/50 transition-colors"
+                              className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 bg-muted/30 rounded-xl border border-muted/50 hover:bg-muted/50 transition-colors"
                             >
-                              <div className="flex items-center gap-4">
-                                <div className="flex items-center justify-center w-8 h-8 bg-primary/10 rounded-lg text-primary font-medium text-sm">
+                              <div className="flex items-center gap-3 sm:gap-4">
+                                <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-primary/10 rounded-lg text-primary font-medium text-xs sm:text-sm">
                                   {unitIndex + 1}
                                 </div>
                                 <div className="flex items-center gap-3">
                                   {getUnitIcon(unit.type)}
                                   <div>
-                                    <span className="font-medium">
+                                    <span className="font-medium text-sm sm:text-base">
                                       {unit.title}
                                     </span>
                                     {unit.duration && (
@@ -382,11 +601,22 @@ const CourseDetailPage = () => {
                                   </div>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-1">
+                              <div className="flex items-center gap-1 sm:self-end">
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  className="hover:bg-blue-50 hover:text-blue-600"
+                                  onClick={() => openPreviewUnit(unit)}
+                                  title="Preview unit"
+                                >
+                                  <Eye className="h-4 w-4" />
+                                </Button>
                                 <Button
                                   variant="ghost"
                                   size="sm"
                                   className="hover:bg-primary/10"
+                                  onClick={() => openEditUnit(unit)}
+                                  title="Edit unit"
                                 >
                                   <Edit className="h-4 w-4" />
                                 </Button>
@@ -394,6 +624,8 @@ const CourseDetailPage = () => {
                                   variant="ghost"
                                   size="sm"
                                   className="hover:bg-destructive/10 hover:text-destructive"
+                                  onClick={() => openDeleteUnit(unit)}
+                                  title="Delete unit"
                                 >
                                   <Trash2 className="h-4 w-4" />
                                 </Button>
@@ -410,6 +642,37 @@ const CourseDetailPage = () => {
           )
         )}
       </div>
+
+      <DeleteModuleDialog
+        open={!!moduleToDelete}
+        moduleTitle={moduleToDelete?.title}
+        onCancel={() => setModuleToDelete(null)}
+        onConfirm={handleDeleteModule}
+        loading={isDeleting}
+      />
+
+      {/* Edit Unit Dialog */}
+      <EditUnitDialog
+        open={isEditUnitOpen}
+        unit={selectedUnit}
+        onClose={closeEditUnit}
+        onSave={handleUpdateUnit}
+      />
+
+      {/* Delete Unit Dialog */}
+      <DeleteUnitDialog
+        open={isDeleteUnitOpen}
+        unit={unitToDelete}
+        onClose={closeDeleteUnit}
+        onDelete={handleDeleteUnit}
+      />
+
+      {/* Unit Preview Modal */}
+      <UnitPreviewModal
+        open={isPreviewUnitOpen}
+        unit={unitToPreview}
+        onClose={closePreviewUnit}
+      />
 
       {/* Edit Course Modal */}
       <EditCourseModal

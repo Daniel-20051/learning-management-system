@@ -9,34 +9,31 @@ import { Button } from "@/Components/ui/button";
 import { Badge } from "@/Components/ui/badge";
 import { BookOpen, Calendar, ArrowRight } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { useState } from "react";
-import SessionSemesterDialog from "@/Components/SessionSemesterDialog";
-import { Api } from "@/api";
+import React, { useState } from "react";
 
-const CourseList = () => {
+type Props = {
+  courses?: any[];
+  isLoadingExternal?: boolean;
+};
+
+const CourseList = ({
+  courses: externalCourses,
+  isLoadingExternal = false,
+}: Props) => {
   const navigate = useNavigate();
-  const api = new Api();
-  const [courses, setCourses] = useState<any[]>([]);
-  const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [isSessionLoading, setIsSessionLoading] = useState<boolean>(true);
+  const [courses, setCourses] = useState<any[]>(externalCourses || []);
+  const [isLoading] = useState<boolean>(false);
+  const [isSessionLoading] = useState<boolean>(false);
   const handleViewCourse = (courseId: string) => {
     navigate(`/admin/courses/${courseId}`);
   };
 
-  const handleSessionSemesterChange = async (session: string) => {
-    try {
-      setIsLoading(true);
-      const response = await api.GetStaffCourses(session);
-      const data = response?.data?.data ?? response?.data ?? [];
-      if (Array.isArray(data)) {
-        setCourses(data);
-      } else {
-        setCourses([]);
-      }
-    } finally {
-      setIsLoading(false);
+  // Keep local state in sync when parent provides courses
+  React.useEffect(() => {
+    if (externalCourses) {
+      setCourses(externalCourses);
     }
-  };
+  }, [externalCourses]);
 
   return (
     <div className="space-y-6">
@@ -47,14 +44,9 @@ const CourseList = () => {
             Manage your courses and their content
           </p>
         </div>
-        <SessionSemesterDialog
-          onSelectionChange={handleSessionSemesterChange}
-          onLoadingChange={setIsSessionLoading}
-          isStaff={true}
-        />
       </div>
 
-      {isLoading || isSessionLoading ? (
+      {isLoading || isSessionLoading || isLoadingExternal ? (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {Array.from({ length: 3 }).map((_, index) => (
             <Card key={index} className=" pt-3 transition-shadow">

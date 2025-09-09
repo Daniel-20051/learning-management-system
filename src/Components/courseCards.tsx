@@ -7,60 +7,78 @@ import {
 } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
 import { Link } from "react-router-dom";
+import { Badge } from "@/Components/ui/badge";
 
 interface CourseCardsProps {
   courseCode: string;
   courseTitle: string;
+  courseLevel?: number;
+  courseUnit?: number;
+  semester?: string;
+  price?: string | number;
+  currency?: string;
+  academicYear?: string;
+  courseType?: string; // e.g. "C" or "E"
+  examFee?: number;
+  courseId?: number | string;
+  actionLabel?: string;
 }
 
-const CourseCards = ({ courseCode, courseTitle }: CourseCardsProps) => {
+const CourseCards = ({
+  courseCode,
+  courseTitle,
+  courseLevel,
+  courseUnit,
+
+  academicYear,
+  courseType,
+
+  courseId,
+  actionLabel,
+}: CourseCardsProps) => {
+  const typeLabel =
+    courseType === "C"
+      ? "Core"
+      : courseType === "E"
+      ? "Elective"
+      : courseType || "Course";
+  const resolvedAction = actionLabel || "Details";
   return (
     <div>
       <Card className="overflow-hidden">
-        <div className="w-full h-25 bg-primary relative overflow-hidden">
-          {/* Abstract background elements */}
-          {/* Course Code Text - Centered and White */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <span className="text-white text-2xl font-bold drop-shadow-lg">
+        {/* Header gradient with badges */}
+        <div className="w-full h-28 bg-gradient-to-br from-slate-700 via-slate-600 to-slate-800 relative">
+          <div className="absolute top-3 left-3">
+            <Badge
+              variant="secondary"
+              className="bg-white/20 text-white border-white/20"
+            >
               {courseCode}
-            </span>
+            </Badge>
           </div>
-
-          <div className="absolute inset-0 opacity-20">
-            {/* Dots */}
-            <div className="absolute top-4 left-4 w-2 h-2 bg-white rounded-full"></div>
-            <div className="absolute top-1/2 left-8 w-2 h-2 bg-white rounded-full"></div>
-            <div className="absolute top-1/3 right-1/3 w-2 h-2 bg-white rounded-full"></div>
-            <div className="absolute bottom-8 left-6 w-2 h-2 bg-yellow-200 rounded-full"></div>
-            <div className="absolute bottom-4 right-8 w-2 h-2 bg-white rounded-full"></div>
-
-            {/* Star */}
-            <div className="absolute top-2 right-2 w-8 h-8 border border-white/30 rounded-full flex items-center justify-center">
-              <div className="w-4 h-4 border border-white/30 transform rotate-45"></div>
-            </div>
-
-            {/* Lightning/Checkmark shapes */}
-            <div className="absolute bottom-4 left-4 w-6 h-6 border border-white/30 rounded-full flex items-center justify-center">
-              <div className="w-3 h-3 border-l-2 border-b-2 border-white/30 transform rotate-45"></div>
-            </div>
-
-            <div className="absolute bottom-8 left-8 w-4 h-4 border border-white/30 transform rotate-12"></div>
+          <div className="absolute top-3 right-3">
+            <Badge className="bg-emerald-600 text-white border-transparent">
+              {typeLabel}
+            </Badge>
           </div>
         </div>
 
-        <CardHeader>
-          <CardTitle className="uppercase">{courseTitle}</CardTitle>
-          {/* <CardDescription className="uppercase">{courseTitle}</CardDescription> */}
+        <CardHeader className="pb-2">
+          <CardTitle className="text-xl">{courseTitle}</CardTitle>
         </CardHeader>
-        <CardContent>
-          <p>
-            Lorem ipsum dolor sit amet consectetur adipisicing elit. Beatae
-            consectetur cumque exercitationem amet sint dolor
+        <CardContent className="pt-0">
+          <p className="text-muted-foreground">
+            {`Level ${courseLevel ?? "-"}`} ·{" "}
+            {`${courseUnit ?? "-"} Unit${(courseUnit || 0) === 1 ? "" : "s"}`}
           </p>
         </CardContent>
-        <CardFooter className="place-self-end">
+
+        <CardFooter className="pt-4 flex items-center justify-between">
+          <Badge variant="secondary" className="text-xs">
+            {academicYear ? `Session ${academicYear}` : ""}
+          </Badge>
           <Button asChild>
-            <Link to={`/course/1`}>Start</Link>
+            <Link to={`/unit/${courseId ?? "1"}`}>{resolvedAction}</Link>
           </Button>
         </CardFooter>
       </Card>

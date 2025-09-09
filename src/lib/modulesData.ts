@@ -13,7 +13,7 @@ export const modules = [
         notes: "These are the notes for Unit 1 (Module 1).",
         discussion: "Discussion for Unit 1 (Module 1) goes here.",
         isCompleted: false,
-        videoSrc: "https://stream.mux.com/DS00Spx1CV902MCtPj5WknGlR102V5HFkDe/high.mp4",
+        videoSrc: "https://lbizlohwnhivlmzzhxoo.storage.supabase.co/storage/v1/object/public/lmsvideo/videos/original/1/1757358117745.mp4",
       },
       {
         title: "Unit 2",

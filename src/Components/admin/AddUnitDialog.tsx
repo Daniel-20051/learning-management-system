@@ -1,18 +1,11 @@
 import { useState, useCallback } from "react";
-import { Editor } from "@tinymce/tinymce-react";
 import { useDropzone } from "react-dropzone";
 import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/input";
 import { Label } from "@/Components/ui/label";
-import { Textarea } from "@/Components/ui/textarea";
-import { Card } from "@/Components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/Components/ui/select";
+import { CircularProgress } from "@/Components/ui/circular-progress";
+import ContentEditor from "@/Components/admin/ContentEditor";
+import { Alert, AlertDescription, AlertTitle } from "@/Components/ui/alert";
 import {
   Dialog,
   DialogContent,
@@ -23,60 +16,77 @@ import {
   DialogTrigger,
 } from "@/Components/ui/dialog";
 import {
-  Plus,
-  BookOpen,
   Upload,
   X,
-  HelpCircle,
   Video,
+  Loader2,
+  AlertCircle,
   CheckCircle,
-  Trash2,
 } from "lucide-react";
+import { Api } from "@/api";
 
-// Types for unit creation
-type UnitType = "lesson" | "quiz";
-
-interface QuizQuestion {
-  id: string;
-  question: string;
-  options: string[];
-  correctAnswer: number;
-}
-
-interface UnitFormData {
+// Types for lesson unit creation
+export interface UnitFormData {
   title: string;
-  type: UnitType;
-  content?: string; // Rich text content for lessons
+  content: string;
   videoFiles?: File[];
-  quizQuestions?: QuizQuestion[];
 }
 
 interface AddUnitDialogProps {
   moduleTitle: string;
-  onAddUnit: (unitData: UnitFormData) => void;
+  moduleId: string;
+  existingUnits?: any[]; // Array of existing units to calculate order
+  onAddUnit: (moduleId: string, unitData: UnitFormData) => void;
   children: React.ReactNode;
 }
 
 const AddUnitDialog = ({
   moduleTitle,
+  moduleId,
+  existingUnits = [],
   onAddUnit,
   children,
 }: AddUnitDialogProps) => {
+  // API instance
+  const api = new Api();
+
+  // Calculate next order number based on existing units
+  const getNextOrderNumber = () => {
+    if (!existingUnits || existingUnits.length === 0) {
+      return 1;
+    }
+    const maxOrder = Math.max(...existingUnits.map((unit) => unit.order || 0));
+    return maxOrder + 1;
+  };
+
   // Unit creation form state
   const [unitFormData, setUnitFormData] = useState<UnitFormData>({
     title: "",
-    type: "lesson",
     content: "",
     videoFiles: [],
-    quizQuestions: [],
   });
+
+  // Alert and loading states
+  const [isLoading, setIsLoading] = useState(false);
+  const [loadingMessage, setLoadingMessage] = useState("Adding Unit...");
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isUploading, setIsUploading] = useState(false);
+  const [alert, setAlert] = useState<{
+    type: "success" | "error";
+    title: string;
+    description: string;
+  } | null>(null);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Video dropzone functionality
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    setUnitFormData((prev) => ({
-      ...prev,
-      videoFiles: [...(prev.videoFiles || []), ...acceptedFiles],
-    }));
+    // Only take the first file since we only accept one video
+    if (acceptedFiles.length > 0) {
+      setUnitFormData((prev) => ({
+        ...prev,
+        videoFiles: [acceptedFiles[0]], // Replace with new video file
+      }));
+    }
   }, []);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
@@ -84,54 +94,23 @@ const AddUnitDialog = ({
     accept: {
       "video/*": [".mp4", ".mov", ".avi", ".mkv", ".webm"],
     },
-    multiple: true,
+    multiple: false, // Only accept one video file
     maxSize: 50 * 1024 * 1024, // 50MB limit
     onDropRejected: (rejectedFiles) => {
       // Handle rejected files (too large, wrong type, etc.)
       rejectedFiles.forEach(({ file, errors }) => {
         errors.forEach((error) => {
           if (error.code === "file-too-large") {
-            alert(`File ${file.name} is too large. Maximum size is 50MB.`);
+            setAlert({
+              type: "error",
+              title: "File Too Large",
+              description: `File ${file.name} is too large. Maximum size is 50MB.`,
+            });
           }
         });
       });
     },
   });
-
-  // Quiz question management
-  const addQuizQuestion = () => {
-    const newQuestion: QuizQuestion = {
-      id: Date.now().toString(),
-      question: "",
-      options: ["", "", "", ""],
-      correctAnswer: 0,
-    };
-    setUnitFormData((prev) => ({
-      ...prev,
-      quizQuestions: [...(prev.quizQuestions || []), newQuestion],
-    }));
-  };
-
-  const updateQuizQuestion = (
-    questionId: string,
-    updates: Partial<QuizQuestion>
-  ) => {
-    setUnitFormData((prev) => ({
-      ...prev,
-      quizQuestions:
-        prev.quizQuestions?.map((q) =>
-          q.id === questionId ? { ...q, ...updates } : q
-        ) || [],
-    }));
-  };
-
-  const removeQuizQuestion = (questionId: string) => {
-    setUnitFormData((prev) => ({
-      ...prev,
-      quizQuestions:
-        prev.quizQuestions?.filter((q) => q.id !== questionId) || [],
-    }));
-  };
 
   const removeVideoFile = (index: number) => {
     setUnitFormData((prev) => ({
@@ -143,42 +122,249 @@ const AddUnitDialog = ({
   const resetUnitForm = () => {
     setUnitFormData({
       title: "",
-      type: "lesson",
       content: "",
       videoFiles: [],
-      quizQuestions: [],
     });
+    setAlert(null);
+    setLoadingMessage("Adding Unit...");
+    setUploadProgress(0);
+    setIsUploading(false);
+    setIsDialogOpen(false);
   };
 
-  const handleUnitTypeChange = (type: UnitType) => {
-    setUnitFormData((prev) => ({
-      ...prev,
-      type,
-      // Clear type-specific data when switching
-      ...(type === "lesson"
-        ? { quizQuestions: [] }
-        : { content: "", videoFiles: [] }),
-    }));
-  };
+  const handleAddUnit = async () => {
+    // Clear any existing alerts
+    setAlert(null);
 
-  const handleAddUnit = () => {
-    onAddUnit(unitFormData);
-    resetUnitForm();
+    // Validate form data
+    if (!unitFormData.title.trim()) {
+      setAlert({
+        type: "error",
+        title: "Validation Error",
+        description: "Please enter a unit title.",
+      });
+      return;
+    }
+
+    if (!unitFormData.content.trim()) {
+      setAlert({
+        type: "error",
+        title: "Validation Error",
+        description: "Please enter lesson content.",
+      });
+      return;
+    }
+
+    setIsLoading(true);
+    setLoadingMessage("Creating unit...");
+
+    try {
+      // Step 1: Create the unit first
+      const unitData = {
+        title: unitFormData.title,
+        content: unitFormData.content,
+        content_type: "html",
+        order: getNextOrderNumber(),
+        status: "uncompleted",
+      };
+
+      const response = await api.AddUnit(moduleId, unitData);
+
+      // Extract unit ID from response
+      let unitId = null;
+      let unitCreated = false;
+
+      if (response && response.data && response.data.success) {
+        unitId = response.data.data?.id || response.data.id;
+        unitCreated = true;
+      } else if (
+        response &&
+        response.data &&
+        response.data.message === "Unit created"
+      ) {
+        unitId = response.data.data?.id || response.data.id;
+        unitCreated = true;
+      }
+
+      if (!unitCreated) {
+        throw new Error(response?.data?.message || "Failed to create unit");
+      }
+
+      // Step 2: Upload video file if any (only if unit was created successfully)
+      if (
+        unitFormData.videoFiles &&
+        unitFormData.videoFiles.length > 0 &&
+        unitId
+      ) {
+        const videoFile = unitFormData.videoFiles[0]; // Get the single video file
+
+        setLoadingMessage("Uploading video...");
+        setIsUploading(true);
+        setUploadProgress(0);
+        setAlert({
+          type: "success",
+          title: "Unit Created!",
+          description: "Now uploading video file...",
+        });
+
+        try {
+          const uploadResponse = await api.UploadUnitVideo(
+            moduleId,
+            String(unitId),
+            videoFile,
+            (progress) => {
+              setUploadProgress(progress);
+              setAlert({
+                type: "success",
+                title: "Uploading Video...",
+                description: `Uploading: ${videoFile.name} (${progress}%)`,
+              });
+            }
+          );
+          console.log("Video Upload Response:", uploadResponse);
+
+          // Video uploaded successfully
+          setUploadProgress(100);
+          setIsUploading(false);
+          setAlert({
+            type: "success",
+            title: "Success!",
+            description: `Unit and video uploaded successfully!`,
+          });
+        } catch (uploadError) {
+          console.error("Error uploading video:", uploadError);
+          setIsUploading(false);
+          setUploadProgress(0);
+          setAlert({
+            type: "error",
+            title: "Video Upload Failed",
+            description: `Failed to upload ${videoFile.name}. Unit was created but video upload failed.`,
+          });
+          setTimeout(() => {
+            resetUnitForm();
+          }, 3000);
+          return;
+        }
+      } else {
+        // No videos to upload, just show unit creation success
+        setAlert({
+          type: "success",
+          title: "Success!",
+          description: "Lesson unit has been added successfully.",
+        });
+      }
+
+      // Call the parent callback to refresh the affected module
+      onAddUnit(moduleId, unitFormData);
+
+      // Reset form after showing success message
+      setTimeout(() => {
+        resetUnitForm();
+      }, 1500);
+    } catch (error: any) {
+      console.error("Error adding unit:", error);
+
+      // Check if the error message indicates successful unit creation (legacy handling)
+      if (
+        error?.message === "Unit created" ||
+        error?.response?.data?.message === "Unit created" ||
+        error?.data?.message === "Unit created"
+      ) {
+        setAlert({
+          type: "success",
+          title: "Success!",
+          description: "Lesson unit has been added successfully.",
+        });
+
+        onAddUnit(moduleId, unitFormData);
+        setTimeout(() => {
+          resetUnitForm();
+        }, 1500);
+      } else {
+        setAlert({
+          type: "error",
+          title: "Error",
+          description:
+            error?.response?.data?.message ||
+            error?.message ||
+            "Failed to add unit. Please try again.",
+        });
+      }
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <Dialog>
+    <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="max-w-6xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-6xl mt-7 max-h-[85vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Add New Unit</DialogTitle>
-          <DialogDescription>Add a new unit to {moduleTitle}</DialogDescription>
+          <DialogTitle>Add New Lesson</DialogTitle>
+          <DialogDescription>
+            Add a new lesson to {moduleTitle}
+          </DialogDescription>
         </DialogHeader>
+
+        {/* Alert Display */}
+        {alert && (
+          <Alert
+            className={
+              alert.type === "error" ? "border-destructive" : "border-green-500"
+            }
+          >
+            <div className="flex items-start gap-4 w-[60vw]">
+              <div className="flex-shrink-0">
+                {isUploading ? (
+                  <CircularProgress
+                    value={uploadProgress}
+                    size={40}
+                    strokeWidth={4}
+                  />
+                ) : (
+                  <>
+                    <AlertCircle
+                      className={alert.type === "error" ? "h-4 w-4" : "hidden"}
+                    />
+                    <CheckCircle
+                      className={
+                        alert.type === "success"
+                          ? "h-4 w-4 text-green-500"
+                          : "hidden"
+                      }
+                    />
+                  </>
+                )}
+              </div>
+
+              <div className="flex-1 w-full">
+                <AlertTitle
+                  className={`${
+                    alert.type === "error"
+                      ? "text-destructive"
+                      : "text-green-700"
+                  }  w-full text-left`}
+                >
+                  {alert.title}
+                </AlertTitle>
+                <AlertDescription
+                  className={`${
+                    alert.type === "error"
+                      ? "text-destructive"
+                      : "text-green-600"
+                  }  w-full text-left`}
+                >
+                  {alert.description}
+                </AlertDescription>
+              </div>
+            </div>
+          </Alert>
+        )}
 
         <div className="grid gap-6 py-4">
           {/* Unit Title */}
           <div className="grid gap-2">
-            <Label htmlFor="unit-title">Unit Title</Label>
+            <Label htmlFor="unit-title">Lesson Title</Label>
             <Input
               id="unit-title"
               value={unitFormData.title}
@@ -188,296 +374,107 @@ const AddUnitDialog = ({
                   title: e.target.value,
                 }))
               }
-              placeholder="Enter unit title"
+              placeholder="Enter lesson title"
             />
           </div>
 
-          {/* Unit Type Selection */}
+          {/* Video Upload Section */}
           <div className="grid gap-2">
-            <Label htmlFor="unit-type">Unit Type</Label>
-            <Select
-              value={unitFormData.type}
-              onValueChange={(value: UnitType) => handleUnitTypeChange(value)}
+            <Label>Video File (Optional)</Label>
+            <div
+              {...getRootProps()}
+              className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
+                isDragActive
+                  ? "border-primary bg-primary/5"
+                  : "border-muted-foreground/25 hover:border-primary/50"
+              }`}
             >
-              <SelectTrigger>
-                <SelectValue placeholder="Select unit type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="lesson">
+              <input {...getInputProps()} />
+              <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
+              {isDragActive ? (
+                <p className="text-primary">Drop video file here...</p>
+              ) : (
+                <div>
+                  <p className="text-muted-foreground">
+                    Drag & drop a video file here, or click to select
+                  </p>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    Supports: MP4, MOV, AVI, MKV, WebM (Max: 50MB)
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Display uploaded video */}
+            {unitFormData.videoFiles && unitFormData.videoFiles.length > 0 && (
+              <div className="space-y-2">
+                <Label className="text-sm font-medium">Selected Video:</Label>
+                <div className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
                   <div className="flex items-center gap-2">
-                    <BookOpen className="h-4 w-4" />
-                    Lesson
+                    <Video className="h-4 w-4 text-primary" />
+                    <span className="text-sm font-medium">
+                      {unitFormData.videoFiles[0].name}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      (
+                      {(
+                        unitFormData.videoFiles[0].size /
+                        (1024 * 1024)
+                      ).toFixed(2)}{" "}
+                      MB)
+                    </span>
                   </div>
-                </SelectItem>
-                <SelectItem value="quiz">
-                  <div className="flex items-center gap-2">
-                    <HelpCircle className="h-4 w-4" />
-                    Quiz
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => removeVideoFile(0)}
+                    className="hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
 
-          {/* Conditional Content Based on Unit Type */}
-          {unitFormData.type === "lesson" && (
-            <div className="space-y-6">
-              {/* Video Upload Section */}
-              <div className="grid gap-2">
-                <Label>Video Files (Optional)</Label>
-                <div
-                  {...getRootProps()}
-                  className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors ${
-                    isDragActive
-                      ? "border-primary bg-primary/5"
-                      : "border-muted-foreground/25 hover:border-primary/50"
-                  }`}
-                >
-                  <input {...getInputProps()} />
-                  <Upload className="mx-auto h-8 w-8 text-muted-foreground mb-2" />
-                  {isDragActive ? (
-                    <p className="text-primary">Drop video files here...</p>
-                  ) : (
-                    <div>
-                      <p className="text-muted-foreground">
-                        Drag & drop video files here, or click to select
-                      </p>
-                      <p className="text-sm text-muted-foreground mt-1">
-                        Supports: MP4, MOV, AVI, MKV, WebM (Max: 50MB)
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Display uploaded videos */}
-                {unitFormData.videoFiles &&
-                  unitFormData.videoFiles.length > 0 && (
-                    <div className="space-y-2">
-                      <Label className="text-sm font-medium">
-                        Uploaded Videos:
-                      </Label>
-                      {unitFormData.videoFiles.map((file, index) => (
-                        <div
-                          key={index}
-                          className="flex items-center justify-between p-3 bg-muted/50 rounded-lg"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Video className="h-4 w-4 text-primary" />
-                            <span className="text-sm font-medium">
-                              {file.name}
-                            </span>
-                            <span className="text-xs text-muted-foreground">
-                              ({(file.size / (1024 * 1024)).toFixed(2)} MB)
-                            </span>
-                          </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => removeVideoFile(index)}
-                            className="hover:bg-destructive/10 hover:text-destructive"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-              </div>
-
-              {/* Rich Text Editor */}
-              <div className="grid gap-2">
-                <Label>Lesson Content</Label>
-                <div className="border rounded-lg overflow-hidden">
-                  <Editor
-                    value={unitFormData.content}
-                    onEditorChange={(content) =>
-                      setUnitFormData((prev) => ({
-                        ...prev,
-                        content,
-                      }))
-                    }
-                    init={{
-                      height: 400,
-                      menubar: false,
-                      plugins: [
-                        "advlist",
-                        "autolink",
-                        "lists",
-                        "link",
-                        "image",
-                        "charmap",
-                        "preview",
-                        "anchor",
-                        "searchreplace",
-                        "visualblocks",
-                        "code",
-                        "fullscreen",
-                        "insertdatetime",
-                        "media",
-                        "table",
-                        "help",
-                        "wordcount",
-                      ],
-                      toolbar:
-                        "undo redo | blocks | " +
-                        "bold italic forecolor | alignleft aligncenter " +
-                        "alignright alignjustify | bullist numlist outdent indent | " +
-                        "removeformat | image link | help",
-                      content_style:
-                        "body { font-family:Helvetica,Arial,sans-serif; font-size:14px }",
-                      images_upload_handler: (
-                        blobInfo: any,
-                        success: (url: string) => void
-                      ) => {
-                        const reader = new FileReader();
-                        reader.onload = () => {
-                          success(reader.result as string);
-                        };
-                        reader.readAsDataURL(blobInfo.blob());
-                      },
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Quiz Questions Builder */}
-          {unitFormData.type === "quiz" && (
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                <Label className="text-base font-semibold">
-                  Quiz Questions
-                </Label>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addQuizQuestion}
-                >
-                  <Plus className="mr-2 h-4 w-4" />
-                  Add Question
-                </Button>
-              </div>
-
-              {unitFormData.quizQuestions &&
-                unitFormData.quizQuestions.length === 0 && (
-                  <div className="text-center py-8 text-muted-foreground">
-                    <HelpCircle className="mx-auto h-12 w-12 mb-4 opacity-50" />
-                    <p>
-                      No questions added yet. Click "Add Question" to get
-                      started.
-                    </p>
-                  </div>
-                )}
-
-              <div className="space-y-4">
-                {unitFormData.quizQuestions?.map((question, questionIndex) => (
-                  <Card key={question.id} className="p-4">
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <Label className="font-medium">
-                          Question {questionIndex + 1}
-                        </Label>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => removeQuizQuestion(question.id)}
-                          className="hover:bg-destructive/10 hover:text-destructive"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-
-                      <div className="grid gap-2">
-                        <Label htmlFor={`question-${question.id}`}>
-                          Question Text
-                        </Label>
-                        <Textarea
-                          id={`question-${question.id}`}
-                          value={question.question}
-                          onChange={(e) =>
-                            updateQuizQuestion(question.id, {
-                              question: e.target.value,
-                            })
-                          }
-                          placeholder="Enter your question here..."
-                          rows={3}
-                        />
-                      </div>
-
-                      <div className="grid gap-3">
-                        <Label>Answer Options</Label>
-                        {question.options.map((option, optionIndex) => (
-                          <div
-                            key={optionIndex}
-                            className="flex items-center gap-3"
-                          >
-                            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-muted text-sm font-medium">
-                              {String.fromCharCode(65 + optionIndex)}
-                            </div>
-                            <Input
-                              value={option}
-                              onChange={(e) => {
-                                const newOptions = [...question.options];
-                                newOptions[optionIndex] = e.target.value;
-                                updateQuizQuestion(question.id, {
-                                  options: newOptions,
-                                });
-                              }}
-                              placeholder={`Option ${String.fromCharCode(
-                                65 + optionIndex
-                              )}`}
-                              className="flex-1"
-                            />
-                            <Button
-                              variant={
-                                question.correctAnswer === optionIndex
-                                  ? "default"
-                                  : "outline"
-                              }
-                              size="sm"
-                              onClick={() =>
-                                updateQuizQuestion(question.id, {
-                                  correctAnswer: optionIndex,
-                                })
-                              }
-                              className="min-w-[80px]"
-                            >
-                              {question.correctAnswer === optionIndex ? (
-                                <>
-                                  <CheckCircle className="mr-1 h-3 w-3" />
-                                  Correct
-                                </>
-                              ) : (
-                                "Mark Correct"
-                              )}
-                            </Button>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
+          {/* Lesson Content Editor */}
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="lesson-content">Lesson Content</Label>
+            <ContentEditor
+              value={unitFormData.content}
+              onChange={(html) =>
+                setUnitFormData((prev) => ({
+                  ...prev,
+                  content: html,
+                }))
+              }
+            />
+          </div>
         </div>
 
-        <DialogFooter>
-          <Button variant="outline" onClick={resetUnitForm}>
+        <DialogFooter className="mt-13 flex flex-col gap-2 md:flex-row md:mt-7">
+          <Button
+            variant="outline"
+            onClick={resetUnitForm}
+            disabled={isLoading}
+          >
             Cancel
           </Button>
           <Button
             onClick={handleAddUnit}
-            disabled={
-              !unitFormData.title ||
-              (unitFormData.type === "quiz" &&
-                (!unitFormData.quizQuestions ||
-                  unitFormData.quizQuestions.length === 0))
-            }
+            className=""
+            disabled={isLoading || !unitFormData.title || !unitFormData.content}
           >
-            Add Unit
+            {isLoading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                {isUploading
+                  ? `${loadingMessage} ${uploadProgress}%`
+                  : loadingMessage}
+              </>
+            ) : (
+              "Add Unit"
+            )}
           </Button>
         </DialogFooter>
       </DialogContent>

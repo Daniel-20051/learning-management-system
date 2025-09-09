@@ -57,8 +57,16 @@ function App() {
                   element={<CourseDetailPage />}
                 />
               </Route>
-              <Route path="/course/:id/" element={<Unit />} />
-              <Route path="/certificate" element={<CertificatePage />} />
+              <Route
+                path="/unit/:courseId"
+                element={isLoggedIn ? <Unit /> : <Navigate to="/" replace />}
+              />
+              <Route
+                path="/certificate"
+                element={
+                  isLoggedIn ? <CertificatePage /> : <Navigate to="/" replace />
+                }
+              />
               <Route path="*" element={<NotFoundPage />} />
             </Routes>
           </BrowserRouter>

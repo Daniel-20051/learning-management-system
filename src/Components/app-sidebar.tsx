@@ -16,17 +16,19 @@ import {
 } from "@/Components/ui/sidebar";
 
 import { useSidebarSelection } from "@/context/SidebarSelectionContext";
-import { modules } from "@/lib/modulesData";
-import { SquarePlay, Lock, CircleCheck } from "lucide-react";
+import { SquarePlay, Lock, CircleCheck, FileText } from "lucide-react";
 
 // Array of unit contents
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navigate = useNavigate();
-  const { selectedIndex, setSelectedIndex, module } = useSidebarSelection();
-  const currentModule = modules[module];
-  const units = currentModule.units;
-  const hasQuiz = currentModule.quiz && currentModule.quiz.length > 0;
+  const { selectedIndex, setSelectedIndex, module, modules } =
+    useSidebarSelection();
+  const currentModule = modules[module] || null;
+  const units = currentModule?.units
+    ? [...currentModule.units].sort((a, b) => a.order - b.order)
+    : [];
+  const hasQuiz = currentModule?.quiz && currentModule.quiz.length > 0;
   return (
     <div className="flex">
       <Sidebar className="" variant="sidebar" {...props}>
@@ -46,60 +48,67 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
           <SidebarGroup>
             <SidebarMenu>
               {/* Only show the current module */}
-              <SidebarMenuItem key={currentModule.title}>
-                <SidebarMenuButton asChild>
-                  <a href="#" className="font-bold text-xl">
-                    {currentModule.title}
-                  </a>
-                </SidebarMenuButton>
-                <SidebarMenuSub>
-                  {units.map((item, index) => (
-                    <SidebarMenuSubItem key={item.title}>
-                      <SidebarMenuSubButton
-                        className="h-auto cursor-pointer py-4 px-2 mb-5 "
-                        asChild
-                        isActive={selectedIndex === index}
-                        onClick={() => setSelectedIndex(index)}
-                      >
-                        <div className="flex items-start gap-2">
-                          {item.isCompleted ? (
-                            <CircleCheck
-                              className="w-4 h-4"
-                              strokeWidth={3}
-                              color="green"
-                            />
-                          ) : (
-                            <SquarePlay className="w-4 h-4" />
-                          )}
-                          <div className=" flex  text-wrap ">
-                            <a className="font-semibold ">
-                              {item.title}:{" "}
-                              <span className="font-normal ">{item.topic}</span>
-                            </a>
+              {currentModule ? (
+                <SidebarMenuItem key={currentModule.id}>
+                  <SidebarMenuButton asChild>
+                    <a href="#" className="font-bold text-xl">
+                      {currentModule.title}
+                    </a>
+                  </SidebarMenuButton>
+                  <SidebarMenuSub>
+                    {units.map((item, index) => (
+                      <SidebarMenuSubItem key={item.id}>
+                        <SidebarMenuSubButton
+                          className="h-auto cursor-pointer py-4 px-2 mb-5 "
+                          asChild
+                          isActive={selectedIndex === index}
+                          onClick={() => setSelectedIndex(index)}
+                        >
+                          <div className="flex items-start gap-2">
+                            {item.status === "completed" ? (
+                              <CircleCheck
+                                className="w-4 h-4"
+                                strokeWidth={3}
+                                color="green"
+                              />
+                            ) : item.video_url &&
+                              item.video_url.trim() !== "" ? (
+                              <SquarePlay className="w-4 h-4" />
+                            ) : (
+                              <FileText className="w-4 h-4" />
+                            )}
+                            <div className=" flex  text-wrap ">
+                              <a className="font-semibold ">
+                                Unit {item.order}:{" "}
+                                <span className="font-normal">
+                                  {item.title}
+                                </span>
+                              </a>
+                            </div>
                           </div>
-                        </div>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  ))}
-                  {hasQuiz && (
-                    <SidebarMenuSubItem key="quiz">
-                      <SidebarMenuSubButton
-                        className="h-auto cursor-pointer py-4 px-2 mb-5 "
-                        asChild
-                        isActive={selectedIndex === units.length}
-                        onClick={() => setSelectedIndex(units.length)}
-                      >
-                        <div className="flex items-start gap-2">
-                          <Lock className="w-4 h-4" />
-                          <div className=" flex  text-wrap ">
-                            <a className="font-semibold">Quiz</a>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    ))}
+                    {hasQuiz && (
+                      <SidebarMenuSubItem key="quiz">
+                        <SidebarMenuSubButton
+                          className="h-auto cursor-pointer py-4 px-2 mb-5 "
+                          asChild
+                          isActive={selectedIndex === units.length}
+                          onClick={() => setSelectedIndex(units.length)}
+                        >
+                          <div className="flex items-start gap-2">
+                            <Lock className="w-4 h-4" />
+                            <div className=" flex  text-wrap ">
+                              <a className="font-semibold">Quiz</a>
+                            </div>
                           </div>
-                        </div>
-                      </SidebarMenuSubButton>
-                    </SidebarMenuSubItem>
-                  )}
-                </SidebarMenuSub>
-              </SidebarMenuItem>
+                        </SidebarMenuSubButton>
+                      </SidebarMenuSubItem>
+                    )}
+                  </SidebarMenuSub>
+                </SidebarMenuItem>
+              ) : null}
             </SidebarMenu>
           </SidebarGroup>
         </SidebarContent>

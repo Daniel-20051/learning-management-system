@@ -1,4 +1,5 @@
 import { useNavigate } from "react-router-dom";
+import { useState, useEffect } from "react";
 
 import {
   Sidebar,
@@ -16,19 +17,35 @@ import {
 } from "@/Components/ui/sidebar";
 
 import { useSidebarSelection } from "@/context/SidebarSelectionContext";
-import { SquarePlay, Lock, CircleCheck, FileText } from "lucide-react";
+import {
+  SquarePlay,
+  Lock,
+  CircleCheck,
+  FileText,
+  ChevronDown,
+  ChevronRight,
+} from "lucide-react";
 
 // Array of unit contents
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navigate = useNavigate();
-  const { selectedIndex, setSelectedIndex, module, modules } =
+  const { selectedIndex, setSelectedIndex, module, setModule, modules } =
     useSidebarSelection();
-  const currentModule = modules[module] || null;
-  const units = currentModule?.units
-    ? [...currentModule.units].sort((a, b) => a.order - b.order)
-    : [];
-  const hasQuiz = currentModule?.quiz && currentModule.quiz.length > 0;
+
+  // State to track which module is expanded (only one at a time)
+  const [expandedModule, setExpandedModule] = useState<number | null>(null);
+
+  // Auto-expand the active module when it changes and on initial load
+  useEffect(() => {
+    setExpandedModule(module);
+  }, [module]);
+
+  const toggleModule = (moduleIndex: number) => {
+    // If clicking on the currently expanded module, collapse it
+    // If clicking on a different module, expand it (accordion behavior)
+    setExpandedModule((prev) => (prev === moduleIndex ? null : moduleIndex));
+  };
   return (
     <div className="flex">
       <Sidebar className="" variant="sidebar" {...props}>
@@ -47,68 +64,115 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
         <SidebarContent className="pt-3">
           <SidebarGroup>
             <SidebarMenu>
-              {/* Only show the current module */}
-              {currentModule ? (
-                <SidebarMenuItem key={currentModule.id}>
-                  <SidebarMenuButton asChild>
-                    <a href="#" className="font-bold h-auto text-xl">
-                      {currentModule.title}
-                    </a>
-                  </SidebarMenuButton>
-                  <SidebarMenuSub>
-                    {units.map((item, index) => (
-                      <SidebarMenuSubItem key={item.id}>
-                        <SidebarMenuSubButton
-                          className="h-auto cursor-pointer py-4 px-2 mb-5 "
-                          asChild
-                          isActive={selectedIndex === index}
-                          onClick={() => setSelectedIndex(index)}
-                        >
-                          <div className="flex items-start gap-2">
-                            {item.status === "completed" ? (
-                              <CircleCheck
-                                className="w-4 h-4"
-                                strokeWidth={3}
-                                color="green"
-                              />
-                            ) : item.video_url &&
-                              item.video_url.trim() !== "" ? (
-                              <SquarePlay className="w-4 h-4" />
-                            ) : (
-                              <FileText className="w-4 h-4" />
-                            )}
-                            <div className=" flex  text-wrap ">
-                              <a className="font-semibold ">
-                                Unit {item.order}:{" "}
-                                <span className="font-normal">
-                                  {item.title}
-                                </span>
-                              </a>
-                            </div>
-                          </div>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
-                    ))}
-                    {hasQuiz && (
-                      <SidebarMenuSubItem key="quiz">
-                        <SidebarMenuSubButton
-                          className="h-auto cursor-pointer py-4 px-2 mb-5 "
-                          asChild
-                          isActive={selectedIndex === units.length}
-                          onClick={() => setSelectedIndex(units.length)}
-                        >
-                          <div className="flex items-start gap-2">
-                            <Lock className="w-4 h-4" />
-                            <div className=" flex  text-wrap ">
-                              <a className="font-semibold">Quiz</a>
-                            </div>
-                          </div>
-                        </SidebarMenuSubButton>
-                      </SidebarMenuSubItem>
+              {/* Show all modules */}
+              {modules.map((moduleItem, moduleIndex) => {
+                const units = moduleItem?.units
+                  ? [...moduleItem.units].sort((a, b) => a.order - b.order)
+                  : [];
+                const hasQuiz = moduleItem?.quiz && moduleItem.quiz.length > 0;
+                const isActiveModule = module === moduleIndex;
+                const isExpanded = expandedModule === moduleIndex;
+
+                return (
+                  <SidebarMenuItem key={moduleItem.id}>
+                    <SidebarMenuButton asChild>
+                      <div
+                        className={`font-bold h-auto text-lg cursor-pointer flex items-center justify-between w-full p-2 rounded-md hover:bg-accent ${
+                          isActiveModule ? "text-primary" : ""
+                        }`}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          // If clicking on a different module, switch to it and expand
+                          if (!isActiveModule) {
+                            setModule(moduleIndex);
+                            setSelectedIndex(0);
+                          } else {
+                            // If clicking on the active module, just toggle expand/collapse
+                            toggleModule(moduleIndex);
+                          }
+                        }}
+                      >
+                        <span>
+                          Module {moduleIndex + 1}: {moduleItem.title}
+                        </span>
+                        {isExpanded ? (
+                          <ChevronDown className="w-4 h-4 flex-shrink-0" />
+                        ) : (
+                          <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                        )}
+                      </div>
+                    </SidebarMenuButton>
+                    {isExpanded && (
+                      <SidebarMenuSub>
+                        {units.map((item, unitIndex) => (
+                          <SidebarMenuSubItem key={item.id}>
+                            <SidebarMenuSubButton
+                              className="h-auto cursor-pointer py-4 px-2 mb-5 "
+                              asChild
+                              isActive={
+                                isActiveModule && selectedIndex === unitIndex
+                              }
+                              onClick={() => {
+                                setModule(moduleIndex);
+                                setSelectedIndex(unitIndex);
+                                // Ensure the parent module is expanded when selecting a unit
+                                setExpandedModule(moduleIndex);
+                              }}
+                            >
+                              <div className="flex items-start gap-2">
+                                {item.status === "completed" ? (
+                                  <CircleCheck
+                                    className="w-4 h-4"
+                                    strokeWidth={3}
+                                    color="green"
+                                  />
+                                ) : item.video_url &&
+                                  item.video_url.trim() !== "" ? (
+                                  <SquarePlay className="w-4 h-4" />
+                                ) : (
+                                  <FileText className="w-4 h-4" />
+                                )}
+                                <div className=" flex  text-wrap ">
+                                  <a className="font-semibold ">
+                                    Unit {item.order}:{" "}
+                                    <span className="font-normal">
+                                      {item.title}
+                                    </span>
+                                  </a>
+                                </div>
+                              </div>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        ))}
+                        {hasQuiz && (
+                          <SidebarMenuSubItem key={`quiz-${moduleIndex}`}>
+                            <SidebarMenuSubButton
+                              className="h-auto cursor-pointer py-4 px-2 mb-5 "
+                              asChild
+                              isActive={
+                                isActiveModule && selectedIndex === units.length
+                              }
+                              onClick={() => {
+                                setModule(moduleIndex);
+                                setSelectedIndex(units.length);
+                                // Ensure the parent module is expanded when selecting a quiz
+                                setExpandedModule(moduleIndex);
+                              }}
+                            >
+                              <div className="flex items-start gap-2">
+                                <Lock className="w-4 h-4" />
+                                <div className=" flex  text-wrap ">
+                                  <a className="font-semibold">Quiz</a>
+                                </div>
+                              </div>
+                            </SidebarMenuSubButton>
+                          </SidebarMenuSubItem>
+                        )}
+                      </SidebarMenuSub>
                     )}
-                  </SidebarMenuSub>
-                </SidebarMenuItem>
-              ) : null}
+                  </SidebarMenuItem>
+                );
+              })}
             </SidebarMenu>
           </SidebarGroup>
         </SidebarContent>

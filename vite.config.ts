@@ -11,4 +11,14 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  build: {
+    rollupOptions: {
+      treeshake: false,
+      output: {
+        manualChunks: undefined,
+      },
+    },
+    minify: false,
+    target: 'esnext',
+  },
 })

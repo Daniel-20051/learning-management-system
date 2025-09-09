@@ -51,7 +51,7 @@ const CourseDetailPage = () => {
   const [expandedModules, setExpandedModules] = useState<Set<string>>(
     new Set()
   );
-  const [apiModules, setApiModules] = useState<any[]>([]);
+  const [apiModules, setApiModules] = useState<any[]>(() => []);
   const [isLoadingModules, setIsLoadingModules] = useState(false);
   const [courseCode, setCourseCode] = useState<string>("");
   const [courseTitle, setCourseTitle] = useState<string>("");
@@ -95,10 +95,10 @@ const CourseDetailPage = () => {
       const modulesData =
         modulesResponse?.data?.data ?? modulesResponse?.data ?? [];
       const modulesArray: any[] = Array.isArray(modulesData) ? modulesData : [];
-      setApiModules(modulesArray);
+      setApiModules(() => [...modulesArray]);
     } catch (e: any) {
       console.log(e);
-      setApiModules([]);
+      setApiModules(() => []);
     } finally {
       setIsLoadingModules(false);
     }
@@ -109,21 +109,8 @@ const CourseDetailPage = () => {
     if (!courseId) return;
     setLoadingUnitsForModuleIds((prev) => new Set(prev).add(moduleId));
     try {
-      const modulesResponse = await api.GetCourseModules(String(courseId));
-      const modulesData =
-        modulesResponse?.data?.data ?? modulesResponse?.data ?? [];
-      const modulesArray: any[] = Array.isArray(modulesData) ? modulesData : [];
-      const updatedModule = modulesArray.find(
-        (m: any) => String(m.id) === String(moduleId)
-      );
-      const unitsArray = Array.isArray(updatedModule?.units)
-        ? updatedModule.units
-        : [];
-      setApiModules((prev) =>
-        prev.map((m: any) =>
-          m.id === moduleId ? { ...m, units: unitsArray } : m
-        )
-      );
+      // Just refresh all modules for simplicity
+      await fetchModulesAndUnits(String(courseId));
     } catch (e) {
       // no-op
     } finally {
@@ -292,16 +279,11 @@ const CourseDetailPage = () => {
     setUnitToDelete(null);
   };
 
-  const handleDeleteUnit = async (unitId: string | number) => {
-    // Remove the deleted unit from the current state instead of refetching all data
-    setApiModules((prevModules) =>
-      prevModules.map((module) => ({
-        ...module,
-        units: Array.isArray(module.units)
-          ? module.units.filter((unit: any) => unit.id !== unitId)
-          : [],
-      }))
-    );
+  const handleDeleteUnit = async (_unitId: string | number) => {
+    // Simplified delete approach - just refresh the data
+    if (courseId) {
+      await fetchModulesAndUnits(String(courseId));
+    }
 
     // Show success alert
     setShowUnitDeleteSuccess(true);
@@ -320,23 +302,16 @@ const CourseDetailPage = () => {
     setUnitToPreview(null);
   };
 
-  const handleUpdateUnit = (updatedUnit: {
+  const handleUpdateUnit = (_updatedUnit: {
     id: string | number;
     title: string;
     content: string;
     video_url?: string;
   }) => {
-    // Update only the specific unit in the current state instead of refetching all data
-    setApiModules((prevModules) =>
-      prevModules.map((module) => ({
-        ...module,
-        units: Array.isArray(module.units)
-          ? module.units.map((unit: any) =>
-              unit.id === updatedUnit.id ? { ...unit, ...updatedUnit } : unit
-            )
-          : [],
-      }))
-    );
+    // Simplified update approach
+    if (courseId) {
+      fetchModulesAndUnits(String(courseId));
+    }
 
     // Show success alert
     setShowUnitUpdateSuccess(true);
@@ -353,20 +328,7 @@ const CourseDetailPage = () => {
       if (wasSuccessful) {
         // Refresh modules list from server
         if (courseId) {
-          try {
-            await fetchModulesAndUnits(String(courseId));
-          } catch (e) {
-            // Fallback to local removal if refresh fails
-            const remaining = apiModules.filter(
-              (m) => m.id !== moduleToDelete.id
-            );
-            setApiModules(remaining);
-          }
-        } else {
-          const remaining = apiModules.filter(
-            (m) => m.id !== moduleToDelete.id
-          );
-          setApiModules(remaining);
+          await fetchModulesAndUnits(String(courseId));
         }
         setModuleToDelete(null);
         setShowDeleteSuccess(true);

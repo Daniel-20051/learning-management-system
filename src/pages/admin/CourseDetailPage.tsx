@@ -464,11 +464,11 @@ const CourseDetailPage = () => {
                       <div className="flex items-center justify-center w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-primary/10 to-primary/20 rounded-xl text-primary font-bold text-base sm:text-lg">
                         {index + 1}
                       </div>
-                      <div>
+                      <div className="flex-1">
                         <CardTitle className="text-lg sm:text-xl">
                           {module.title}
                         </CardTitle>
-                        <CardDescription className="text-sm sm:text-base">
+                        <CardDescription className="text-sm sm:text-base line-clamp-2">
                           {module.description}
                         </CardDescription>
                       </div>

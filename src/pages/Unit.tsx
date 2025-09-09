@@ -373,7 +373,7 @@ const Unit = () => {
   if (!isLoading && modules.length === 0) {
     return (
       <div>
-        <SidebarProvider style={{} as React.CSSProperties}>
+        <SidebarProvider>
           <AppSidebar />
           <SidebarInset>
             <div className="flex items-center justify-center h-screen">
@@ -402,7 +402,7 @@ const Unit = () => {
   if (!canAccessCurrentModule) {
     return (
       <div>
-        <SidebarProvider style={{} as React.CSSProperties}>
+        <SidebarProvider>
           <AppSidebar />
           <SidebarInset>
             <AccessDenied
@@ -419,7 +419,7 @@ const Unit = () => {
 
   return (
     <div>
-      <SidebarProvider style={{} as React.CSSProperties}>
+      <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
           <header className="flex h-16 shrink-0 items-center gap-2 ">

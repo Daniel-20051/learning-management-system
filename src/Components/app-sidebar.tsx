@@ -93,7 +93,10 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         }}
                       >
                         <span>
-                          Module {moduleIndex + 1}: {moduleItem.title}
+                          Module {moduleIndex + 1}:{" "}
+                          <span className="font-normal">
+                            {moduleItem.title}
+                          </span>
                         </span>
                         {isExpanded ? (
                           <ChevronDown className="w-4 h-4 flex-shrink-0" />

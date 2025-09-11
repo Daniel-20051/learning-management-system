@@ -455,28 +455,81 @@ async UploadUnitVideo(moduleId: string, unitId: string, videoFile: File, onProgr
   }
 }
 
-// TODO: Implement these endpoints when they become available
-// async GetUnitNotes(unitId: string) {
-//   try {
-//     const token = getAccessToken();
-//     if (!token) {
-//       throw new Error("No access token found. Please login again.");
-//     }
-//     const response = await axios.get(`${BASE_URL}/api/units/${unitId}/notes`, {
-//       headers: {
-//         'Authorization': `Bearer ${token}`
-//       }
-//     });
-//     return response;
-//   } catch (err: any) {
-//     console.error("Error during getting unit notes:", err);
-//     if (err.response?.status === 401) {
-//       removeAccessToken();
-//       console.log("Token expired or invalid, removed from cookie");
-//     }
-//     return err;
-//   }
-// }
+
+async GetModuleNotes(moduleId: string) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const response = await axios.get(`${BASE_URL}/api/modules/${moduleId}/note`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during getting unit notes:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    return err;
+  }
+}
+async CreateModuleNotes(moduleId: string, data: { note_text: string}) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const payload = {
+      note_text: data.note_text
+    }
+    const response = await axios.put(`${BASE_URL}/api/modules/${moduleId}/note`,
+      payload, {
+      
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during getting unit notes:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    return err;
+  }
+}
+async EditModuleNotes(moduleId: string, noteId: string, data: { note_text: string}) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const payload = {
+      note_text: data.note_text
+    }
+    const response = await axios.patch(`${BASE_URL}/api/modules/${moduleId}/notes/${noteId}`,
+      payload, {
+      
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during getting unit notes:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    return err;
+  }
+}
+
 
 // async GetUnitDiscussion(unitId: string) {
 //   try {

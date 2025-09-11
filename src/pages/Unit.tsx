@@ -17,7 +17,7 @@ import {
 } from "@/Components/ui/breadcrumb";
 import UserCard from "@/Components/user-card";
 import { useSidebarSelection } from "@/context/SidebarSelectionContext";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import React from "react";
 import { getAdminConfig } from "@/lib/adminConfig";
 import {
@@ -35,6 +35,7 @@ import QuizQuestions from "@/Components/quiz-questions";
 import AccessDenied from "@/Components/access-denied";
 import { useNavigate, useParams } from "react-router-dom";
 import { Api } from "@/api/index";
+import ModuleNotes from "@/Components/ModuleNotes";
 
 const Unit = () => {
   const navigate = useNavigate();
@@ -63,7 +64,6 @@ const Unit = () => {
 
       try {
         const response = await api.GetCourseModules(courseId);
-        console.log("Modules response:", response.data);
 
         if (response.data?.status && response.data?.data) {
           // Units are already included in the modules response
@@ -137,6 +137,12 @@ const Unit = () => {
   const quiz = hasQuiz && currentModule?.quiz ? currentModule.quiz[0] : null;
   const totalQuestions = quiz ? quiz.questions.length : 0;
   const existingQuizResult = getQuizResult(module);
+
+  // Ref to lesson content to enforce list styling
+  const lessonContentRef = useRef<HTMLDivElement | null>(null);
+  const [activeTab, setActiveTab] = useState<"lesson" | "notes" | "discussion">(
+    "lesson"
+  );
 
   // Navigation logic
   const handleNext = () => {
@@ -235,6 +241,44 @@ const Unit = () => {
       }
     };
   }, [isQuizTimerActive, timeRemaining, quiz, quizSubmitted]);
+
+  const applyListStyles = (root: HTMLElement | null) => {
+    if (!root) return;
+    const unorderedLists = root.querySelectorAll<HTMLUListElement>("ul");
+    unorderedLists.forEach((ul) => {
+      ul.style.listStyleType = "disc";
+      ul.style.paddingLeft = "1.25rem";
+      ul.style.marginBottom = "0.75rem";
+    });
+    const orderedLists = root.querySelectorAll<HTMLOListElement>("ol");
+    orderedLists.forEach((ol) => {
+      ol.style.listStyleType = "decimal";
+      ol.style.paddingLeft = "1.25rem";
+      ol.style.marginBottom = "0.75rem";
+    });
+    const listItems = root.querySelectorAll<HTMLLIElement>("li");
+    listItems.forEach((li) => {
+      li.style.marginTop = "0.25rem";
+      li.style.marginBottom = "0.25rem";
+    });
+  };
+
+  // Apply list styles when content changes or when returning to the Lesson tab
+  useEffect(() => {
+    if (activeTab !== "lesson") return;
+    // Delay to ensure DOM is mounted
+    const id = setTimeout(() => applyListStyles(lessonContentRef.current), 0);
+    return () => clearTimeout(id);
+  }, [activeTab, currentUnit?.content]);
+
+  // Observe mutations inside lesson content to keep styles intact
+  useEffect(() => {
+    const root = lessonContentRef.current;
+    if (!root) return;
+    const observer = new MutationObserver(() => applyListStyles(root));
+    observer.observe(root, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }, [lessonContentRef.current]);
 
   const canTakeCurrentQuiz = canTakeQuiz(module, adminConfig);
   const remainingAttempts = getRemainingAttempts(module, adminConfig);
@@ -422,12 +466,12 @@ const Unit = () => {
       <SidebarProvider>
         <AppSidebar />
         <SidebarInset>
-          <header className="flex h-16 shrink-0 items-center gap-2 ">
+          <header className="sticky top-0 z-40 flex h-16 shrink-0 items-center gap-2 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b">
             <div className="flex  px-5 justify-between w-full">
               <div className="flex items-center gap-2">
                 <SidebarTrigger />
                 <Button variant="ghost" size="sm" onClick={() => navigate(-1)}>
-                  <ArrowLeftIcon className="w-4 h-4 mr-1" /> Back
+                  <ArrowLeftIcon className="w-4 h-4 mr-1" /> Back to Courses
                 </Button>
                 <Breadcrumb className="hidden md:block">
                   <BreadcrumbList>
@@ -454,7 +498,7 @@ const Unit = () => {
           </header>
           <div className="flex flex-1 flex-col gap-1 md:gap-2  p-3">
             <div className="flex flex-col gap-1 md:gap-3">
-              <div className="md:flex items-center justify-between">
+              <div className="md:flex items-center justify-between sticky top-16 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b py-2">
                 <p className=" text-xl  md:text-3xl text-sidebar-foreground font-bold">
                   {isQuizSelected || isQuizActive
                     ? "Quiz"
@@ -489,7 +533,7 @@ const Unit = () => {
                     <VideoControl
                       src={currentUnit.video_url}
                       maxWidth="max-w-[100vw]"
-                      maxHeight="max-h-135"
+                      maxHeight="max-h-100"
                       className="mx-auto"
                     />
                   )}
@@ -544,7 +588,8 @@ const Unit = () => {
                 )
               ) : currentUnit ? (
                 <Tabs
-                  defaultValue="lesson"
+                  value={activeTab}
+                  onValueChange={(v) => setActiveTab(v as typeof activeTab)}
                   className="flex w-[100%] p-5 h-auto max-h-[80vh] md:max-h-[75vh]  "
                 >
                   <TabsList className="mb-3">
@@ -554,6 +599,7 @@ const Unit = () => {
                   </TabsList>
                   <TabsContent value="lesson">
                     <div
+                      ref={lessonContentRef}
                       dangerouslySetInnerHTML={{
                         __html:
                           currentUnit?.content || "No lesson content available",
@@ -561,11 +607,10 @@ const Unit = () => {
                     />
                   </TabsContent>
                   <TabsContent value="notes">
-                    {/* TODO: Implement notes endpoint */}
-                    <p className="text-muted-foreground">
-                      Notes functionality will be implemented when endpoint is
-                      available
-                    </p>
+                    <ModuleNotes
+                      moduleId={currentModule?.id || ""}
+                      isLoading={isLoading}
+                    />
                   </TabsContent>
                   <TabsContent value="discussion">
                     {/* TODO: Implement discussion endpoint */}

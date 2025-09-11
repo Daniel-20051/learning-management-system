@@ -477,14 +477,17 @@ async GetModuleNotes(moduleId: string) {
     return err;
   }
 }
-async CreateModuleNotes(moduleId: string, data: { note_text: string}) {
+async CreateModuleNotes(moduleId: string, data: { note_text: string, title?: string}) {
   try {
     const token = getAccessToken();
     if (!token) {
       throw new Error("No access token found. Please login again.");
     }
-    const payload = {
+    const payload: any = {
       note_text: data.note_text
+    };
+    if (data.title) {
+      payload.title = data.title;
     }
     const response = await axios.put(`${BASE_URL}/api/modules/${moduleId}/note`,
       payload, {
@@ -503,17 +506,42 @@ async CreateModuleNotes(moduleId: string, data: { note_text: string}) {
     return err;
   }
 }
-async EditModuleNotes(moduleId: string, noteId: string, data: { note_text: string}) {
+async EditModuleNotes(moduleId: string, noteId: string, data: { note_text: string, title?: string}) {
   try {
     const token = getAccessToken();
     if (!token) {
       throw new Error("No access token found. Please login again.");
     }
     const payload = {
-      note_text: data.note_text
+      note_text: data.note_text,
+      title: data.title
     }
     const response = await axios.patch(`${BASE_URL}/api/modules/${moduleId}/notes/${noteId}`,
       payload, {
+      
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during getting unit notes:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    return err;
+  }
+}
+async DeleteModuleNotes(moduleId: string, noteId: string) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    
+    const response = await axios.delete(`${BASE_URL}/api/modules/${moduleId}/notes/${noteId}`,
+       {
       
       headers: {
         'Authorization': `Bearer ${token}`

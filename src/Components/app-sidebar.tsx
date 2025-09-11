@@ -69,7 +69,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 const units = moduleItem?.units
                   ? [...moduleItem.units].sort((a, b) => a.order - b.order)
                   : [];
-                const hasQuiz = moduleItem?.quiz && moduleItem.quiz.length > 0;
                 const isActiveModule = module === moduleIndex;
                 const isExpanded = expandedModule === moduleIndex;
 
@@ -147,30 +146,6 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                         ))}
-                        {hasQuiz && (
-                          <SidebarMenuSubItem key={`quiz-${moduleIndex}`}>
-                            <SidebarMenuSubButton
-                              className="h-auto cursor-pointer py-4 px-2 mb-5 "
-                              asChild
-                              isActive={
-                                isActiveModule && selectedIndex === units.length
-                              }
-                              onClick={() => {
-                                setModule(moduleIndex);
-                                setSelectedIndex(units.length);
-                                // Ensure the parent module is expanded when selecting a quiz
-                                setExpandedModule(moduleIndex);
-                              }}
-                            >
-                              <div className="flex items-start gap-2">
-                                <Lock className="w-4 h-4" />
-                                <div className=" flex  text-wrap ">
-                                  <a className="font-semibold">Quiz</a>
-                                </div>
-                              </div>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        )}
                       </SidebarMenuSub>
                     )}
                   </SidebarMenuItem>

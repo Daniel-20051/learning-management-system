@@ -1,40 +1,15 @@
 import React from "react";
-import { modules } from "@/lib/modulesData";
-import { getAdminConfig } from "@/lib/adminConfig";
-import { getQuizResult } from "@/lib/quizResults";
 import { Button } from "@/Components/ui/button";
 import Navbar from "@/Components/navbar";
 import { useNavigate } from "react-router-dom";
 
 const CertificatePage: React.FC = () => {
-  const adminConfig = getAdminConfig();
   const navigate = useNavigate();
-  const passingScore = adminConfig.passingScore || 75;
-
-  // Gather all module quiz results
-  const quizModules = modules.filter((mod) => mod.quiz && mod.quiz.length > 0);
-  const quizResults = quizModules.map((mod) => {
-    const moduleIndex = modules.indexOf(mod);
-    const quizResult = getQuizResult(moduleIndex);
-    return quizResult ? quizResult.percentage : null;
-  });
-
-  // Calculate average score
-  const attemptedAll = quizResults.every((score) => score !== null);
-  const averageScore =
-    attemptedAll && quizResults.length > 0
-      ? Math.round(
-          quizResults.reduce((a, b) => a + (b as number), 0) /
-            quizResults.length
-        )
-      : 0;
-
-  const eligible = attemptedAll && averageScore >= passingScore;
 
   const handleDownload = () => {
     const blob = new Blob(
       [
-        `Certificate of Completion\n\nThis certifies that you have successfully completed the course with an average score of ${averageScore}%.`,
+        `Certificate of Completion\n\nThis certifies that you have successfully completed the course.`,
       ],
       { type: "text/plain" }
     );
@@ -56,29 +31,17 @@ const CertificatePage: React.FC = () => {
             Back to Courses
           </Button>
         </div>
-        <div className="border rounded-lg p-4 flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-          <div>
-            <div className="font-semibold text-lg">Full Course</div>
-            <div className="text-sm text-muted-foreground">
-              Average Quiz Score:{" "}
-              <span className={eligible ? "text-green-600" : "text-red-600"}>
-                {averageScore}%
-              </span>
+        <div className="border rounded-lg p-6 text-center">
+          <div className="mb-4">
+            <div className="font-semibold text-2xl mb-2">
+              Course Certificate
             </div>
-            <div className="text-xs text-muted-foreground">
-              Required: {passingScore}% to download certificate
+            <div className="text-muted-foreground mb-4">
+              Congratulations on completing the course!
             </div>
           </div>
-          <Button
-            disabled={!eligible}
-            onClick={handleDownload}
-            variant={eligible ? "default" : "outline"}
-          >
-            {attemptedAll
-              ? eligible
-                ? "Download Certificate"
-                : "Not Eligible"
-              : "Attempt All Quizzes"}
+          <Button onClick={handleDownload} variant="default" size="lg">
+            Download Certificate
           </Button>
         </div>
       </div>

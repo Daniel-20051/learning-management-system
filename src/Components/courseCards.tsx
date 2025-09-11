@@ -47,37 +47,39 @@ const CourseCards = ({
     <div>
       <Card className="overflow-hidden">
         {/* Header gradient with badges */}
-        <div className="w-full h-28 bg-gradient-to-br from-slate-700 via-slate-600 to-slate-800 relative">
-          <div className="absolute top-3 left-3">
+        <div className="w-full h-20 md:h-28 bg-gradient-to-br from-slate-700 via-slate-600 to-slate-800 relative">
+          <div className="absolute top-2 md:top-3 left-2 md:left-3">
             <Badge
               variant="secondary"
-              className="bg-white/20 text-white border-white/20"
+              className="bg-white/20 text-white border-white/20 text-xs md:text-sm px-2 py-1"
             >
               {courseCode}
             </Badge>
           </div>
-          <div className="absolute top-3 right-3">
-            <Badge className="bg-emerald-600 text-white border-transparent">
+          <div className="absolute top-2 md:top-3 right-2 md:right-3">
+            <Badge className="bg-emerald-600 text-white border-transparent text-xs md:text-sm px-2 py-1">
               {typeLabel}
             </Badge>
           </div>
         </div>
 
-        <CardHeader className="pb-2">
-          <CardTitle className="text-xl">{courseTitle}</CardTitle>
+        <CardHeader className="pb-2 px-3 md:px-6 pt-3 md:pt-6">
+          <CardTitle className="text-base md:text-xl leading-tight">
+            {courseTitle}
+          </CardTitle>
         </CardHeader>
-        <CardContent className="pt-0">
-          <p className="text-muted-foreground">
+        <CardContent className="pt-0 px-3 md:px-6">
+          <p className="text-muted-foreground text-xs md:text-sm">
             {`Level ${courseLevel ?? "-"}`} ·{" "}
             {`${courseUnit ?? "-"} Unit${(courseUnit || 0) === 1 ? "" : "s"}`}
           </p>
         </CardContent>
 
-        <CardFooter className="pt-4 flex items-center justify-between">
+        <CardFooter className="pt-3 md:pt-4 px-3 md:px-6 pb-3 md:pb-6 flex items-center justify-between">
           <Badge variant="secondary" className="text-xs">
             {academicYear ? `Session ${academicYear}` : ""}
           </Badge>
-          <Button asChild>
+          <Button asChild size="sm" className="text-xs md:text-sm">
             <Link to={`/unit/${courseId ?? "1"}`}>{resolvedAction}</Link>
           </Button>
         </CardFooter>

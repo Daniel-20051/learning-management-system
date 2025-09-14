@@ -1,15 +1,15 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { useState, useEffect, useRef } from "react";
+import { toast } from "sonner";
 import {
   Card,
   CardContent,
-  CardDescription,
+  // CardDescription,
   CardHeader,
   CardTitle,
 } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
 import { Badge } from "@/Components/ui/badge";
-import { Alert, AlertDescription, AlertTitle } from "@/Components/ui/alert";
 import DeleteModuleDialog from "@/Components/admin/DeleteModuleDialog";
 
 import CourseDetailSkeleton from "@/Components/CourseDetailSkeleton";
@@ -25,9 +25,9 @@ import {
   ChevronDown,
   ChevronRight,
   BookOpen,
-  CheckCircle2,
-  AlertCircle,
   Eye,
+  Pencil,
+  ClipboardList,
 } from "lucide-react";
 import { Loader2 } from "lucide-react";
 import { Api } from "@/api";
@@ -43,12 +43,26 @@ import AddModuleDialog, {
 import EditUnitDialog from "@/Components/admin/EditUnitDialog";
 import DeleteUnitDialog from "@/Components/admin/DeleteUnitDialog";
 import UnitPreviewModal from "@/Components/admin/UnitPreviewModal";
+import CreateQuizDialog, {
+  type CreateQuizDialogRef,
+  type QuizFormData,
+} from "@/Components/admin/CreateQuizDialog";
+import AddQuestionsDialog, {
+  type AddQuestionsDialogRef,
+  type Question,
+} from "@/Components/admin/AddQuestionsDialog";
+import QuizDetailsDialog, {
+  type QuizDetailsDialogRef,
+} from "@/Components/admin/QuizDetailsDialog";
 
 const CourseDetailPage = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
   const api = new Api();
   const [expandedModules, setExpandedModules] = useState<Set<string>>(
+    new Set()
+  );
+  const [expandedQuizSections, setExpandedQuizSections] = useState<Set<string>>(
     new Set()
   );
   const [apiModules, setApiModules] = useState<any[]>(() => []);
@@ -60,15 +74,9 @@ const CourseDetailPage = () => {
 
   const [isEditingCourse, setIsEditingCourse] = useState(false);
   const [isAddingModule, setIsAddingModule] = useState(false);
-  const [showSuccessAlert, setShowSuccessAlert] = useState(false);
-  const [showErrorAlert, setShowErrorAlert] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
   const addModuleDialogRef = useRef<AddModuleDialogRef>(null);
   const [moduleToDelete, setModuleToDelete] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
-  const [showDeleteSuccess, setShowDeleteSuccess] = useState(false);
-  const [showUnitUpdateSuccess, setShowUnitUpdateSuccess] = useState(false);
-  const [showUnitDeleteSuccess, setShowUnitDeleteSuccess] = useState(false);
 
   // Per-module units loading state
   const [loadingUnitsForModuleIds, setLoadingUnitsForModuleIds] = useState<
@@ -86,6 +94,28 @@ const CourseDetailPage = () => {
   // Unit preview state
   const [isPreviewUnitOpen, setIsPreviewUnitOpen] = useState(false);
   const [unitToPreview, setUnitToPreview] = useState<any | null>(null);
+
+  // Quiz creation state
+  const [isCreatingQuiz, setIsCreatingQuiz] = useState(false);
+  const [isQuizDialogOpen, setIsQuizDialogOpen] = useState(false);
+  const [selectedModuleForQuiz, setSelectedModuleForQuiz] = useState<{
+    id: string;
+    title: string;
+  } | null>(null);
+  const [quizzes, setQuizzes] = useState<any[]>([]);
+  const [isLoadingQuizzes, setIsLoadingQuizzes] = useState(false);
+  const quizCreateDialogRef = useRef<CreateQuizDialogRef | null>(null);
+
+  // Add questions state
+  const [isAddingQuestions, setIsAddingQuestions] = useState(false);
+  const [isAddQuestionsDialogOpen, setIsAddQuestionsDialogOpen] =
+    useState(false);
+  const [selectedQuizForQuestions, setSelectedQuizForQuestions] = useState<{
+    id: number;
+    title: string;
+  } | null>(null);
+  const addQuestionsDialogRef = useRef<AddQuestionsDialogRef | null>(null);
+  const quizDetailsDialogRef = useRef<QuizDetailsDialogRef | null>(null);
 
   // Helper: fetch modules (now includes units from the same endpoint)
   const fetchModulesAndUnits = async (id: string) => {
@@ -159,35 +189,18 @@ const CourseDetailPage = () => {
         // Close dialog and reset form
         addModuleDialogRef.current?.closeDialog();
 
-        // Show success alert
-        setShowSuccessAlert(true);
-
-        // Auto-hide alert after 5 seconds
-        setTimeout(() => {
-          setShowSuccessAlert(false);
-        }, 5000);
+        // Show success toast
+        toast.success("Module created successfully!");
       } else {
         // Error response
         console.error("Failed to create module:", response);
-        setErrorMessage("Failed to create module. Please try again.");
-        setShowErrorAlert(true);
-
-        // Auto-hide error alert after 5 seconds
-        setTimeout(() => {
-          setShowErrorAlert(false);
-        }, 5000);
+        toast.error("Failed to create module. Please try again.");
       }
     } catch (error) {
       console.error("Error creating module:", error);
-      setErrorMessage(
+      toast.error(
         "An unexpected error occurred while creating the module. Please try again."
       );
-      setShowErrorAlert(true);
-
-      // Auto-hide error alert after 5 seconds
-      setTimeout(() => {
-        setShowErrorAlert(false);
-      }, 5000);
     } finally {
       setIsAddingModule(false);
     }
@@ -233,6 +246,16 @@ const CourseDetailPage = () => {
       newExpanded.add(moduleId);
     }
     setExpandedModules(newExpanded);
+  };
+
+  const toggleQuizSectionExpansion = (moduleId: string) => {
+    const newExpanded = new Set(expandedQuizSections);
+    if (newExpanded.has(moduleId)) {
+      newExpanded.delete(moduleId);
+    } else {
+      newExpanded.add(moduleId);
+    }
+    setExpandedQuizSections(newExpanded);
   };
 
   const getUnitIcon = (type: string) => {
@@ -286,8 +309,7 @@ const CourseDetailPage = () => {
     }
 
     // Show success alert
-    setShowUnitDeleteSuccess(true);
-    setTimeout(() => setShowUnitDeleteSuccess(false), 4000);
+    toast.success("Unit deleted successfully!");
 
     closeDeleteUnit();
   };
@@ -314,8 +336,154 @@ const CourseDetailPage = () => {
     }
 
     // Show success alert
-    setShowUnitUpdateSuccess(true);
-    setTimeout(() => setShowUnitUpdateSuccess(false), 4000);
+    toast.success("Unit updated successfully!");
+  };
+  // Load quizzes
+  const fetchQuizzes = async () => {
+    setIsLoadingQuizzes(true);
+    try {
+      const response = await api.GetQuiz();
+
+      if (
+        (response?.data as any)?.data &&
+        Array.isArray((response.data as any).data)
+      ) {
+        setQuizzes((response.data as any).data);
+      }
+    } catch (error) {
+      console.error("Error loading quizzes:", error);
+      setQuizzes([]);
+    } finally {
+      setIsLoadingQuizzes(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchQuizzes();
+  }, []);
+
+  // Quiz creation handler
+  const handleCreateQuiz = async (moduleId: string, quizData: QuizFormData) => {
+    setIsCreatingQuiz(true);
+
+    try {
+      const response = await api.CreateQuiz({
+        title: quizData.title,
+        module_id: parseInt(moduleId),
+        duration_minutes: quizData.duration_minutes,
+        description: quizData.description,
+        status: quizData.status,
+      });
+
+      console.log("Quiz creation response:", response);
+
+      // Check for success - API might return different success indicators
+      const isSuccess =
+        response?.status === 200 ||
+        response?.status === 201 ||
+        (response?.data as any)?.code === "200" ||
+        (response?.data as any)?.code === "201" ||
+        (response?.data as any)?.success === true;
+
+      if (isSuccess) {
+        // Close dialog
+        setIsQuizDialogOpen(false);
+        setSelectedModuleForQuiz(null);
+
+        // Refresh quizzes list
+        await fetchQuizzes();
+
+        // Show success alert
+        toast.success("Quiz created successfully!");
+      } else {
+        console.error("Quiz creation failed. Response:", response);
+        throw new Error(
+          `Failed to create quiz. Status: ${response?.status}, Code: ${
+            (response?.data as any)?.code || "unknown"
+          }`
+        );
+      }
+    } catch (error: any) {
+      console.error("Error creating quiz:", error);
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to create quiz. Please try again."
+      );
+    } finally {
+      setIsCreatingQuiz(false);
+    }
+  };
+
+  // Get all quizzes for a module
+  const getModuleQuizzes = (moduleId: string) => {
+    return quizzes.filter((quiz) => quiz.module_id === parseInt(moduleId));
+  };
+
+  // Check if a module has any quizzes
+  const moduleHasQuizzes = (moduleId: string) => {
+    return getModuleQuizzes(moduleId).length > 0;
+  };
+
+  // Open quiz dialog for a specific module
+  const openQuizDialog = (module: any) => {
+    setSelectedModuleForQuiz({ id: module.id, title: module.title });
+    setIsQuizDialogOpen(true);
+  };
+
+  // Handle adding questions to quiz
+  const handleAddQuestions = async (quizId: number, questions: Question[]) => {
+    setIsAddingQuestions(true);
+
+    try {
+      const response = await api.AddQuizQuestions(quizId, questions);
+      console.log("Add questions response:", response);
+
+      // Check for success
+      const isSuccess =
+        response?.status === 200 ||
+        response?.status === 201 ||
+        (response?.data as any)?.code === "200" ||
+        (response?.data as any)?.code === "201" ||
+        (response?.data as any)?.success === true;
+
+      if (isSuccess) {
+        // Close dialog
+        setIsAddQuestionsDialogOpen(false);
+        setSelectedQuizForQuestions(null);
+
+        // Refresh quizzes to get updated question count
+        await fetchQuizzes();
+
+        // Show success alert
+        toast.success("Questions added successfully!");
+      } else {
+        throw new Error(
+          `Failed to add questions. Status: ${response?.status}, Code: ${
+            (response?.data as any)?.code || "unknown"
+          }`
+        );
+      }
+    } catch (error: any) {
+      console.error("Error adding questions:", error);
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to add questions. Please try again."
+      );
+    } finally {
+      setIsAddingQuestions(false);
+    }
+  };
+
+  // Open add questions dialog for a specific quiz
+  const openAddQuestionsDialog = (quiz: any) => {
+    setSelectedQuizForQuestions({ id: quiz.id, title: quiz.title });
+    setIsAddQuestionsDialogOpen(true);
+  };
+
+  const openQuizDetailsDialog = (quiz: any) => {
+    quizDetailsDialogRef.current?.openDialog(quiz);
   };
 
   const handleDeleteModule = async () => {
@@ -331,8 +499,7 @@ const CourseDetailPage = () => {
           await fetchModulesAndUnits(String(courseId));
         }
         setModuleToDelete(null);
-        setShowDeleteSuccess(true);
-        setTimeout(() => setShowDeleteSuccess(false), 4000);
+        toast.success("Module deleted successfully!");
       } else {
         console.error("Failed to delete module:", resp);
       }
@@ -355,66 +522,6 @@ const CourseDetailPage = () => {
         subtitle={courseTitle}
         onBack={() => navigate("/admin/courses")}
       />
-
-      {/* Success Alert */}
-      {showSuccessAlert && (
-        <Alert className="border-green-200 bg-green-50 text-green-800">
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
-          <AlertTitle className="text-green-800">
-            Module Created Successfully!
-          </AlertTitle>
-          <AlertDescription className="text-green-700">
-            The new module has been added to your course and is now available in
-            the modules list below.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Delete Success Alert */}
-      {showDeleteSuccess && (
-        <Alert className="border-green-200 bg-green-50 text-green-800">
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
-          <AlertTitle className="text-green-800">Module Deleted</AlertTitle>
-          <AlertDescription className="text-green-700">
-            The module was deleted successfully.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Unit Update Success Alert */}
-      {showUnitUpdateSuccess && (
-        <Alert className="border-green-200 bg-green-50 text-green-800">
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
-          <AlertTitle className="text-green-800">Unit Updated</AlertTitle>
-          <AlertDescription className="text-green-700">
-            The unit was updated successfully.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Unit Delete Success Alert */}
-      {showUnitDeleteSuccess && (
-        <Alert className="border-green-200 bg-green-50 text-green-800">
-          <CheckCircle2 className="h-4 w-4 text-green-600" />
-          <AlertTitle className="text-green-800">Unit Deleted</AlertTitle>
-          <AlertDescription className="text-green-700">
-            The unit has been deleted successfully.
-          </AlertDescription>
-        </Alert>
-      )}
-
-      {/* Error Alert */}
-      {showErrorAlert && (
-        <Alert className="border-red-200 bg-red-50 text-red-800">
-          <AlertCircle className="h-4 w-4 text-red-600" />
-          <AlertTitle className="text-red-800">
-            Failed to Create Module
-          </AlertTitle>
-          <AlertDescription className="text-red-700">
-            {errorMessage}
-          </AlertDescription>
-        </Alert>
-      )}
 
       <CourseStats
         totalModules={apiModules.length}
@@ -468,18 +575,28 @@ const CourseDetailPage = () => {
                         <CardTitle className="text-lg sm:text-xl">
                           {module.title}
                         </CardTitle>
-                        <CardDescription className="text-sm sm:text-base line-clamp-2">
+                        {/* <CardDescription className="text-sm max-w-lg sm:text-base line-clamp-1">
                           {module.description}
-                        </CardDescription>
+                        </CardDescription> */}
                       </div>
                     </div>
-                    <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="flex items-center   gap-2 sm:gap-3">
                       {Array.isArray(module.units) && (
                         <Badge
                           variant="outline"
                           className="text-[10px] md:text-xs sm:text-sm px-2 sm:px-3 py-1"
                         >
                           {module.units.length} units
+                        </Badge>
+                      )}
+                      {moduleHasQuizzes(module.id) && (
+                        <Badge
+                          variant="secondary"
+                          className="text-[10px] md:text-xs sm:text-sm px-2 sm:px-3 py-1 bg-blue-100 text-blue-800"
+                        >
+                          <ClipboardList className="h-3 w-3 mr-1" />
+                          {getModuleQuizzes(module.id).length} Quiz
+                          {getModuleQuizzes(module.id).length > 1 ? "es" : ""}
                         </Badge>
                       )}
                       <Button
@@ -518,22 +635,35 @@ const CourseDetailPage = () => {
                             <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
                           )}
                         </div>
-                        <div className="w-full sm:w-auto">
-                          <AddUnitDialog
-                            moduleTitle={module.title}
-                            moduleId={module.id}
-                            existingUnits={module.units || []}
-                            onAddUnit={handleAddUnit}
-                          >
+                        <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                          <div className="w-full sm:w-auto">
+                            <AddUnitDialog
+                              moduleTitle={module.title}
+                              moduleId={module.id}
+                              existingUnits={module.units || []}
+                              onAddUnit={handleAddUnit}
+                            >
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="shadow-sm w-full"
+                              >
+                                <Plus className="mr-2 h-4 w-4" />
+                                Add Unit
+                              </Button>
+                            </AddUnitDialog>
+                          </div>
+                          <div className="w-full sm:w-auto">
                             <Button
                               variant="outline"
                               size="sm"
                               className="shadow-sm w-full"
+                              onClick={() => openQuizDialog(module)}
                             >
-                              <Plus className="mr-2 h-4 w-4" />
-                              Add Unit
+                              <ClipboardList className="mr-2 h-4 w-4" />
+                              Create Quiz
                             </Button>
-                          </AddUnitDialog>
+                          </div>
                         </div>
                       </div>
 
@@ -596,6 +726,97 @@ const CourseDetailPage = () => {
                           )
                         )}
                       </div>
+
+                      {/* Quizzes Section */}
+                      {isLoadingQuizzes ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading quizzes...
+                        </div>
+                      ) : getModuleQuizzes(module.id).length > 0 ? (
+                        <div className="space-y-3">
+                          <div
+                            className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-2 rounded-lg transition-colors"
+                            onClick={() =>
+                              toggleQuizSectionExpansion(module.id)
+                            }
+                          >
+                            <h3 className="text-base sm:text-lg font-semibold">
+                              Quizzes ({getModuleQuizzes(module.id).length})
+                            </h3>
+                            {expandedQuizSections.has(module.id) ? (
+                              <ChevronDown className="h-4 w-4 text-gray-500" />
+                            ) : (
+                              <ChevronRight className="h-4 w-4 text-gray-500" />
+                            )}
+                          </div>
+                          {expandedQuizSections.has(module.id) && (
+                            <div className="space-y-2">
+                              {getModuleQuizzes(module.id).map(
+                                (quiz, index) => (
+                                  <div
+                                    key={quiz.id}
+                                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
+                                  >
+                                    {/* Number Badge */}
+                                    <div className="flex items-center justify-center w-6 h-6 bg-gray-200 rounded text-sm font-medium text-gray-700">
+                                      {index + 1}
+                                    </div>
+
+                                    {/* Document Icon */}
+                                    <div className="flex items-center justify-center w-5 h-5 text-gray-600">
+                                      <ClipboardList className="h-4 w-4" />
+                                    </div>
+
+                                    {/* Quiz Title */}
+                                    <div className="flex-1">
+                                      <span className="text-sm font-medium text-gray-900">
+                                        {quiz.title}
+                                      </span>
+                                    </div>
+
+                                    {/* Action Icons */}
+                                    <div className="flex items-center gap-2">
+                                      {/* View Icon */}
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          openQuizDetailsDialog(quiz)
+                                        }
+                                        className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+                                      >
+                                        <Eye className="h-4 w-4" />
+                                      </Button>
+
+                                      {/* Edit Icon */}
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() =>
+                                          openAddQuestionsDialog(quiz)
+                                        }
+                                        className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
+                                      >
+                                        <Pencil className="h-4 w-4" />
+                                      </Button>
+
+                                      {/* Delete Icon */}
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="h-8 w-8 p-0 text-gray-600 hover:text-red-600 hover:bg-red-50"
+                                      >
+                                        <Trash2 className="h-4 w-4" />
+                                      </Button>
+                                    </div>
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                   )}
                 </CardContent>
@@ -650,6 +871,40 @@ const CourseDetailPage = () => {
           setIsEditingCourse(false);
         }}
       />
+
+      {/* Quiz Creation Dialog */}
+      {selectedModuleForQuiz && (
+        <CreateQuizDialog
+          ref={quizCreateDialogRef}
+          moduleTitle={selectedModuleForQuiz.title}
+          moduleId={selectedModuleForQuiz.id}
+          onCreateQuiz={handleCreateQuiz}
+          isLoading={isCreatingQuiz}
+          open={isQuizDialogOpen}
+          onOpenChange={setIsQuizDialogOpen}
+        />
+      )}
+
+      {/* Add Questions Dialog */}
+      {selectedQuizForQuestions && (
+        <AddQuestionsDialog
+          ref={addQuestionsDialogRef}
+          quizTitle={selectedQuizForQuestions.title}
+          quizId={selectedQuizForQuestions.id}
+          existingQuestions={(() => {
+            return (
+              quizzes.find((q) => q.id === selectedQuizForQuestions.id)
+                ?.questions || []
+            );
+          })()}
+          onAddQuestions={handleAddQuestions}
+          isLoading={isAddingQuestions}
+          open={isAddQuestionsDialogOpen}
+          onOpenChange={setIsAddQuestionsDialogOpen}
+        />
+      )}
+
+      <QuizDetailsDialog ref={quizDetailsDialogRef} />
     </div>
   );
 };

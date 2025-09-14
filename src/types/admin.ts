@@ -15,6 +15,21 @@ export interface Module {
   description: string;
   units: Unit[];
   order: number;
+  quiz?: Quiz;
+}
+
+export interface Quiz {
+  id: number;
+  title: string;
+  description: string;
+  duration_minutes: number;
+  status: "draft" | "published";
+  module_id: number;
+  module_title?: string;
+  attempts_allowed: number;
+  created_at: string;
+  created_by: number;
+  questions: any[];
 }
 
 export interface Unit {

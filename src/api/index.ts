@@ -172,7 +172,7 @@ async GetCourseModules(courseId: string) {
       }
     });
     
-    console.log(response);
+
     return response;
 
   }catch(err: any){
@@ -558,28 +558,94 @@ async DeleteModuleNotes(moduleId: string, noteId: string) {
   }
 }
 
+// Quiz creation API method
+async CreateQuiz(data: {
+  title: string;
+  module_id: number;
+  duration_minutes: number;
+  description: string;
+  status: string;
+}) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
 
-// async GetUnitDiscussion(unitId: string) {
-//   try {
-//     const token = getAccessToken();
-//     if (!token) {
-//       throw new Error("No access token found. Please login again.");
-//     }
-//     const response = await axios.get(`${BASE_URL}/api/units/${unitId}/discussion`, {
-//       headers: {
-//         'Authorization': `Bearer ${token}`
-//       }
-//     });
-//     return response;
-//   } catch (err: any) {
-//     console.error("Error during getting unit discussion:", err);
-//     if (err.response?.status === 401) {
-//       removeAccessToken();
-//       console.log("Token expired or invalid, removed from cookie");
-//     }
-//     return err;
-//   }
-// }
+    console.log("Sending quiz data to API:", data);
+    
+    const response = await axios.post(`${BASE_URL}/api/quiz/create-quiz`, data, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    console.log("Quiz API response:", response);
+    return response;
+  } catch (err: any) {
+    console.error("Error during creating quiz:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+
+async GetQuiz() {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const response = await axios.get(`${BASE_URL}/api/quiz`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+ 
+    return response;
+  } catch (err: any) {
+    console.error("Error during getting quizzes:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+// Add questions to a quiz
+async AddQuizQuestions(quizId: number, questions: any[]) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+
+    const response = await axios.post(`${BASE_URL}/api/quiz/${quizId}/questions-batch`, {
+      questions: questions
+    }, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+   
+    return response;
+  } catch (err: any) {
+    console.error("Error during adding quiz questions:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
 
 }
 

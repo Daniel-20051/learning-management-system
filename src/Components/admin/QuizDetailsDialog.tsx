@@ -51,7 +51,7 @@ const QuizDetailsDialog = forwardRef<
 
   return (
     <Dialog open={isOpen} onOpenChange={setIsOpen}>
-      <DialogContent className="sm:max-w-[800px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[800px] max-h-[80vh] mt-7 overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <HelpCircle className="h-5 w-5" />
@@ -64,7 +64,7 @@ const QuizDetailsDialog = forwardRef<
 
         <div className="space-y-6">
           {/* Quiz Information */}
-          <Card>
+          <Card className="pt-3">
             <CardHeader>
               <CardTitle className="text-lg">Quiz Information</CardTitle>
             </CardHeader>
@@ -137,11 +137,9 @@ const QuizDetailsDialog = forwardRef<
           </Card>
 
           {/* Questions Section */}
-          <Card>
+          <Card className="pt-3">
             <CardHeader>
-              <CardTitle className="text-lg">
-                Questions ({selectedQuiz.questions?.length || 0})
-              </CardTitle>
+              <CardTitle className="text-lg">Questions</CardTitle>
             </CardHeader>
             <CardContent>
               {selectedQuiz.questions && selectedQuiz.questions.length > 0 ? (

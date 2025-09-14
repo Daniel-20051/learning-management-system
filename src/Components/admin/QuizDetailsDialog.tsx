@@ -9,7 +9,6 @@ import {
 import { Button } from "@/Components/ui/button";
 import { Badge } from "@/Components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
-import { Separator } from "@/Components/ui/separator";
 import { Clock, HelpCircle, CheckCircle, X } from "lucide-react";
 
 export interface QuizDetailsDialogRef {

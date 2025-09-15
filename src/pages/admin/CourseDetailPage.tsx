@@ -395,6 +395,15 @@ const CourseDetailPage = () => {
 
         // Show success alert
         toast.success("Quiz created successfully!");
+
+        // Automatically open the Add Questions dialog for the newly created quiz
+        if ((response?.data as any)?.data?.id) {
+          setSelectedQuizForQuestions({
+            id: (response.data as any).data.id,
+            title: quizData.title,
+          });
+          setIsAddQuestionsDialogOpen(true);
+        }
       } else {
         console.error("Quiz creation failed. Response:", response);
         throw new Error(

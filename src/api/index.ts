@@ -1,6 +1,22 @@
 import axios  from 'axios';
 import { setAccessToken, getAccessToken, removeAccessToken } from '../lib/cookies';
 
+// Global interceptor: if any request returns 401, remove token and notify app
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const status = error?.response?.status;
+    if (status === 401) {
+      try {
+        removeAccessToken();
+        // Notify AuthContext (and other listeners) to logout immediately
+        window.dispatchEvent(new Event('auth:token-removed'));
+      } catch {}
+    }
+    return Promise.reject(error);
+  }
+);
+
 const BASE_URL = 'https://lms-work.onrender.com';
 export class Api {
     async LoginUser(data:{
@@ -638,6 +654,86 @@ async AddQuizQuestions(quizId: number, questions: any[]) {
     return response;
   } catch (err: any) {
     console.error("Error during adding quiz questions:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+// Delete a quiz by ID
+async DeleteQuiz(quizId: number) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const response = await axios.delete(`${BASE_URL}/api/quiz/${quizId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during deleting quiz:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+// Update a quiz by ID
+async UpdateQuiz(quizId: number, data: {
+  title?: string;
+  duration_minutes?: number;
+  status?: string;
+  description?: string;
+}) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const response = await axios.patch(`${BASE_URL}/api/quiz/${quizId}/update`, {
+      quiz: data
+    }, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during updating quiz:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+// Update quiz questions
+async UpdateQuizQuestions(quizId: number, questions: any[]) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const response = await axios.patch(`${BASE_URL}/api/quiz/${quizId}/update`, {
+      questions: questions
+    }, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during updating quiz questions:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
       console.log("Token expired or invalid, removed from cookie");

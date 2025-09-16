@@ -58,6 +58,47 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
+  // Proactively detect token removal/expiry without requiring a page refresh
+  useEffect(() => {
+    // Periodic check in case the cookie expires naturally
+    const intervalId = window.setInterval(() => {
+      if (isLoggedIn && !hasValidToken()) {
+        logout();
+      }
+    }, 15000); // check every 15s
+
+    // Listen for explicit logout signals from API layer or other tabs
+    const handleAuthTokenRemoved = () => {
+      if (isLoggedIn) {
+        logout();
+      }
+    };
+
+    const handleStorage = (e: StorageEvent) => {
+      if (e.key === "isLoggedIn" && e.newValue === "false") {
+        handleAuthTokenRemoved();
+      }
+      if (e.key === "user" && e.newValue === null) {
+        handleAuthTokenRemoved();
+      }
+    };
+
+    window.addEventListener(
+      "auth:token-removed",
+      handleAuthTokenRemoved as EventListener
+    );
+    window.addEventListener("storage", handleStorage);
+
+    return () => {
+      window.clearInterval(intervalId);
+      window.removeEventListener(
+        "auth:token-removed",
+        handleAuthTokenRemoved as EventListener
+      );
+      window.removeEventListener("storage", handleStorage);
+    };
+  }, [isLoggedIn]);
+
   return (
     <AuthContext.Provider
       value={{

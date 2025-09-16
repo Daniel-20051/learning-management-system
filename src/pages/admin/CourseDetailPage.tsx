@@ -49,11 +49,17 @@ import CreateQuizDialog, {
 } from "@/Components/admin/CreateQuizDialog";
 import AddQuestionsDialog, {
   type AddQuestionsDialogRef,
-  type Question,
+  type Question as AddQuestion,
 } from "@/Components/admin/AddQuestionsDialog";
 import QuizDetailsDialog, {
   type QuizDetailsDialogRef,
 } from "@/Components/admin/QuizDetailsDialog";
+import EditQuizDialog, {
+  type EditQuizDialogRef,
+  type Quiz,
+  type Question as EditQuestion,
+} from "@/Components/admin/EditQuizDialog";
+import ConfirmDialog from "@/Components/ConfirmDialog";
 
 const CourseDetailPage = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -116,6 +122,17 @@ const CourseDetailPage = () => {
   } | null>(null);
   const addQuestionsDialogRef = useRef<AddQuestionsDialogRef | null>(null);
   const quizDetailsDialogRef = useRef<QuizDetailsDialogRef | null>(null);
+  const editQuizDialogRef = useRef<EditQuizDialogRef | null>(null);
+
+  // Quiz deletion state
+  const [quizToDelete, setQuizToDelete] = useState<{
+    id: number;
+    title: string;
+  } | null>(null);
+  const [isDeletingQuiz, setIsDeletingQuiz] = useState(false);
+
+  // Quiz editing state
+  const [isEditingQuiz, setIsEditingQuiz] = useState(false);
 
   // Helper: fetch modules (now includes units from the same endpoint)
   const fetchModulesAndUnits = async (id: string) => {
@@ -441,7 +458,10 @@ const CourseDetailPage = () => {
   };
 
   // Handle adding questions to quiz
-  const handleAddQuestions = async (quizId: number, questions: Question[]) => {
+  const handleAddQuestions = async (
+    quizId: number,
+    questions: AddQuestion[]
+  ) => {
     setIsAddingQuestions(true);
 
     try {
@@ -485,14 +505,88 @@ const CourseDetailPage = () => {
     }
   };
 
-  // Open add questions dialog for a specific quiz
-  const openAddQuestionsDialog = (quiz: any) => {
-    setSelectedQuizForQuestions({ id: quiz.id, title: quiz.title });
-    setIsAddQuestionsDialogOpen(true);
-  };
-
   const openQuizDetailsDialog = (quiz: any) => {
     quizDetailsDialogRef.current?.openDialog(quiz);
+  };
+
+  const openEditQuiz = (quiz: any) => {
+    editQuizDialogRef.current?.openDialog(quiz);
+  };
+
+  const openDeleteQuiz = (quiz: any) => {
+    setQuizToDelete({ id: quiz.id, title: quiz.title });
+  };
+
+  const closeDeleteQuiz = () => {
+    setQuizToDelete(null);
+  };
+
+  const handleDeleteQuiz = async () => {
+    if (!quizToDelete) return;
+    setIsDeletingQuiz(true);
+    try {
+      const resp = await api.DeleteQuiz(quizToDelete.id);
+      const wasSuccessful =
+        (resp as any)?.status === 200 ||
+        (resp as any)?.data?.code === "200" ||
+        (resp as any)?.status === 204;
+      if (wasSuccessful) {
+        await fetchQuizzes();
+        toast.success("Quiz deleted successfully!");
+        closeDeleteQuiz();
+      } else {
+        toast.error("Failed to delete quiz. Please try again.");
+      }
+    } catch (e: any) {
+      console.error(e);
+      toast.error(
+        e?.response?.data?.message ||
+          e?.message ||
+          "Failed to delete quiz. Please try again."
+      );
+    } finally {
+      setIsDeletingQuiz(false);
+    }
+  };
+
+  const handleUpdateQuiz = async (
+    quizId: number,
+    quizData: Partial<Quiz>,
+    questions: EditQuestion[]
+  ) => {
+    setIsEditingQuiz(true);
+    try {
+      // Update quiz details
+      await api.UpdateQuiz(quizId, {
+        title: quizData.title,
+        description: quizData.description,
+        duration_minutes: quizData.duration_minutes,
+        status: quizData.status,
+      });
+
+      // Update questions if there are any
+      if (questions.length > 0) {
+        await api.UpdateQuizQuestions(quizId, questions);
+      }
+
+      // Refresh quizzes list
+      await fetchQuizzes();
+
+      // Close dialog
+      editQuizDialogRef.current?.closeDialog();
+
+      toast.success("Quiz updated successfully!");
+    } catch (error: any) {
+      console.error("Error updating quiz:", error);
+      toast.error(
+        error?.response?.data?.message ||
+          error?.message ||
+          "Failed to update quiz. Please try again."
+      );
+      throw error; // Re-throw to prevent dialog from closing on error
+    } finally {
+      setIsEditingQuiz(false);
+    }
   };
 
   const handleDeleteModule = async () => {
@@ -802,9 +896,7 @@ const CourseDetailPage = () => {
                                       <Button
                                         variant="ghost"
                                         size="sm"
-                                        onClick={() =>
-                                          openAddQuestionsDialog(quiz)
-                                        }
+                                        onClick={() => openEditQuiz(quiz)}
                                         className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
                                       >
                                         <Pencil className="h-4 w-4" />
@@ -815,6 +907,7 @@ const CourseDetailPage = () => {
                                         variant="ghost"
                                         size="sm"
                                         className="h-8 w-8 p-0 text-gray-600 hover:text-red-600 hover:bg-red-50"
+                                        onClick={() => openDeleteQuiz(quiz)}
                                       >
                                         <Trash2 className="h-4 w-4" />
                                       </Button>
@@ -914,6 +1007,27 @@ const CourseDetailPage = () => {
       )}
 
       <QuizDetailsDialog ref={quizDetailsDialogRef} />
+
+      {/* Edit Quiz Dialog */}
+      <EditQuizDialog
+        ref={editQuizDialogRef}
+        onUpdateQuiz={handleUpdateQuiz}
+        isLoading={isEditingQuiz}
+      />
+
+      {/* Delete Quiz Confirm Dialog */}
+      <ConfirmDialog
+        open={!!quizToDelete}
+        title="Delete quiz?"
+        description={`This action cannot be undone. This will permanently delete "${
+          quizToDelete?.title ?? "this quiz"
+        }" and its questions.`}
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={handleDeleteQuiz}
+        onCancel={closeDeleteQuiz}
+        isProcessing={isDeletingQuiz}
+      />
     </div>
   );
 };

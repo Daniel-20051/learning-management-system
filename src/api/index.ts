@@ -610,18 +610,18 @@ async CreateQuiz(data: {
 }
 
 
-async GetQuiz() {
+async GetQuiz(courseId?: number) {
   try {
     const token = getAccessToken();
     if (!token) {
       throw new Error("No access token found. Please login again.");
     }
-    const response = await axios.get(`${BASE_URL}/api/quiz`, {
+    const response = await axios.get(`${BASE_URL}/api/quiz?course_id=${courseId}`, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
     });
- 
+    console.log(response);
     return response;
   } catch (err: any) {
     console.error("Error during getting quizzes:", err);

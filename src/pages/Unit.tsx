@@ -37,6 +37,7 @@ const Unit = () => {
     setModules,
     isLoading,
     setIsLoading,
+    selectedQuiz,
   } = useSidebarSelection();
 
   const api = new Api();
@@ -86,6 +87,19 @@ const Unit = () => {
     };
 
     fetchCourseModules();
+  }, [courseId]);
+
+  useEffect(() => {
+    const fetchQuizzes = async () => {
+      try {
+        if (!courseId) return;
+        await api.GetQuiz(Number(courseId));
+        // TODO: handle response.data if needed
+      } catch (error) {
+        console.error("Error fetching quizzes:", error);
+      }
+    };
+    fetchQuizzes();
   }, [courseId]);
 
   // Current module and unit logic
@@ -261,83 +275,154 @@ const Unit = () => {
           </header>
           <div className="flex flex-1 flex-col gap-1 md:gap-2  p-3">
             <div className="flex flex-col gap-1 md:gap-3">
-              <div className="md:flex items-center justify-between sticky top-16 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b py-2">
-                <p className=" text-xl  md:text-3xl text-sidebar-foreground font-bold">
-                  {`${currentUnit?.title || "Unknown Unit"}`}
-                </p>
-                <div className="flex items-center gap-2 px-0 md:px-5  md:place-self-end text-[10px] md:text-sm text-sidebar-foreground font-bold">
-                  {!isFirstUnitOfFirstModule && (
-                    <Button
-                      variant="link"
-                      className="gap-2"
-                      onClick={handlePrevious}
-                    >
-                      <ArrowLeftIcon className="w-4 h-4" />
-                      Previous
-                    </Button>
-                  )}
-                  {!isLastUnitOfLastModule && (
-                    <Button
-                      variant="link"
-                      className="gap-2"
-                      onClick={handleNext}
-                    >
-                      Next <ArrowRightIcon className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-col gap-4">
-                {currentUnit?.video_url && currentUnit.video_url !== "" && (
-                  <VideoControl
-                    src={currentUnit.video_url}
-                    maxWidth="max-w-[100vw]"
-                    maxHeight="max-h-100"
-                    className="mx-auto"
-                  />
-                )}
-              </div>
-              {currentUnit ? (
-                <Tabs
-                  value={activeTab}
-                  onValueChange={(v) => setActiveTab(v as typeof activeTab)}
-                  className="flex w-[100%] p-5 h-auto max-h-[80vh] md:max-h-[75vh]  "
-                >
-                  <TabsList className="mb-3">
-                    <TabsTrigger value="lesson">Lesson</TabsTrigger>
-                    <TabsTrigger value="notes">Notes</TabsTrigger>
-                    <TabsTrigger value="discussion">Discussion</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="lesson">
-                    <div
-                      ref={lessonContentRef}
-                      dangerouslySetInnerHTML={{
-                        __html:
-                          currentUnit?.content || "No lesson content available",
-                      }}
-                    />
-                  </TabsContent>
-                  <TabsContent value="notes">
-                    <ModuleNotes
-                      moduleId={currentModule?.id || ""}
-                      isLoading={isLoading}
-                    />
-                  </TabsContent>
-                  <TabsContent value="discussion">
-                    {/* TODO: Implement discussion endpoint */}
-                    <p className="text-muted-foreground">
-                      Discussion functionality will be implemented when endpoint
-                      is available
-                    </p>
-                  </TabsContent>
-                </Tabs>
-              ) : (
-                <div className="flex items-center justify-center h-64">
-                  <p className="text-lg text-gray-500">
-                    No unit content available
-                  </p>
+              {/* Quiz outlet: when a quiz is selected, hide unit UI */}
+              {selectedQuiz && (
+                <div className="w-full flex justify-center items-center py-6">
+                  <div className="w-full max-w-4xl space-y-4">
+                    <div className="border rounded-lg p-6 bg-card shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <h2 className="text-3xl font-bold">
+                          {selectedQuiz.title}
+                        </h2>
+                        <div className="flex items-center gap-2">
+                          {selectedQuiz.duration_minutes ? (
+                            <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                              {selectedQuiz.duration_minutes} mins
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
+                      {selectedQuiz.description && (
+                        <p className="text-sm text-muted-foreground mt-2">
+                          {selectedQuiz.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="rounded-lg border bg-muted/20">
+                      <div className="p-5 border-b">
+                        <p className="font-semibold">Quiz details</p>
+                      </div>
+                      <div className="p-5 flex items-start justify-between gap-6">
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">Due</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            No due date
+                          </p>
+                        </div>
+                        <div className="flex-1">
+                          <p className="text-sm font-medium">Attempts</p>
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {selectedQuiz.attempts_allowed
+                              ? `${selectedQuiz.attempts_allowed} allowed`
+                              : "Unlimited"}
+                          </p>
+                        </div>
+                        <div className="flex items-center">
+                          <Button
+                            onClick={() =>
+                              toast.info("Quiz taking flow coming soon")
+                            }
+                          >
+                            Start Quiz
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="rounded-lg border bg-card">
+                      <div className="p-5 border-b">
+                        <p className="font-semibold">Your grade</p>
+                      </div>
+                      <div className="p-5 text-sm text-muted-foreground">
+                        You haven’t submitted this yet. We keep your highest
+                        score.
+                      </div>
+                    </div>
+                  </div>
                 </div>
               )}
+              {!selectedQuiz && (
+                <div className="md:flex items-center justify-between sticky top-16 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b py-2">
+                  <p className=" text-xl  md:text-3xl text-sidebar-foreground font-bold">
+                    {`${currentUnit?.title || "Unknown Unit"}`}
+                  </p>
+                  <div className="flex items-center gap-2 px-0 md:px-5  md:place-self-end text-[10px] md:text-sm text-sidebar-foreground font-bold">
+                    {!isFirstUnitOfFirstModule && (
+                      <Button
+                        variant="link"
+                        className="gap-2"
+                        onClick={handlePrevious}
+                      >
+                        <ArrowLeftIcon className="w-4 h-4" />
+                        Previous
+                      </Button>
+                    )}
+                    {!isLastUnitOfLastModule && (
+                      <Button
+                        variant="link"
+                        className="gap-2"
+                        onClick={handleNext}
+                      >
+                        Next <ArrowRightIcon className="w-4 h-4" />
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              )}
+              {!selectedQuiz && (
+                <div className="flex flex-col gap-4">
+                  {currentUnit?.video_url && currentUnit.video_url !== "" && (
+                    <VideoControl
+                      src={currentUnit.video_url}
+                      maxWidth="max-w-[100vw]"
+                      maxHeight="max-h-100"
+                      className="mx-auto"
+                    />
+                  )}
+                </div>
+              )}
+              {!selectedQuiz &&
+                (currentUnit ? (
+                  <Tabs
+                    value={activeTab}
+                    onValueChange={(v) => setActiveTab(v as typeof activeTab)}
+                    className="flex w-[100%] p-5 h-auto max-h-[80vh] md:max-h-[75vh]  "
+                  >
+                    <TabsList className="mb-3">
+                      <TabsTrigger value="lesson">Lesson</TabsTrigger>
+                      <TabsTrigger value="notes">Notes</TabsTrigger>
+                      <TabsTrigger value="discussion">Discussion</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="lesson">
+                      <div
+                        ref={lessonContentRef}
+                        dangerouslySetInnerHTML={{
+                          __html:
+                            currentUnit?.content ||
+                            "No lesson content available",
+                        }}
+                      />
+                    </TabsContent>
+                    <TabsContent value="notes">
+                      <ModuleNotes
+                        moduleId={currentModule?.id || ""}
+                        isLoading={isLoading}
+                      />
+                    </TabsContent>
+                    <TabsContent value="discussion">
+                      {/* TODO: Implement discussion endpoint */}
+                      <p className="text-muted-foreground">
+                        Discussion functionality will be implemented when
+                        endpoint is available
+                      </p>
+                    </TabsContent>
+                  </Tabs>
+                ) : (
+                  <div className="flex items-center justify-center h-64">
+                    <p className="text-lg text-gray-500">
+                      No unit content available
+                    </p>
+                  </div>
+                ))}
             </div>
           </div>
         </SidebarInset>

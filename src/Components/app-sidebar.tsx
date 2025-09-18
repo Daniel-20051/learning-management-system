@@ -17,6 +17,7 @@ import {
 } from "@/Components/ui/sidebar";
 
 import { useSidebarSelection } from "@/context/SidebarSelectionContext";
+import { Api } from "@/api/index";
 import {
   SquarePlay,
   Lock,
@@ -24,14 +25,25 @@ import {
   FileText,
   ChevronDown,
   ChevronRight,
+  ListChecks,
 } from "lucide-react";
 
 // Array of unit contents
 
 export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
   const navigate = useNavigate();
-  const { selectedIndex, setSelectedIndex, module, setModule, modules } =
-    useSidebarSelection();
+  const {
+    selectedIndex,
+    setSelectedIndex,
+    module,
+    setModule,
+    modules,
+    selectedQuiz,
+    setSelectedQuiz,
+  } = useSidebarSelection();
+
+  const [quizzes, setQuizzes] = useState<any[]>([]);
+  const api = new Api();
 
   // State to track which module is expanded (only one at a time)
   const [expandedModule, setExpandedModule] = useState<number | null>(null);
@@ -46,6 +58,27 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     // If clicking on a different module, expand it (accordion behavior)
     setExpandedModule((prev) => (prev === moduleIndex ? null : moduleIndex));
   };
+
+  // Load all quizzes once and filter per module locally
+  useEffect(() => {
+    const fetchQuizzes = async () => {
+      try {
+        const response = await api.GetQuiz();
+        const data = (response as any)?.data;
+        if (data && Array.isArray(data.data)) {
+          setQuizzes(data.data);
+        } else if (Array.isArray(response as any)) {
+          setQuizzes(response as any);
+        } else {
+          setQuizzes([]);
+        }
+      } catch (error) {
+        console.error("Error loading quizzes:", error);
+        setQuizzes([]);
+      }
+    };
+    fetchQuizzes();
+  }, []);
   return (
     <div className="flex">
       <Sidebar className="" variant="sidebar" {...props}>
@@ -112,11 +145,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                               className="h-auto cursor-pointer py-4 px-2 mb-5 "
                               asChild
                               isActive={
-                                isActiveModule && selectedIndex === unitIndex
+                                isActiveModule &&
+                                selectedIndex === unitIndex &&
+                                !selectedQuiz
                               }
                               onClick={() => {
                                 setModule(moduleIndex);
                                 setSelectedIndex(unitIndex);
+                                setSelectedQuiz(null);
                                 // Ensure the parent module is expanded when selecting a unit
                                 setExpandedModule(moduleIndex);
                               }}
@@ -146,6 +182,50 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                             </SidebarMenuSubButton>
                           </SidebarMenuSubItem>
                         ))}
+                        {/* Module Quizzes */}
+                        {(() => {
+                          const moduleQuizzes = (quizzes || []).filter(
+                            (q: any) =>
+                              String(q.module_id) === String(moduleItem.id)
+                          );
+                          if (moduleQuizzes.length === 0) return null;
+                          return (
+                            <div className="mt-2 w-full">
+                              <div className="px-2 py-1 text-xs uppercase tracking-wide text-muted-foreground">
+                                Quiz
+                              </div>
+                              {moduleQuizzes.map((quiz: any) => (
+                                <SidebarMenuSubItem key={quiz.id}>
+                                  <SidebarMenuSubButton
+                                    className="h-auto cursor-pointer py-3 px-2"
+                                    isActive={Boolean(
+                                      (useSidebarSelection() as any)
+                                        .selectedQuiz?.id === quiz.id
+                                    )}
+                                    onClick={() => {
+                                      setSelectedQuiz(quiz);
+                                      setExpandedModule(moduleIndex);
+                                    }}
+                                  >
+                                    <div className="flex items-center justify-between w-full">
+                                      <div className="flex items-center gap-2">
+                                        <ListChecks className="w-4 h-4" />
+                                        <span className="text-sm font-medium">
+                                          {quiz.title}
+                                        </span>
+                                      </div>
+                                      {quiz.duration_minutes ? (
+                                        <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded">
+                                          {quiz.duration_minutes}m
+                                        </span>
+                                      ) : null}
+                                    </div>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              ))}
+                            </div>
+                          );
+                        })()}
                       </SidebarMenuSub>
                     )}
                   </SidebarMenuItem>

@@ -265,14 +265,14 @@ const EditQuizDialog = forwardRef<EditQuizDialogRef, EditQuizDialogProps>(
 
     return (
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="max-w-6xl max-h-[90vh] mt-7 p-0">
+        <DialogContent className="w-[95vw] sm:w-auto sm:max-w-6xl max-h-[90vh] mt-7 p-0">
           <DialogHeader className="p-6 pb-0">
             <DialogTitle className="text-xl">Edit Quiz</DialogTitle>
           </DialogHeader>
 
-          <div className="flex h-[calc(90vh-120px)]">
+          <div className="flex flex-col md:flex-row h-auto md:h[calc(90vh-120px)]">
             {/* Left Sidebar - Quiz Details */}
-            <div className="w-80 border-r bg-muted/30 p-6 overflow-y-auto">
+            <div className="w-full md:w-80 border-b md:border-r bg-muted/30 p-4 md:p-6 overflow-y-auto max-h-[40vh] md:max-h-none">
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Quiz Details</h3>
@@ -390,7 +390,7 @@ const EditQuizDialog = forwardRef<EditQuizDialogRef, EditQuizDialogProps>(
             </div>
 
             {/* Right Side - Questions */}
-            <div className="flex-1 p-6 overflow-y-auto">
+            <div className="flex-1 p-4 md:p-6 overflow-y-auto">
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Questions</h3>

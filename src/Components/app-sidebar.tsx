@@ -186,7 +186,9 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         {(() => {
                           const moduleQuizzes = (quizzes || []).filter(
                             (q: any) =>
-                              String(q.module_id) === String(moduleItem.id)
+                              String(q.module_id) === String(moduleItem.id) &&
+                              String((q.status || "").toLowerCase()) ===
+                                "published"
                           );
                           if (moduleQuizzes.length === 0) return null;
                           return (

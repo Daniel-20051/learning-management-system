@@ -788,7 +788,6 @@ const CourseDetailPage = () => {
                       </div>
                       <UnitsList
                         units={module.units || []}
-                        loading={loadingUnitsForModuleIds.has(module.id)}
                         getUnitIcon={getUnitIcon}
                         onPreviewUnit={openPreviewUnit}
                         onEditUnit={openEditUnit}

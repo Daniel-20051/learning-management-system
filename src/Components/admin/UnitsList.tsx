@@ -4,7 +4,6 @@ import type React from "react";
 
 interface UnitsListProps {
   units: any[];
-  loading: boolean;
   getUnitIcon: (type: string) => React.ReactNode;
   onPreviewUnit: (unit: any) => void;
   onEditUnit: (unit: any) => void;
@@ -13,7 +12,6 @@ interface UnitsListProps {
 
 const UnitsList = ({
   units,
-  loading,
   getUnitIcon,
   onPreviewUnit,
   onEditUnit,

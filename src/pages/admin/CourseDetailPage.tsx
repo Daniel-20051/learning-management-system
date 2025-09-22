@@ -1,32 +1,24 @@
 import { useParams, useNavigate } from "react-router-dom";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { toast } from "sonner";
-import {
-  Card,
-  CardContent,
-  // CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/Components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
 import { Badge } from "@/Components/ui/badge";
+// ModuleCard is not currently used after extraction; keeping UnitsList/QuizzesList
+import UnitsList from "@/Components/admin/UnitsList";
+import QuizzesList from "@/Components/admin/QuizzesList";
 import DeleteModuleDialog from "@/Components/admin/DeleteModuleDialog";
 
 import CourseDetailSkeleton from "@/Components/CourseDetailSkeleton";
 
 import {
-  Plus,
-  Edit,
   Trash2,
   FileText,
   Video,
   CheckCircle,
-  Clock,
   ChevronDown,
   ChevronRight,
   BookOpen,
-  Eye,
-  Pencil,
   ClipboardList,
 } from "lucide-react";
 import { Loader2 } from "lucide-react";
@@ -170,8 +162,7 @@ const CourseDetailPage = () => {
   };
 
   // Handle unit creation (refresh only the affected module)
-  const handleAddUnit = async (moduleId: string, unitData: UnitFormData) => {
-    console.log("handleAddUnit", moduleId, unitData);
+  const handleAddUnit = async (moduleId: string, _unitData: UnitFormData) => {
     await refreshUnitsFromModulesEndpoint(moduleId);
   };
 
@@ -256,23 +247,19 @@ const CourseDetailPage = () => {
   }, [courseId]);
 
   const toggleModuleExpansion = (moduleId: string) => {
-    const newExpanded = new Set(expandedModules);
-    if (newExpanded.has(moduleId)) {
-      newExpanded.delete(moduleId);
-    } else {
-      newExpanded.add(moduleId);
-    }
-    setExpandedModules(newExpanded);
+    setExpandedModules((prev) => {
+      const next = new Set(prev);
+      next.has(moduleId) ? next.delete(moduleId) : next.add(moduleId);
+      return next;
+    });
   };
 
   const toggleQuizSectionExpansion = (moduleId: string) => {
-    const newExpanded = new Set(expandedQuizSections);
-    if (newExpanded.has(moduleId)) {
-      newExpanded.delete(moduleId);
-    } else {
-      newExpanded.add(moduleId);
-    }
-    setExpandedQuizSections(newExpanded);
+    setExpandedQuizSections((prev) => {
+      const next = new Set(prev);
+      next.has(moduleId) ? next.delete(moduleId) : next.add(moduleId);
+      return next;
+    });
   };
 
   const getUnitIcon = (type: string) => {
@@ -288,12 +275,15 @@ const CourseDetailPage = () => {
     }
   };
 
-  const getTotalUnits = () => {
-    return apiModules.reduce((total: number, module: any) => {
-      const units = Array.isArray(module.units) ? module.units.length : 0;
-      return total + units;
-    }, 0);
-  };
+  const getTotalUnits = useCallback(
+    () =>
+      apiModules.reduce(
+        (total: number, module: any) =>
+          total + (Array.isArray(module.units) ? module.units.length : 0),
+        0
+      ),
+    [apiModules]
+  );
 
   const confirmDeleteModule = (module: any) => {
     setModuleToDelete(module);
@@ -355,18 +345,20 @@ const CourseDetailPage = () => {
     // Show success alert
     toast.success("Unit updated successfully!");
   };
+  const isApiSuccess = (resp: any) =>
+    resp?.status === 200 ||
+    resp?.status === 201 ||
+    (resp?.data as any)?.code === "200" ||
+    (resp?.data as any)?.code === "201" ||
+    (resp?.data as any)?.success === true;
+
   // Load quizzes
   const fetchQuizzes = async () => {
     setIsLoadingQuizzes(true);
     try {
       const response = await api.GetQuiz();
-
-      if (
-        (response?.data as any)?.data &&
-        Array.isArray((response.data as any).data)
-      ) {
-        setQuizzes((response.data as any).data);
-      }
+      const list = (response?.data as any)?.data;
+      setQuizzes(Array.isArray(list) ? list : []);
     } catch (error) {
       console.error("Error loading quizzes:", error);
       setQuizzes([]);
@@ -392,15 +384,7 @@ const CourseDetailPage = () => {
         status: quizData.status,
       });
 
-      console.log("Quiz creation response:", response);
-
-      // Check for success - API might return different success indicators
-      const isSuccess =
-        response?.status === 200 ||
-        response?.status === 201 ||
-        (response?.data as any)?.code === "200" ||
-        (response?.data as any)?.code === "201" ||
-        (response?.data as any)?.success === true;
+      const isSuccess = isApiSuccess(response);
 
       if (isSuccess) {
         // Close dialog
@@ -422,7 +406,6 @@ const CourseDetailPage = () => {
           setIsAddQuestionsDialogOpen(true);
         }
       } else {
-        console.error("Quiz creation failed. Response:", response);
         throw new Error(
           `Failed to create quiz. Status: ${response?.status}, Code: ${
             (response?.data as any)?.code || "unknown"
@@ -441,19 +424,31 @@ const CourseDetailPage = () => {
     }
   };
 
-  // Get all quizzes for a module
-  const getModuleQuizzes = (moduleId: string) => {
-    return quizzes.filter((quiz) => quiz.module_id === parseInt(moduleId));
-  };
+  // Get all quizzes for a module (memoized)
+  const quizzesByModuleId = useMemo(() => {
+    const map = new Map<number, any[]>();
+    for (const q of quizzes) {
+      const arr = map.get(q.module_id) || [];
+      arr.push(q);
+      map.set(q.module_id, arr);
+    }
+    return map;
+  }, [quizzes]);
+
+  const getModuleQuizzes = useCallback(
+    (moduleId: string) => quizzesByModuleId.get(parseInt(moduleId)) || [],
+    [quizzesByModuleId]
+  );
 
   // Check if a module has any quizzes
-  const moduleHasQuizzes = (moduleId: string) => {
-    return getModuleQuizzes(moduleId).length > 0;
-  };
+  const moduleHasQuizzes = useCallback(
+    (moduleId: string) => getModuleQuizzes(moduleId).length > 0,
+    [getModuleQuizzes]
+  );
 
   // Open quiz dialog for a specific module
-  const openQuizDialog = (module: any) => {
-    setSelectedModuleForQuiz({ id: module.id, title: module.title });
+  const openQuizDialog = (_module: any) => {
+    setSelectedModuleForQuiz({ id: _module.id, title: _module.title });
     setIsQuizDialogOpen(true);
   };
 
@@ -465,16 +460,39 @@ const CourseDetailPage = () => {
     setIsAddingQuestions(true);
 
     try {
-      const response = await api.AddQuizQuestions(quizId, questions);
-      console.log("Add questions response:", response);
+      // Normalize and map questions to API payload ensuring correct type
+      const payloadQuestions = questions.map((q) => {
+        const type =
+          q.type === "multiple_choice" ? "multiple_choice" : "single_choice";
+        // Ensure options exist and are normalized
+        const rawOptions = Array.isArray(q.options) ? q.options : [];
+        let foundCorrect = false;
+        const normalizedOptions = rawOptions.map((opt) => {
+          const isCorrect = !!opt.is_correct;
+          if (type === "single_choice") {
+            if (isCorrect && !foundCorrect) {
+              foundCorrect = true;
+              return { text: String(opt.text ?? "").trim(), is_correct: true };
+            }
+            return { text: String(opt.text ?? "").trim(), is_correct: false };
+          }
+          return { text: String(opt.text ?? "").trim(), is_correct: isCorrect };
+        });
 
-      // Check for success
-      const isSuccess =
-        response?.status === 200 ||
-        response?.status === 201 ||
-        (response?.data as any)?.code === "200" ||
-        (response?.data as any)?.code === "201" ||
-        (response?.data as any)?.success === true;
+        return {
+          text: String(q.text ?? "").trim(),
+          type,
+          points: Number(q.points ?? 1) || 1,
+          options: normalizedOptions,
+        };
+      });
+
+      const response = await api.AddQuizQuestions(
+        quizId,
+        payloadQuestions as any
+      );
+
+      const isSuccess = isApiSuccess(response);
 
       if (isSuccess) {
         // Close dialog
@@ -751,7 +769,6 @@ const CourseDetailPage = () => {
                                 size="sm"
                                 className="shadow-sm w-full"
                               >
-                                <Plus className="mr-2 h-4 w-4" />
                                 Add Unit
                               </Button>
                             </AddUnitDialog>
@@ -769,156 +786,33 @@ const CourseDetailPage = () => {
                           </div>
                         </div>
                       </div>
+                      <UnitsList
+                        units={module.units || []}
+                        loading={loadingUnitsForModuleIds.has(module.id)}
+                        getUnitIcon={getUnitIcon}
+                        onPreviewUnit={openPreviewUnit}
+                        onEditUnit={openEditUnit}
+                        onDeleteUnit={openDeleteUnit}
+                      />
 
-                      <div className="space-y-3">
-                        {(Array.isArray(module.units) ? module.units : []).map(
-                          (unit: any, unitIndex: number) => (
-                            <div
-                              key={unit.id}
-                              className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 bg-muted/30 rounded-xl border border-muted/50 hover:bg-muted/50 transition-colors"
-                            >
-                              <div className="flex items-center gap-3 sm:gap-4">
-                                <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-primary/10 rounded-lg text-primary font-medium text-xs sm:text-sm">
-                                  {unitIndex + 1}
-                                </div>
-                                <div className="flex items-center gap-3">
-                                  {getUnitIcon(unit.type)}
-                                  <div>
-                                    <span className="font-medium text-sm sm:text-base">
-                                      {unit.title}
-                                    </span>
-                                    {unit.duration && (
-                                      <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                                        <Clock className="h-3 w-3" />
-                                        {unit.duration}
-                                      </div>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1 sm:self-end">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="hover:bg-blue-50 hover:text-blue-600"
-                                  onClick={() => openPreviewUnit(unit)}
-                                  title="Preview unit"
-                                >
-                                  <Eye className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="hover:bg-primary/10"
-                                  onClick={() => openEditUnit(unit)}
-                                  title="Edit unit"
-                                >
-                                  <Edit className="h-4 w-4" />
-                                </Button>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="hover:bg-destructive/10 hover:text-destructive"
-                                  onClick={() => openDeleteUnit(unit)}
-                                  title="Delete unit"
-                                >
-                                  <Trash2 className="h-4 w-4" />
-                                </Button>
-                              </div>
-                            </div>
-                          )
-                        )}
-                      </div>
-
-                      {/* Quizzes Section */}
                       {isLoadingQuizzes ? (
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Loader2 className="h-4 w-4 animate-spin" />
                           Loading quizzes...
                         </div>
-                      ) : getModuleQuizzes(module.id).length > 0 ? (
-                        <div className="space-y-3">
-                          <div
-                            className="flex items-center gap-2 cursor-pointer hover:bg-gray-100 p-2 rounded-lg transition-colors"
-                            onClick={() =>
-                              toggleQuizSectionExpansion(module.id)
-                            }
-                          >
-                            <h3 className="text-base sm:text-lg font-semibold">
-                              Quizzes ({getModuleQuizzes(module.id).length})
-                            </h3>
-                            {expandedQuizSections.has(module.id) ? (
-                              <ChevronDown className="h-4 w-4 text-gray-500" />
-                            ) : (
-                              <ChevronRight className="h-4 w-4 text-gray-500" />
-                            )}
-                          </div>
-                          {expandedQuizSections.has(module.id) && (
-                            <div className="space-y-2">
-                              {getModuleQuizzes(module.id).map(
-                                (quiz, index) => (
-                                  <div
-                                    key={quiz.id}
-                                    className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
-                                  >
-                                    {/* Number Badge */}
-                                    <div className="flex items-center justify-center w-6 h-6 bg-gray-200 rounded text-sm font-medium text-gray-700">
-                                      {index + 1}
-                                    </div>
-
-                                    {/* Document Icon */}
-                                    <div className="flex items-center justify-center w-5 h-5 text-gray-600">
-                                      <ClipboardList className="h-4 w-4" />
-                                    </div>
-
-                                    {/* Quiz Title */}
-                                    <div className="flex-1">
-                                      <span className="text-sm font-medium text-gray-900">
-                                        {quiz.title}
-                                      </span>
-                                    </div>
-
-                                    {/* Action Icons */}
-                                    <div className="flex items-center gap-2">
-                                      {/* View Icon */}
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() =>
-                                          openQuizDetailsDialog(quiz)
-                                        }
-                                        className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-                                      >
-                                        <Eye className="h-4 w-4" />
-                                      </Button>
-
-                                      {/* Edit Icon */}
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        onClick={() => openEditQuiz(quiz)}
-                                        className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
-                                      >
-                                        <Pencil className="h-4 w-4" />
-                                      </Button>
-
-                                      {/* Delete Icon */}
-                                      <Button
-                                        variant="ghost"
-                                        size="sm"
-                                        className="h-8 w-8 p-0 text-gray-600 hover:text-red-600 hover:bg-red-50"
-                                        onClick={() => openDeleteQuiz(quiz)}
-                                      >
-                                        <Trash2 className="h-4 w-4" />
-                                      </Button>
-                                    </div>
-                                  </div>
-                                )
-                              )}
-                            </div>
-                          )}
-                        </div>
-                      ) : null}
+                      ) : (
+                        <QuizzesList
+                          moduleId={module.id}
+                          quizzes={getModuleQuizzes(module.id)}
+                          expanded={expandedQuizSections.has(module.id)}
+                          onToggle={(id) =>
+                            toggleQuizSectionExpansion(String(id))
+                          }
+                          onView={openQuizDetailsDialog}
+                          onEdit={openEditQuiz}
+                          onDelete={openDeleteQuiz}
+                        />
+                      )}
                     </div>
                   )}
                 </CardContent>

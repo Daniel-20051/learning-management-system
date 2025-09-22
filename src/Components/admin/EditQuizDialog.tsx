@@ -83,7 +83,7 @@ const EditQuizDialog = forwardRef<EditQuizDialogRef, EditQuizDialogProps>(
         });
 
         // Normalize incoming questions to editor shape
-        const normalizedQuestions: Question[] = Array.isArray(
+        let normalizedQuestions: Question[] = Array.isArray(
           (quizData as any).questions
         )
           ? (quizData as any).questions.map((q: any) => ({
@@ -100,6 +100,25 @@ const EditQuizDialog = forwardRef<EditQuizDialogRef, EditQuizDialogProps>(
                 : [],
             }))
           : [];
+
+        // Ensure single_choice questions do not keep multiple correct answers
+        normalizedQuestions = normalizedQuestions.map((q) => {
+          if ((q.type ?? "single_choice") !== "single_choice") return q;
+          let found = false;
+          return {
+            ...q,
+            options: q.options.map((o) => {
+              if (o.is_correct && !found) {
+                found = true;
+                return o;
+              }
+              return {
+                ...o,
+                is_correct: o.is_correct && found ? false : o.is_correct,
+              };
+            }),
+          };
+        });
 
         setQuestions(normalizedQuestions);
         setIsOpen(true);
@@ -145,7 +164,29 @@ const EditQuizDialog = forwardRef<EditQuizDialogRef, EditQuizDialogProps>(
       value: any
     ) => {
       setQuestions((prev) =>
-        prev.map((q, i) => (i === index ? { ...q, [field]: value } : q))
+        prev.map((q, i) => {
+          if (i !== index) return q;
+          // When switching to single_choice, normalize options to at most one correct
+          if (field === "type") {
+            const nextType = value as "single_choice" | "multiple_choice";
+            if (nextType === "single_choice") {
+              let found = false;
+              const normalizedOptions = (q.options || []).map((o) => {
+                if (o.is_correct && !found) {
+                  found = true;
+                  return o;
+                }
+                return {
+                  ...o,
+                  is_correct: o.is_correct && found ? false : o.is_correct,
+                };
+              });
+              return { ...q, type: nextType, options: normalizedOptions };
+            }
+            return { ...q, type: nextType };
+          }
+          return { ...q, [field]: value } as Question;
+        })
       );
     };
 
@@ -265,14 +306,14 @@ const EditQuizDialog = forwardRef<EditQuizDialogRef, EditQuizDialogProps>(
 
     return (
       <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent className="w-[95vw] sm:w-auto sm:max-w-6xl max-h-[90vh] mt-7 p-0">
+        <DialogContent className="w-[95vw] sm:w-auto sm:max-w-6xl max-h-[90vh] mt-7 p-0 overflow-hidden">
           <DialogHeader className="p-6 pb-0">
             <DialogTitle className="text-xl">Edit Quiz</DialogTitle>
           </DialogHeader>
 
-          <div className="flex flex-col md:flex-row h-auto md:h[calc(90vh-120px)]">
+          <div className="flex flex-col md:flex-row h-auto md:h-[calc(90vh-120px)]">
             {/* Left Sidebar - Quiz Details */}
-            <div className="w-full md:w-80 border-b md:border-r bg-muted/30 p-4 md:p-6 overflow-y-auto max-h-[40vh] md:max-h-none">
+            <div className="w-full md:w-80 border-b md:border-r bg-muted/30 p-4 md:p-6 overflow-y-auto max-h-[40vh] md:max-h-none md:h-full">
               <div className="space-y-6">
                 <div>
                   <h3 className="text-lg font-semibold mb-4">Quiz Details</h3>
@@ -390,7 +431,7 @@ const EditQuizDialog = forwardRef<EditQuizDialogRef, EditQuizDialogProps>(
             </div>
 
             {/* Right Side - Questions */}
-            <div className="flex-1 p-4 md:p-6 overflow-y-auto">
+            <div className="flex-1 p-4 md:p-6 overflow-y-auto md:h-full">
               <div className="space-y-6">
                 <div className="flex items-center justify-between">
                   <h3 className="text-lg font-semibold">Questions</h3>

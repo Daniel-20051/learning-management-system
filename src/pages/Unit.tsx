@@ -38,9 +38,17 @@ const Unit = () => {
     isLoading,
     setIsLoading,
     selectedQuiz,
+    setSelectedQuiz,
+    quizzes,
+    setQuizzes,
   } = useSidebarSelection();
 
+  // Add quiz loading state
+  const [isQuizLoading, setIsQuizLoading] = useState(true);
+
   const api = new Api();
+
+  // Quiz start/attempt are handled in QuizPage
 
   // Fetch course modules when component mounts or courseId changes
   useEffect(() => {
@@ -93,14 +101,40 @@ const Unit = () => {
     const fetchQuizzes = async () => {
       try {
         if (!courseId) return;
-        await api.GetQuiz(Number(courseId));
-        // TODO: handle response.data if needed
+        setIsQuizLoading(true);
+        const response = await api.GetQuiz(Number(courseId));
+
+        // Store quiz data in context
+        if (
+          response.data &&
+          typeof response.data === "object" &&
+          "status" in response.data &&
+          "data" in response.data
+        ) {
+          const responseData = response.data as {
+            status: boolean;
+            data: any[];
+          };
+          if (responseData.status && responseData.data) {
+            setQuizzes(responseData.data);
+          } else {
+            console.log("Invalid quiz response structure:", response.data);
+            setQuizzes([]);
+          }
+        } else {
+          console.log("Invalid quiz response structure:", response.data);
+          setQuizzes([]);
+        }
       } catch (error) {
         console.error("Error fetching quizzes:", error);
+        toast.error("Failed to load quizzes");
+        setQuizzes([]);
+      } finally {
+        setIsQuizLoading(false);
       }
     };
     fetchQuizzes();
-  }, [courseId]);
+  }, [courseId, setQuizzes]);
 
   // Current module and unit logic
   const currentModule = modules[module] || null;
@@ -116,36 +150,187 @@ const Unit = () => {
     "lesson"
   );
 
+  // Helper function to get quizzes for current module
+  const getCurrentModuleQuizzes = () => {
+    if (!currentModule?.id) return [];
+    return (quizzes || []).filter(
+      (q: any) =>
+        String(q.module_id) === String(currentModule.id) &&
+        String((q.status || "").toLowerCase()) === "published"
+    );
+  };
+
+  // Helper function to get quizzes for a specific module
+  const getModuleQuizzes = (moduleId: string) => {
+    return (quizzes || []).filter(
+      (q: any) =>
+        String(q.module_id) === String(moduleId) &&
+        String((q.status || "").toLowerCase()) === "published"
+    );
+  };
+
   // Navigation logic
   const handleNext = () => {
-    const isLastUnit = selectedIndex === units.length - 1;
-    if (isLastUnit) {
+    // If currently viewing a quiz, handle quiz navigation
+    if (selectedQuiz) {
+      const currentModuleQuizzes = getCurrentModuleQuizzes();
+      const currentQuizIndex = currentModuleQuizzes.findIndex(
+        (q: any) => q.id === selectedQuiz.id
+      );
+
+      // If there's a next quiz in the current module
+      if (currentQuizIndex < currentModuleQuizzes.length - 1) {
+        setSelectedQuiz(currentModuleQuizzes[currentQuizIndex + 1]);
+        return;
+      }
+
+      // No more quizzes in current module, try next module
       if (module < modules.length - 1) {
-        setModule(module + 1);
-        setSelectedIndex(0);
+        const nextModule = modules[module + 1];
+        const nextModuleQuizzes = getModuleQuizzes(nextModule.id);
+
+        if (nextModuleQuizzes.length > 0) {
+          // Go to next module and select first quiz
+          setModule(module + 1);
+          setSelectedIndex(0);
+          setSelectedQuiz(nextModuleQuizzes[0]);
+        } else {
+          // No quizzes in next module, go to first unit
+          setModule(module + 1);
+          setSelectedIndex(0);
+          setSelectedQuiz(null);
+        }
+      } else {
+        // No more modules, stay on current quiz
+        return;
+      }
+      return;
+    }
+
+    // If currently viewing a unit
+    const isLastUnit = selectedIndex === units.length - 1;
+
+    if (isLastUnit) {
+      // Check if current module has quizzes
+      const currentModuleQuizzes = getCurrentModuleQuizzes();
+
+      if (currentModuleQuizzes.length > 0) {
+        // Go to first quiz of current module
+        setSelectedQuiz(currentModuleQuizzes[0]);
+        return;
+      }
+
+      // No quizzes in current module, go to next module
+      if (module < modules.length - 1) {
+        const nextModule = modules[module + 1];
+        const nextModuleQuizzes = getModuleQuizzes(nextModule.id);
+
+        if (nextModuleQuizzes.length > 0) {
+          // Go to next module and select first quiz
+          setModule(module + 1);
+          setSelectedIndex(0);
+          setSelectedQuiz(nextModuleQuizzes[0]);
+        } else {
+          // Go to next module first unit
+          setModule(module + 1);
+          setSelectedIndex(0);
+          setSelectedQuiz(null);
+        }
       }
     } else {
+      // Not last unit, go to next unit
       setSelectedIndex(selectedIndex + 1);
     }
   };
 
   const handlePrevious = () => {
+    // If currently viewing a quiz, handle quiz navigation
+    if (selectedQuiz) {
+      const currentModuleQuizzes = getCurrentModuleQuizzes();
+      const currentQuizIndex = currentModuleQuizzes.findIndex(
+        (q: any) => q.id === selectedQuiz.id
+      );
+
+      // If there's a previous quiz in the current module
+      if (currentQuizIndex > 0) {
+        setSelectedQuiz(currentModuleQuizzes[currentQuizIndex - 1]);
+        return;
+      }
+
+      // No previous quiz in current module, go back to last unit of current module
+      setSelectedQuiz(null);
+      setSelectedIndex(units.length - 1);
+      return;
+    }
+
+    // If currently viewing a unit
     const isFirstUnit = selectedIndex === 0;
     if (isFirstUnit) {
       if (module > 0) {
-        const prevModule = module - 1;
-        const prevUnits = modules[prevModule].units;
-        setModule(prevModule);
-        setSelectedIndex(prevUnits.length - 1);
+        const prevModule = modules[module - 1];
+        const prevModuleQuizzes = getModuleQuizzes(prevModule.id);
+
+        if (prevModuleQuizzes.length > 0) {
+          // Go to previous module and select last quiz
+          setModule(module - 1);
+          setSelectedIndex(0);
+          setSelectedQuiz(prevModuleQuizzes[prevModuleQuizzes.length - 1]);
+        } else {
+          // Go to previous module last unit
+          const prevUnits = prevModule.units;
+          setModule(module - 1);
+          setSelectedIndex(prevUnits.length - 1);
+          setSelectedQuiz(null);
+        }
       }
     } else {
       setSelectedIndex(selectedIndex - 1);
     }
   };
 
+  // Check if we're at the very end (last unit of last module with no quizzes)
   const isLastUnitOfLastModule =
     module === modules.length - 1 && selectedIndex === units.length - 1;
+
+  // Check if we're at the very beginning
   const isFirstUnitOfFirstModule = module === 0 && selectedIndex === 0;
+
+  // Check if we should show the Next button
+  const shouldShowNext = () => {
+    // If viewing a quiz, check if there are more quizzes or modules
+    if (selectedQuiz) {
+      const currentModuleQuizzes = getCurrentModuleQuizzes();
+      const currentQuizIndex = currentModuleQuizzes.findIndex(
+        (q: any) => q.id === selectedQuiz.id
+      );
+
+      // Show next if there are more quizzes in current module or more modules
+      return (
+        currentQuizIndex < currentModuleQuizzes.length - 1 ||
+        module < modules.length - 1
+      );
+    }
+
+    // If viewing a unit, show next if not the last unit of last module
+    return !isLastUnitOfLastModule;
+  };
+
+  // Check if we should show the Previous button
+  const shouldShowPrevious = () => {
+    // If viewing a quiz, check if there are previous quizzes or modules
+    if (selectedQuiz) {
+      const currentModuleQuizzes = getCurrentModuleQuizzes();
+      const currentQuizIndex = currentModuleQuizzes.findIndex(
+        (q: any) => q.id === selectedQuiz.id
+      );
+
+      // Show previous if there are previous quizzes in current module or more modules
+      return currentQuizIndex > 0 || module > 0 || selectedIndex > 0;
+    }
+
+    // If viewing a unit, show previous if not the first unit of first module
+    return !isFirstUnitOfFirstModule;
+  };
 
   const applyListStyles = (root: HTMLElement | null) => {
     if (!root) return;
@@ -185,8 +370,8 @@ const Unit = () => {
     return () => observer.disconnect();
   }, [lessonContentRef.current]);
 
-  // Show loading state while fetching modules - full page loader
-  if (isLoading) {
+  // Show loading state while fetching modules and quizzes - full page loader
+  if (isLoading || isQuizLoading) {
     return (
       <div className="fixed inset-0 bg-background flex items-center justify-center z-50">
         <div className="text-center">
@@ -203,7 +388,9 @@ const Unit = () => {
               Loading Course
             </h3>
             <p className="text-sm text-muted-foreground">
-              Fetching modules and content...
+              {isLoading
+                ? "Fetching modules and content..."
+                : "Loading quizzes..."}
             </p>
           </div>
         </div>
@@ -212,7 +399,7 @@ const Unit = () => {
   }
 
   // Show message if no modules are available
-  if (!isLoading && modules.length === 0) {
+  if (!isLoading && !isQuizLoading && modules.length === 0) {
     return (
       <div>
         <SidebarProvider>
@@ -240,6 +427,8 @@ const Unit = () => {
     );
   }
 
+  // Quiz taking moved to dedicated route /quiz/:quizId
+
   return (
     <div>
       <SidebarProvider>
@@ -262,9 +451,11 @@ const Unit = () => {
                     <BreadcrumbSeparator className="hidden md:block" />
                     <BreadcrumbItem>
                       <BreadcrumbPage>
-                        {`Unit ${unitNumber}: ${
-                          currentUnit?.title || "Unknown Unit"
-                        }`}
+                        {selectedQuiz
+                          ? `Quiz: ${selectedQuiz.title}`
+                          : `Unit ${unitNumber}: ${
+                              currentUnit?.title || "Unknown Unit"
+                            }`}
                       </BreadcrumbPage>
                     </BreadcrumbItem>
                   </BreadcrumbList>
@@ -319,9 +510,7 @@ const Unit = () => {
                         </div>
                         <div className="flex items-center">
                           <Button
-                            onClick={() =>
-                              toast.info("Quiz taking flow coming soon")
-                            }
+                            onClick={() => navigate(`/quiz/${selectedQuiz.id}`)}
                           >
                             Start Quiz
                           </Button>
@@ -346,7 +535,7 @@ const Unit = () => {
                     {`${currentUnit?.title || "Unknown Unit"}`}
                   </p>
                   <div className="flex items-center gap-2 px-0 md:px-5  md:place-self-end text-[10px] md:text-sm text-sidebar-foreground font-bold">
-                    {!isFirstUnitOfFirstModule && (
+                    {shouldShowPrevious() && (
                       <Button
                         variant="link"
                         className="gap-2"
@@ -356,7 +545,7 @@ const Unit = () => {
                         Previous
                       </Button>
                     )}
-                    {!isLastUnitOfLastModule && (
+                    {shouldShowNext() && (
                       <Button
                         variant="link"
                         className="gap-2"
@@ -427,6 +616,8 @@ const Unit = () => {
           </div>
         </SidebarInset>
       </SidebarProvider>
+
+      {/* Quiz Start Confirmation Modal removed; handled in QuizPage */}
     </div>
   );
 };

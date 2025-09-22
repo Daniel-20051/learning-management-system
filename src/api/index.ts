@@ -621,10 +621,35 @@ async GetQuiz(courseId?: number) {
         'Authorization': `Bearer ${token}`
       }
     });
-    console.log(response);
+    console.log("Quiz response:", response);
     return response;
   } catch (err: any) {
     console.error("Error during getting quizzes:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+async GetQuizById(quizId: number) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const response = await axios.get(`${BASE_URL}/api/quiz/${quizId}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+    console.log("Quiz by id response:", response);
+    return response;
+  } catch (err: any) {
+    console.error("Error during getting quiz by id:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
       console.log("Token expired or invalid, removed from cookie");
@@ -649,7 +674,7 @@ async AddQuizQuestions(quizId: number, questions: any[]) {
         'Content-Type': 'application/json'
       }
     });
-    
+    console.log("Quiz questions response:", response);
    
     return response;
   } catch (err: any) {
@@ -734,6 +759,56 @@ async UpdateQuizQuestions(quizId: number, questions: any[]) {
     return response;
   } catch (err: any) {
     console.error("Error during updating quiz questions:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+// Start a quiz attempt
+async StartQuizAttempt(quizId: number) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const response = await axios.post(`${BASE_URL}/api/quiz/${quizId}/attempts`, {}, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    console.log("Quiz attempt response:", response);
+    return response;
+  } catch (err: any) {
+    console.error("Error during starting quiz attempt:", err);
+    
+    throw err;
+  }
+}
+
+// Submit an in-progress quiz attempt
+async SubmitQuizAttempt(attemptId: number, data: { answers: { question_id: number; selected_option_ids: number[] }[] }) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const response = await axios.post(
+      `${BASE_URL}/api/quiz/attempts/${attemptId}/submit`,
+      data,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    console.log("Quiz attempt submission response:", response);
+    return response;
+  } catch (err: any) {
+    console.error("Error during submitting quiz attempt:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
       console.log("Token expired or invalid, removed from cookie");

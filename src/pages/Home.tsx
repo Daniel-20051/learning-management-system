@@ -7,8 +7,9 @@ import { Api } from "../api/index";
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/Components/ui/card";
 import { Badge } from "@/Components/ui/badge";
+import { Input } from "@/Components/ui/input";
 import { useAuth } from "@/context/AuthContext";
-import { BookOpen, CheckCircle2, Clock } from "lucide-react";
+import { BookOpen, CheckCircle2, Clock, Search } from "lucide-react";
 
 const Home = () => {
   const api = new Api();
@@ -18,6 +19,7 @@ const Home = () => {
   const [selectedSemester, setSelectedSemester] = useState<string>("");
   const [courses, setCourses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [searchQuery, setSearchQuery] = useState<string>("");
   const { user } = useAuth();
 
   // Derive first name from authenticated user
@@ -26,6 +28,31 @@ const Home = () => {
     if (!fullName) return "Student";
     return fullName.split(" ")[0];
   }, [user?.name]);
+
+  // Filter courses based on search query
+  const filteredCourses = useMemo(() => {
+    if (!searchQuery.trim()) return courses;
+
+    const query = searchQuery.toLowerCase().trim();
+    return courses.filter((course) => {
+      const courseCode =
+        typeof course.course_code === "string"
+          ? course.course_code.toLowerCase()
+          : "";
+      const courseTitle =
+        typeof course.title === "string" ? course.title.toLowerCase() : "";
+      const courseLevel =
+        typeof course.course_level === "string"
+          ? course.course_level.toLowerCase()
+          : String(course.course_level || "").toLowerCase();
+
+      return (
+        courseCode.includes(query) ||
+        courseTitle.includes(query) ||
+        courseLevel.includes(query)
+      );
+    });
+  }, [courses, searchQuery]);
 
   // Basic stat placeholders to match the dashboard vibe
   const totalCourses = courses.length || 0;
@@ -144,6 +171,18 @@ const Home = () => {
                 onSelectionChange={handleSessionSemesterChange}
               />
             </div>
+
+            {/* Search Bar */}
+            <div className="relative place-self-end max-w-md">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+              <Input
+                type="text"
+                placeholder="Search courses"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10"
+              />
+            </div>
             <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs md:text-sm text-muted-foreground">
               <div className="flex items-center gap-2">
                 <span>Session:</span>
@@ -167,9 +206,9 @@ const Home = () => {
                 <CourseCardSkeleton key={index} />
               ))}
             </div>
-          ) : courses.length > 0 ? (
+          ) : filteredCourses.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-              {courses.map((course: any, index: number) => (
+              {filteredCourses.map((course: any, index: number) => (
                 <CourseCards
                   key={course.id || index}
                   courseCode={course.course_code}
@@ -182,6 +221,22 @@ const Home = () => {
                   courseId={course.id}
                 />
               ))}
+            </div>
+          ) : searchQuery.trim() ? (
+            <div className="flex flex-col items-center justify-center py-12 text-center">
+              <Search className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-semibold text-foreground mb-2">
+                No courses found
+              </h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                No courses match your search for "{searchQuery}"
+              </p>
+              <button
+                onClick={() => setSearchQuery("")}
+                className="text-sm text-primary hover:underline"
+              >
+                Clear search
+              </button>
             </div>
           ) : (
             <EmptyCoursesState />

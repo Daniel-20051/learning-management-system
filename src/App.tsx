@@ -12,6 +12,7 @@ import Unit from "./pages/Unit";
 import { SidebarSelectionProvider } from "@/context/SidebarSelectionContext";
 import CertificatePage from "./pages/CertificatePage";
 import NotFoundPage from "./pages/NotFoundPage";
+import QuizPage from "./pages/QuizPage";
 
 function App() {
   const { isLoggedIn, isAdmin, isInitializing } = useAuth();
@@ -60,6 +61,12 @@ function App() {
               <Route
                 path="/unit/:courseId"
                 element={isLoggedIn ? <Unit /> : <Navigate to="/" replace />}
+              />
+              <Route
+                path="/quiz/:quizId"
+                element={
+                  isLoggedIn ? <QuizPage /> : <Navigate to="/" replace />
+                }
               />
               <Route
                 path="/certificate"

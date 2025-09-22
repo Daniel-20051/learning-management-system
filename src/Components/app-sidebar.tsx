@@ -17,7 +17,6 @@ import {
 } from "@/Components/ui/sidebar";
 
 import { useSidebarSelection } from "@/context/SidebarSelectionContext";
-import { Api } from "@/api/index";
 import {
   SquarePlay,
   Lock,
@@ -40,10 +39,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     modules,
     selectedQuiz,
     setSelectedQuiz,
+    quizzes,
   } = useSidebarSelection();
-
-  const [quizzes, setQuizzes] = useState<any[]>([]);
-  const api = new Api();
 
   // State to track which module is expanded (only one at a time)
   const [expandedModule, setExpandedModule] = useState<number | null>(null);
@@ -59,26 +56,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     setExpandedModule((prev) => (prev === moduleIndex ? null : moduleIndex));
   };
 
-  // Load all quizzes once and filter per module locally
-  useEffect(() => {
-    const fetchQuizzes = async () => {
-      try {
-        const response = await api.GetQuiz();
-        const data = (response as any)?.data;
-        if (data && Array.isArray(data.data)) {
-          setQuizzes(data.data);
-        } else if (Array.isArray(response as any)) {
-          setQuizzes(response as any);
-        } else {
-          setQuizzes([]);
-        }
-      } catch (error) {
-        console.error("Error loading quizzes:", error);
-        setQuizzes([]);
-      }
-    };
-    fetchQuizzes();
-  }, []);
+  // Quizzes are now loaded in the Unit component and shared via context
   return (
     <div className="flex">
       <Sidebar className="" variant="sidebar" {...props}>
@@ -201,8 +179,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                   <SidebarMenuSubButton
                                     className="h-auto cursor-pointer py-3 px-2"
                                     isActive={Boolean(
-                                      (useSidebarSelection() as any)
-                                        .selectedQuiz?.id === quiz.id
+                                      selectedQuiz?.id === quiz.id
                                     )}
                                     onClick={() => {
                                       setSelectedQuiz(quiz);

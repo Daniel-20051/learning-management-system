@@ -1,10 +1,11 @@
 import { Button } from "@/Components/ui/button";
 import { Eye, Edit, Trash2, Clock } from "lucide-react";
+import type React from "react";
 
 interface UnitsListProps {
   units: any[];
   loading: boolean;
-  getUnitIcon: (type: string) => JSX.Element;
+  getUnitIcon: (type: string) => React.ReactNode;
   onPreviewUnit: (unit: any) => void;
   onEditUnit: (unit: any) => void;
   onDeleteUnit: (unit: any) => void;

@@ -9,6 +9,10 @@ const CoursesPage = () => {
   const api = new Api();
   const [courses, setCourses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [viewState, setViewState] = useState<
+    "idle" | "loading" | "loaded" | "error"
+  >("idle");
+  const [errorMessage, setErrorMessage] = useState<string>("");
 
   return (
     <div className="space-y-5 sm:space-y-6">
@@ -24,16 +28,23 @@ const CoursesPage = () => {
         <div className="flex items-center gap-3 w-full md:w-auto">
           <SessionSemesterDialog
             onSelectionChange={async (session: string) => {
+              setErrorMessage("");
+              setViewState("loading");
               setIsLoading(true);
               try {
                 const response = await api.GetStaffCourses(session);
                 const data = response?.data?.data ?? response?.data ?? [];
                 setCourses(Array.isArray(data) ? data : []);
+                setViewState("loaded");
+              } catch (err: any) {
+                setErrorMessage(
+                  err?.message || "Failed to load courses. Please try again."
+                );
+                setViewState("error");
               } finally {
                 setIsLoading(false);
               }
             }}
-            onLoadingChange={setIsLoading}
             isStaff={true}
           />
         </div>
@@ -51,7 +62,7 @@ const CoursesPage = () => {
               </span>
             </div>
             <p className="text-2xl sm:text-3xl font-bold mt-2">
-              {isLoading ? "--" : courses.length}
+              {isLoading || viewState === "idle" ? "--" : courses.length}
             </p>
           </CardContent>
         </Card>
@@ -66,7 +77,7 @@ const CoursesPage = () => {
               </span>
             </div>
             <p className="text-2xl sm:text-3xl font-bold mt-2">
-              {isLoading
+              {isLoading || viewState === "idle"
                 ? "--"
                 : courses.reduce(
                     (sum: number, c: any) => sum + (c?.students_count ?? 0),
@@ -77,7 +88,19 @@ const CoursesPage = () => {
         </Card>
       </div>
 
-      <CourseList courses={courses} isLoadingExternal={isLoading} />
+      {viewState === "idle" && (
+        <div className="text-sm text-muted-foreground">
+          Select an academic session to load your courses.
+        </div>
+      )}
+
+      {viewState === "error" && (
+        <div className="text-sm text-red-600">{errorMessage}</div>
+      )}
+
+      {(viewState === "loading" || viewState === "loaded") && (
+        <CourseList courses={courses} isLoadingExternal={isLoading} />
+      )}
     </div>
   );
 };

@@ -621,7 +621,6 @@ async GetQuiz(courseId?: number) {
         'Authorization': `Bearer ${token}`
       }
     });
-    console.log("Quiz response:", response);
     return response;
   } catch (err: any) {
     console.error("Error during getting quizzes:", err);

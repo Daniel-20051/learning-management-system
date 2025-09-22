@@ -3,6 +3,7 @@ import { Badge } from "@/Components/ui/badge";
 import { Button } from "@/Components/ui/button";
 import { Plus, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
 import AddUnitDialog from "@/Components/admin/AddUnitDialog";
+import type React from "react";
 
 interface ModuleCardProps {
   module: any;
@@ -13,8 +14,8 @@ interface ModuleCardProps {
   onDeleteModule: (module: any) => void;
   onAddUnit: (moduleId: string, data: any) => Promise<void>;
   onOpenQuizDialog: (module: any) => void;
-  renderUnits: (module: any) => JSX.Element;
-  renderQuizzes: (module: any) => JSX.Element | null;
+  renderUnits: (module: any) => React.ReactNode;
+  renderQuizzes: (module: any) => React.ReactNode;
 }
 
 const ModuleCard = ({

@@ -1,5 +1,5 @@
 import { Button } from "@/Components/ui/button";
-import { Eye, Edit, Trash2, Clock } from "lucide-react";
+import { Eye, Pencil, Trash2, Clock } from "lucide-react";
 import type React from "react";
 
 interface UnitsListProps {
@@ -18,38 +18,36 @@ const UnitsList = ({
   onDeleteUnit,
 }: UnitsListProps) => {
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {(Array.isArray(units) ? units : []).map(
         (unit: any, unitIndex: number) => (
           <div
             key={unit.id}
-            className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 bg-muted/30 rounded-xl border border-muted/50 hover:bg-muted/50 transition-colors"
+            className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200"
           >
-            <div className="flex items-center gap-3 sm:gap-4">
-              <div className="flex items-center justify-center w-7 h-7 sm:w-8 sm:h-8 bg-primary/10 rounded-lg text-primary font-medium text-xs sm:text-sm">
-                {unitIndex + 1}
-              </div>
-              <div className="flex items-center gap-3">
-                {getUnitIcon(unit.type)}
-                <div>
-                  <span className="font-medium text-sm sm:text-base">
-                    {unit.title}
-                  </span>
-                  {unit.duration && (
-                    <div className="flex items-center gap-1 text-xs text-muted-foreground mt-1">
-                      <Clock className="h-3 w-3" />
-                      {unit.duration}
-                    </div>
-                  )}
-                </div>
-              </div>
+            <div className="flex items-center justify-center w-6 h-6 bg-gray-200 rounded text-sm font-medium text-gray-700">
+              {unitIndex + 1}
             </div>
-            <div className="flex items-center gap-1 sm:self-end">
+            <div className="flex items-center justify-center w-5 h-5 text-gray-600">
+              {getUnitIcon(unit.type)}
+            </div>
+            <div className="flex-1">
+              <span className="text-sm font-medium text-gray-900">
+                {unit.title}
+              </span>
+              {unit.duration && (
+                <div className="flex items-center gap-1 text-xs text-gray-500 mt-1">
+                  <Clock className="h-3 w-3" />
+                  {unit.duration}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
               <Button
                 variant="ghost"
                 size="sm"
-                className="hover:bg-blue-50 hover:text-blue-600"
                 onClick={() => onPreviewUnit(unit)}
+                className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
                 title="Preview unit"
               >
                 <Eye className="h-4 w-4" />
@@ -57,16 +55,16 @@ const UnitsList = ({
               <Button
                 variant="ghost"
                 size="sm"
-                className="hover:bg-primary/10"
                 onClick={() => onEditUnit(unit)}
+                className="h-8 w-8 p-0 text-gray-600 hover:text-gray-900 hover:bg-gray-200"
                 title="Edit unit"
               >
-                <Edit className="h-4 w-4" />
+                <Pencil className="h-4 w-4" />
               </Button>
               <Button
                 variant="ghost"
                 size="sm"
-                className="hover:bg-destructive/10 hover:text-destructive"
+                className="h-8 w-8 p-0 text-gray-600 hover:text-red-600 hover:bg-red-50"
                 onClick={() => onDeleteUnit(unit)}
                 title="Delete unit"
               >

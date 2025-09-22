@@ -803,7 +803,7 @@ const CourseDetailPage = () => {
                         <QuizzesList
                           moduleId={module.id}
                           quizzes={getModuleQuizzes(module.id)}
-                          expanded={expandedQuizSections.has(module.id)}
+                          expanded={expandedQuizSections.has(String(module.id))}
                           onToggle={(id) =>
                             toggleQuizSectionExpansion(String(id))
                           }

@@ -87,6 +87,22 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
     });
   };
 
+  // Check if current question is answered
+  const isQuestionAnswered = (questionId: number) => {
+    const questionAnswers = answers[questionId] || [];
+    return questionAnswers.length > 0;
+  };
+
+  // Get answered questions count
+  const answeredQuestions = Object.keys(answers).filter((questionId) =>
+    isQuestionAnswered(parseInt(questionId))
+  ).length;
+
+  // Check if all questions are answered
+  const areAllQuestionsAnswered = () => {
+    return questions.every((question) => isQuestionAnswered(question.id));
+  };
+
   const submitAttemptIfPossible = async () => {
     if (!attemptId) return;
     const api = new (await import("@/api/index")).Api();
@@ -100,6 +116,17 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
   // Memoize handleSubmitQuiz to prevent re-creation on every render
   const handleSubmitQuiz = useCallback(async () => {
     if (isSubmitting || isSubmitted) return;
+
+    // Check if all questions are answered before submission
+    if (!areAllQuestionsAnswered()) {
+      const unansweredCount = questions.length - answeredQuestions;
+      toast.error(
+        `Please answer all questions before submitting. ${unansweredCount} question${
+          unansweredCount > 1 ? "s" : ""
+        } remaining.`
+      );
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -124,7 +151,15 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, isSubmitted, onComplete, answers, attemptId]);
+  }, [
+    isSubmitting,
+    isSubmitted,
+    onComplete,
+    answers,
+    attemptId,
+    questions,
+    answeredQuestions,
+  ]);
 
   // Intercept SPA navigations: back/forward and link clicks
   useEffect(() => {
@@ -260,17 +295,6 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
     }
   };
 
-  // Check if current question is answered
-  const isQuestionAnswered = (questionId: number) => {
-    const questionAnswers = answers[questionId] || [];
-    return questionAnswers.length > 0;
-  };
-
-  // Get answered questions count
-  const answeredQuestions = Object.keys(answers).filter((questionId) =>
-    isQuestionAnswered(parseInt(questionId))
-  ).length;
-
   // Safety check - don't render if no questions or current question is invalid
   if (!questions || questions.length === 0 || !currentQuestion) {
     return (
@@ -326,8 +350,16 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
                 </span>
               </CircularProgress>
 
-              <Badge variant="outline">
+              <Badge
+                variant={areAllQuestionsAnswered() ? "default" : "destructive"}
+                className={areAllQuestionsAnswered() ? "" : "animate-pulse"}
+              >
                 {answeredQuestions}/{totalQuestions} answered
+                {!areAllQuestionsAnswered() && (
+                  <span className="ml-1 text-xs">
+                    ({questions.length - answeredQuestions} remaining)
+                  </span>
+                )}
               </Badge>
             </div>
           </div>
@@ -438,25 +470,43 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
             Previous
           </Button>
 
-          <div className="flex gap-2">
-            {currentQuestionIndex === totalQuestions - 1 ? (
-              <Button
-                onClick={handleSubmitQuiz}
-                disabled={isSubmitting || isSubmitted}
-                className="bg-green-600 hover:bg-green-700"
-              >
-                {isSubmitting
-                  ? "Submitting..."
-                  : isSubmitted
-                  ? "Quiz Submitted"
-                  : "Submit Quiz"}
-              </Button>
-            ) : (
-              <Button onClick={goToNext} disabled={isSubmitting}>
-                Next
-                <ArrowRight className="w-4 h-4 ml-2" />
-              </Button>
-            )}
+          <div className="flex flex-col gap-2">
+            {currentQuestionIndex === totalQuestions - 1 &&
+              !areAllQuestionsAnswered() && (
+                <div className="text-sm text-amber-600 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+                  ⚠️ Please answer all questions before submitting the quiz.
+                </div>
+              )}
+            <div className="flex gap-2">
+              {currentQuestionIndex === totalQuestions - 1 ? (
+                <Button
+                  onClick={handleSubmitQuiz}
+                  disabled={
+                    isSubmitting || isSubmitted || !areAllQuestionsAnswered()
+                  }
+                  className={`${
+                    areAllQuestionsAnswered()
+                      ? "bg-green-600 hover:bg-green-700"
+                      : "bg-gray-400 hover:bg-gray-500"
+                  }`}
+                >
+                  {isSubmitting
+                    ? "Submitting..."
+                    : isSubmitted
+                    ? "Quiz Submitted"
+                    : areAllQuestionsAnswered()
+                    ? "Submit Quiz"
+                    : `Submit Quiz (${
+                        questions.length - answeredQuestions
+                      } remaining)`}
+                </Button>
+              ) : (
+                <Button onClick={goToNext} disabled={isSubmitting}>
+                  Next
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       </div>

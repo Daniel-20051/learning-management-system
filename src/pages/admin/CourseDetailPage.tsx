@@ -190,7 +190,7 @@ const CourseDetailPage = () => {
         moduleData.description
       );
 
-      if (response.code === "201") {
+      if (response.status === 201) {
         // Reload modules (with units) to show the new module
         await fetchModulesAndUnits(courseId);
 

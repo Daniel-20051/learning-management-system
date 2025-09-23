@@ -486,7 +486,7 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
                   }
                   className={`${
                     areAllQuestionsAnswered()
-                      ? "bg-green-600 hover:bg-green-700"
+                      ? "bg-primary hover:bg-primary/90"
                       : "bg-gray-400 hover:bg-gray-500"
                   }`}
                 >

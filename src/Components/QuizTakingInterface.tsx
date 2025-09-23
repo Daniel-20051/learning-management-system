@@ -477,7 +477,7 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
                   ⚠️ Please answer all questions before submitting the quiz.
                 </div>
               )}
-            <div className="flex gap-2">
+            <div className="flex place-self-end gap-2">
               {currentQuestionIndex === totalQuestions - 1 ? (
                 <Button
                   onClick={handleSubmitQuiz}

@@ -228,7 +228,7 @@ async AddModule(courseId: string, title: string, description: string) {
         }
     );
     
-    console.log(response);
+  
     return response;
 
   }catch(err: any){

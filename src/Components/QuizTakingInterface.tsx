@@ -340,7 +340,7 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <span className="text-2xl font-bold">
-                Q{currentQuestionIndex + 1}
+                Question {currentQuestionIndex + 1}
               </span>
               {isQuestionAnswered(currentQuestion.id) && (
                 <CheckCircle2 className="w-5 h-5 text-green-600" />

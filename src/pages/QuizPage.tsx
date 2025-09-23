@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Api } from "@/api/index";
-import { Button } from "@/Components/ui/button";
 import { toast } from "sonner";
 import { QuizTakingInterface } from "@/Components/QuizTakingInterface";
 import { QuizStartConfirmationModal } from "@/Components/QuizStartConfirmationModal";
@@ -80,7 +79,8 @@ export default function QuizPage() {
       setTaking(true);
       setShowConfirm(false);
     } catch (e: any) {
-      toast.error(e?.message || "Failed to start attempt");
+      const message = e?.response?.data?.message || "Failed to start attempt";
+      toast.error(message);
     } finally {
       setIsStarting(false);
     }
@@ -128,7 +128,7 @@ export default function QuizPage() {
 
   return (
     <div className="min-h-screen flex items-center justify-center p-6">
-      <div className="max-w-xl w-full border rounded-lg p-6">
+      {/* <div className="max-w-xl w-full border rounded-lg p-6">
         <h1 className="text-2xl font-bold mb-2">{quiz.title}</h1>
         {quiz.description ? (
           <p className="text-muted-foreground mb-4">{quiz.description}</p>
@@ -145,11 +145,11 @@ export default function QuizPage() {
           </Button>
           <Button onClick={() => setShowConfirm(true)}>Start Quiz</Button>
         </div>
-      </div>
+      </div> */}
 
       <QuizStartConfirmationModal
         isOpen={showConfirm}
-        onClose={() => setShowConfirm(false)}
+        onClose={() => navigate(-1)}
         onConfirm={handleConfirmStart}
         quizTitle={quiz.title}
         durationMinutes={quiz.duration_minutes}

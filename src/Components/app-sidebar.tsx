@@ -115,98 +115,106 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         )}
                       </div>
                     </SidebarMenuButton>
-                    {isExpanded && (
-                      <SidebarMenuSub>
-                        {units.map((item, unitIndex) => (
-                          <SidebarMenuSubItem key={item.id}>
-                            <SidebarMenuSubButton
-                              className="h-auto cursor-pointer py-4 px-2 mb-5 "
-                              asChild
-                              isActive={
-                                isActiveModule &&
-                                selectedIndex === unitIndex &&
-                                !selectedQuiz
-                              }
-                              onClick={() => {
-                                setModule(moduleIndex);
-                                setSelectedIndex(unitIndex);
-                                setSelectedQuiz(null);
-                                // Ensure the parent module is expanded when selecting a unit
-                                setExpandedModule(moduleIndex);
-                              }}
-                            >
-                              <div className="flex items-start gap-2">
-                                {item.status === "completed" ? (
-                                  <CircleCheck
-                                    className="w-4 h-4"
-                                    strokeWidth={3}
-                                    color="green"
-                                  />
-                                ) : item.video_url &&
-                                  item.video_url.trim() !== "" ? (
-                                  <SquarePlay className="w-4 h-4" />
-                                ) : (
-                                  <FileText className="w-4 h-4" />
-                                )}
-                                <div className=" flex  text-wrap ">
-                                  <a className="font-semibold ">
-                                    Unit {item.order}:{" "}
-                                    <span className="font-normal">
-                                      {item.title}
-                                    </span>
-                                  </a>
+                    <div
+                      className={`grid transition-[grid-template-rows] duration-300 ease-in-out overflow-hidden ${
+                        isExpanded
+                          ? "grid-rows-[1fr] opacity-100"
+                          : "grid-rows-[0fr] opacity-0"
+                      }`}
+                    >
+                      <div className="min-h-0">
+                        <SidebarMenuSub>
+                          {units.map((item, unitIndex) => (
+                            <SidebarMenuSubItem key={item.id}>
+                              <SidebarMenuSubButton
+                                className="h-auto cursor-pointer py-4 px-2 mb-5 "
+                                asChild
+                                isActive={
+                                  isActiveModule &&
+                                  selectedIndex === unitIndex &&
+                                  !selectedQuiz
+                                }
+                                onClick={() => {
+                                  setModule(moduleIndex);
+                                  setSelectedIndex(unitIndex);
+                                  setSelectedQuiz(null);
+                                  // Ensure the parent module is expanded when selecting a unit
+                                  setExpandedModule(moduleIndex);
+                                }}
+                              >
+                                <div className="flex items-start gap-2">
+                                  {item.status === "completed" ? (
+                                    <CircleCheck
+                                      className="w-4 h-4"
+                                      strokeWidth={3}
+                                      color="green"
+                                    />
+                                  ) : item.video_url &&
+                                    item.video_url.trim() !== "" ? (
+                                    <SquarePlay className="w-4 h-4" />
+                                  ) : (
+                                    <FileText className="w-4 h-4" />
+                                  )}
+                                  <div className=" flex  text-wrap ">
+                                    <a className="font-semibold ">
+                                      Unit {item.order}:{" "}
+                                      <span className="font-normal">
+                                        {item.title}
+                                      </span>
+                                    </a>
+                                  </div>
                                 </div>
-                              </div>
-                            </SidebarMenuSubButton>
-                          </SidebarMenuSubItem>
-                        ))}
-                        {/* Module Quizzes */}
-                        {(() => {
-                          const moduleQuizzes = (quizzes || []).filter(
-                            (q: any) =>
-                              String(q.module_id) === String(moduleItem.id) &&
-                              String((q.status || "").toLowerCase()) ===
-                                "published"
-                          );
-                          if (moduleQuizzes.length === 0) return null;
-                          return (
-                            <div className="mt-2 w-full">
-                              <div className="px-2 py-1 text-xs uppercase tracking-wide text-muted-foreground">
-                                Quiz
-                              </div>
-                              {moduleQuizzes.map((quiz: any) => (
-                                <SidebarMenuSubItem key={quiz.id}>
-                                  <SidebarMenuSubButton
-                                    className="h-auto cursor-pointer py-3 px-2"
-                                    isActive={Boolean(
-                                      selectedQuiz?.id === quiz.id
-                                    )}
-                                    onClick={() => {
-                                      setSelectedQuiz(quiz);
-                                      setExpandedModule(moduleIndex);
-                                    }}
-                                  >
-                                    <div className="flex items-center justify-between w-full">
-                                      <div className="flex items-center gap-2">
-                                        <ListChecks className="w-4 h-4" />
-                                        <span className="text-sm font-medium">
-                                          {quiz.title}
-                                        </span>
+                              </SidebarMenuSubButton>
+                            </SidebarMenuSubItem>
+                          ))}
+                          {/* Module Quizzes */}
+                          {(() => {
+                            const moduleQuizzes = (quizzes || []).filter(
+                              (q: any) =>
+                                String(q.module_id) === String(moduleItem.id) &&
+                                String((q.status || "").toLowerCase()) ===
+                                  "published"
+                            );
+                            if (moduleQuizzes.length === 0) return null;
+                            return (
+                              <div className="mt-2 w-full">
+                                <div className="px-2 py-1 text-xs uppercase tracking-wide text-muted-foreground">
+                                  Quiz
+                                </div>
+                                {moduleQuizzes.map((quiz: any) => (
+                                  <SidebarMenuSubItem key={quiz.id}>
+                                    <SidebarMenuSubButton
+                                      className="h-auto cursor-pointer py-3 px-2"
+                                      isActive={Boolean(
+                                        selectedQuiz?.id === quiz.id
+                                      )}
+                                      onClick={() => {
+                                        setSelectedQuiz(quiz);
+                                        setExpandedModule(moduleIndex);
+                                      }}
+                                    >
+                                      <div className="flex items-center justify-between w-full">
+                                        <div className="flex items-center gap-2">
+                                          <ListChecks className="w-4 h-4" />
+                                          <span className="text-sm font-medium">
+                                            {quiz.title}
+                                          </span>
+                                        </div>
+                                        {quiz.duration_minutes ? (
+                                          <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded">
+                                            {quiz.duration_minutes}m
+                                          </span>
+                                        ) : null}
                                       </div>
-                                      {quiz.duration_minutes ? (
-                                        <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded">
-                                          {quiz.duration_minutes}m
-                                        </span>
-                                      ) : null}
-                                    </div>
-                                  </SidebarMenuSubButton>
-                                </SidebarMenuSubItem>
-                              ))}
-                            </div>
-                          );
-                        })()}
-                      </SidebarMenuSub>
-                    )}
+                                    </SidebarMenuSubButton>
+                                  </SidebarMenuSubItem>
+                                ))}
+                              </div>
+                            );
+                          })()}
+                        </SidebarMenuSub>
+                      </div>
+                    </div>
                   </SidebarMenuItem>
                 );
               })}

@@ -5,6 +5,7 @@ import { Badge } from "@/Components/ui/badge";
 import { ArrowLeft, ArrowRight, CheckCircle2, Circle } from "lucide-react";
 import { toast } from "sonner";
 import { CircularProgress } from "@/Components/ui/circular-progress";
+import { useBeforeUnload } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -60,6 +61,7 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
+  const pendingHrefRef = useRef<string | null>(null);
 
   const currentQuestion = questions[currentQuestionIndex];
   const totalQuestions = questions.length;
@@ -105,11 +107,80 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
       toast.success("Quiz submitted successfully!");
       onComplete();
     } catch (error) {
-      toast.error("Failed to submit quiz. Please try again.");
+      const e: any = error as any;
+      const message =
+        e?.response?.data?.message ||
+        e?.message ||
+        "Failed to submit quiz. Please try again.";
+      toast.error(message);
     } finally {
       setIsSubmitting(false);
     }
   }, [isSubmitting, onComplete, answers, attemptId]);
+
+  // Intercept SPA navigations: back/forward and link clicks
+  useEffect(() => {
+    const handlePopState = (e: PopStateEvent) => {
+      e.preventDefault();
+      // Re-push current state to cancel immediate nav
+      history.pushState(null, "", window.location.href);
+      setShowExitConfirm(true);
+      pendingHrefRef.current = "back"; // marker to go back after submit
+    };
+
+    const handleClickCapture = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (!target) return;
+      const anchor = target.closest("a[href]") as HTMLAnchorElement | null;
+      if (!anchor) return;
+      // Only intercept left-click without modifiers and same-origin links
+      if (
+        e.defaultPrevented ||
+        e.button !== 0 ||
+        e.metaKey ||
+        e.ctrlKey ||
+        e.shiftKey ||
+        e.altKey
+      )
+        return;
+      const href = anchor.getAttribute("href") || "";
+      if (!href || href.startsWith("#")) return;
+      const url = new URL(href, window.location.origin);
+      if (url.origin !== window.location.origin) return; // external
+      if (
+        url.pathname === window.location.pathname &&
+        url.search === window.location.search
+      )
+        return;
+
+      // Intercept and show confirm
+      e.preventDefault();
+      pendingHrefRef.current = url.pathname + url.search + url.hash;
+      setShowExitConfirm(true);
+    };
+
+    // Push a state so we can cancel the first back press
+    history.pushState(null, "", window.location.href);
+    window.addEventListener("popstate", handlePopState);
+    document.addEventListener("click", handleClickCapture, true);
+    return () => {
+      window.removeEventListener("popstate", handlePopState);
+      document.removeEventListener("click", handleClickCapture, true);
+    };
+  }, []);
+
+  // Warn on full tab/window close with native prompt
+  useBeforeUnload(
+    React.useCallback(
+      (event) => {
+        if (isSubmitting) return;
+        event.preventDefault();
+        event.returnValue =
+          "Are you sure you want to leave? Your quiz will be submitted.";
+      },
+      [isSubmitting]
+    )
+  );
 
   // Timer effect - only runs once on mount
   useEffect(() => {
@@ -388,15 +459,39 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
                 setIsExiting(true);
                 try {
                   await submitAttemptIfPossible();
+                  const pending = pendingHrefRef.current;
+                  if (pending === "back") {
+                    // Now allow back navigation
+                    pendingHrefRef.current = null;
+                    history.back();
+                    return;
+                  }
+                  if (pending && typeof pending === "string") {
+                    pendingHrefRef.current = null;
+                    window.location.assign(pending);
+                    return;
+                  }
                   onExit();
-                } catch (e) {
+                } catch (e: any) {
+                  const message =
+                    e?.response?.data?.message ||
+                    e?.message ||
+                    "Failed to submit quiz. Please try again.";
+                  toast.error(message);
                 } finally {
                   setIsExiting(false);
                 }
               }}
               disabled={isExiting}
             >
-              {isExiting ? "Submitting..." : "Submit & Exit"}
+              {isExiting ? (
+                <span className="inline-flex items-center gap-2">
+                  <span className="w-4 h-4 border-2 border-white/70 border-t-transparent rounded-full animate-spin" />
+                  Submitting...
+                </span>
+              ) : (
+                "Submit & Exit"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

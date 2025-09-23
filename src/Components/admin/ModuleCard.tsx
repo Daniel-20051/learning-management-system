@@ -81,8 +81,14 @@ const ModuleCard = ({
         </div>
       </CardHeader>
       <CardContent className="pt-0">
-        {expanded && (
-          <div className="space-y-6">
+        <div
+          className={`grid transition-[grid-template-rows] duration-300 ease-in-out overflow-hidden ${
+            expanded
+              ? "grid-rows-[1fr] opacity-100"
+              : "grid-rows-[0fr] opacity-0"
+          }`}
+        >
+          <div className="min-h-0 space-y-6">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-2">
                 <h3 className="text-base sm:text-lg font-semibold">Units</h3>
@@ -128,7 +134,7 @@ const ModuleCard = ({
 
             {renderQuizzes(module)}
           </div>
-        )}
+        </div>
       </CardContent>
     </Card>
   );

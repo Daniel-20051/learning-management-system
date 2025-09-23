@@ -645,7 +645,6 @@ async GetQuizById(quizId: number) {
         }
       }
     );
-    console.log("Quiz by id response:", response);
     return response;
   } catch (err: any) {
     console.error("Error during getting quiz by id:", err);

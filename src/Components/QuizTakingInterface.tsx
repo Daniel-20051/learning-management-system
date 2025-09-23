@@ -58,6 +58,7 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
       : durationMinutes * 60
   ); // Convert to seconds
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSubmitted, setIsSubmitted] = useState(false);
   const [showExitConfirm, setShowExitConfirm] = useState(false);
   const [isExiting, setIsExiting] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
@@ -98,14 +99,21 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
 
   // Memoize handleSubmitQuiz to prevent re-creation on every render
   const handleSubmitQuiz = useCallback(async () => {
-    if (isSubmitting) return;
+    if (isSubmitting || isSubmitted) return;
 
     setIsSubmitting(true);
     try {
       await submitAttemptIfPossible();
 
+      setIsSubmitted(true);
       toast.success("Quiz submitted successfully!");
-      onComplete();
+
+      // Use a longer delay to ensure all effects are processed and navigation works
+      setTimeout(() => {
+        console.log("Attempting navigation after quiz submission...");
+        // Force navigation using window.location to bypass any interception
+        window.location.href = document.referrer || "/";
+      }, 2000);
     } catch (error) {
       const e: any = error as any;
       const message =
@@ -116,14 +124,20 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  }, [isSubmitting, onComplete, answers, attemptId]);
+  }, [isSubmitting, isSubmitted, onComplete, answers, attemptId]);
 
   // Intercept SPA navigations: back/forward and link clicks
   useEffect(() => {
+    // If quiz is submitted, don't set up navigation interception
+    if (isSubmitted) {
+      return;
+    }
+
     const handlePopState = (e: PopStateEvent) => {
       e.preventDefault();
       // Re-push current state to cancel immediate nav
       history.pushState(null, "", window.location.href);
+
       setShowExitConfirm(true);
       pendingHrefRef.current = "back"; // marker to go back after submit
     };
@@ -167,18 +181,18 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
       window.removeEventListener("popstate", handlePopState);
       document.removeEventListener("click", handleClickCapture, true);
     };
-  }, []);
+  }, [isSubmitted, onExit]);
 
   // Warn on full tab/window close with native prompt
   useBeforeUnload(
     React.useCallback(
       (event) => {
-        if (isSubmitting) return;
+        if (isSubmitting || isSubmitted) return;
         event.preventDefault();
         event.returnValue =
           "Are you sure you want to leave? Your quiz will be submitted.";
       },
-      [isSubmitting]
+      [isSubmitting, isSubmitted]
     )
   );
 
@@ -281,7 +295,13 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
             <div className="flex items-center gap-4">
               <Button
                 variant="ghost"
-                onClick={() => setShowExitConfirm(true)}
+                onClick={() => {
+                  if (isSubmitted) {
+                    onExit();
+                  } else {
+                    setShowExitConfirm(true);
+                  }
+                }}
                 disabled={isSubmitting || isExiting}
               >
                 <ArrowLeft className="w-4 h-4 mr-2" />
@@ -422,10 +442,14 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
             {currentQuestionIndex === totalQuestions - 1 ? (
               <Button
                 onClick={handleSubmitQuiz}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isSubmitted}
                 className="bg-green-600 hover:bg-green-700"
               >
-                {isSubmitting ? "Submitting..." : "Submit Quiz"}
+                {isSubmitting
+                  ? "Submitting..."
+                  : isSubmitted
+                  ? "Quiz Submitted"
+                  : "Submit Quiz"}
               </Button>
             ) : (
               <Button onClick={goToNext} disabled={isSubmitting}>

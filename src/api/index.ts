@@ -786,6 +786,7 @@ async StartQuizAttempt(quizId: number) {
   }
 }
 
+
 // Submit an in-progress quiz attempt
 async SubmitQuizAttempt(attemptId: number, data: { answers: { question_id: number; selected_option_ids: number[] }[] }) {
   try {
@@ -814,6 +815,7 @@ async SubmitQuizAttempt(attemptId: number, data: { answers: { question_id: numbe
     throw err;
   }
 }
+
 
 
 }

@@ -4,6 +4,7 @@ import { Api } from "@/api/index";
 import { toast } from "sonner";
 import { QuizTakingInterface } from "@/Components/QuizTakingInterface";
 import { QuizStartConfirmationModal } from "@/Components/QuizStartConfirmationModal";
+import { SubmitAttemptConfirmationModal } from "@/Components/SubmitAttemptConfirmationModal";
 
 type QuizQuestion = {
   id: number;
@@ -27,6 +28,11 @@ export default function QuizPage() {
   const [initialRemainingSeconds, setInitialRemainingSeconds] = useState<
     number | null
   >(null);
+  const [showSubmitConfirm, setShowSubmitConfirm] = useState(false);
+  const [existingAttemptId, setExistingAttemptId] = useState<number | null>(
+    null
+  );
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
     const fetchQuiz = async () => {
@@ -79,11 +85,59 @@ export default function QuizPage() {
       setTaking(true);
       setShowConfirm(false);
     } catch (e: any) {
+      // Check if the error is about time limit exceeded for existing attempt
+      if (
+        e?.response?.status === 400 &&
+        e?.response?.data?.message?.includes(
+          "Time limit exceeded for existing attempt"
+        )
+      ) {
+        console.log("Detected time limit exceeded error, showing submit modal");
+        // Show the submit confirmation modal directly
+        // We'll try to get the attempt ID from the error response or use a placeholder
+        const errorData = e?.response?.data;
+        const attemptId = errorData?.attempt_id || null;
+
+        setExistingAttemptId(attemptId);
+        setShowSubmitConfirm(true);
+        setShowConfirm(false);
+        return;
+      }
+
       const message = e?.response?.data?.message || "Failed to start attempt";
       toast.error(message);
     } finally {
       setIsStarting(false);
     }
+  };
+
+  const handleSubmitExistingAttempt = async () => {
+    setIsSubmitting(true);
+    try {
+      toast.info("Clearing previous attempt...");
+
+      // Wait a moment for the backend to process
+      await new Promise((resolve) => setTimeout(resolve, 2000));
+
+      setShowSubmitConfirm(false);
+      setExistingAttemptId(null);
+
+      // Now try to start a new attempt
+      await handleConfirmStart();
+    } catch (e: any) {
+      console.error("Error clearing previous attempt:", e);
+      const message =
+        e?.response?.data?.message || "Failed to clear previous attempt";
+      toast.error(message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const handleCloseSubmitConfirm = () => {
+    setShowSubmitConfirm(false);
+    setExistingAttemptId(null);
+    setShowConfirm(true);
   };
 
   if (isLoading || !quiz) {
@@ -119,7 +173,15 @@ export default function QuizPage() {
         questions={(quiz.questions || []) as QuizQuestion[]}
         onComplete={() => {
           toast.success("Quiz completed");
-          navigate(-1);
+          // Navigate back to the course page
+          console.log("Quiz completed, navigating back...");
+          // Try both methods to ensure navigation works
+          try {
+            navigate(-1);
+          } catch (error) {
+            console.log("navigate(-1) failed, trying window.history.back()");
+            window.history.back();
+          }
         }}
         onExit={() => navigate(-1)}
       />
@@ -155,6 +217,14 @@ export default function QuizPage() {
         durationMinutes={quiz.duration_minutes}
         attemptsAllowed={quiz.attempts_allowed}
         isLoading={isStarting}
+      />
+
+      <SubmitAttemptConfirmationModal
+        isOpen={showSubmitConfirm}
+        onClose={handleCloseSubmitConfirm}
+        onConfirm={handleSubmitExistingAttempt}
+        isLoading={isSubmitting}
+        attemptId={existingAttemptId || undefined}
       />
     </div>
   );

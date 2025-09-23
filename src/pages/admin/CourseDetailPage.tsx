@@ -684,7 +684,7 @@ const CourseDetailPage = () => {
             (module: any, index: number) => (
               <Card
                 key={module.id}
-                className="border-1 border-gray-300 py-2 gap-2 transition-shadow"
+                className="border-1 border-gray-300 py-2 gap-2 transition-shadow hover:bg-gray-100 cursor-pointer"
               >
                 <CardHeader className="py-0">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

@@ -130,6 +130,8 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
 
     setIsSubmitting(true);
     try {
+      // Save all answers before submitting
+      await saveAllAnswersToBackend();
       await submitAttemptIfPossible();
 
       setIsSubmitted(true);
@@ -140,7 +142,7 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
         console.log("Attempting navigation after quiz submission...");
         // Force navigation using window.location to bypass any interception
         window.location.href = document.referrer || "/";
-      }, 2000);
+      }, 1000);
     } catch (error) {
       const e: any = error as any;
       const message =
@@ -253,6 +255,19 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
     };
   }, [handleSubmitQuiz]); // Only depend on handleSubmitQuiz
 
+  // Auto-save answers every 30 seconds
+  useEffect(() => {
+    const autoSaveInterval = setInterval(() => {
+      if (!isSubmitted && Object.keys(answers).length > 0) {
+        saveAllAnswersToBackend();
+      }
+    }, 30000); // Save every 30 seconds
+
+    return () => {
+      clearInterval(autoSaveInterval);
+    };
+  }, [answers, isSubmitted, attemptId]);
+
   // Format time display
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -262,6 +277,31 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
       .padStart(2, "0")}`;
   };
 
+  // Save all answers to backend at once
+  const saveAllAnswersToBackend = async () => {
+    if (!attemptId) return;
+
+    try {
+      const api = new (await import("@/api/index")).Api();
+      const answersPayload = Object.entries(answers).flatMap(
+        ([questionId, optionIds]) =>
+          optionIds.map((optionId) => ({
+            question_id: parseInt(questionId),
+            selected_option_id: optionId,
+          }))
+      );
+
+      if (answersPayload.length > 0) {
+        console.log("Saving all quiz answers payload:", {
+          answers: answersPayload,
+        });
+        await api.SaveQuizAnswers(attemptId, { answers: answersPayload });
+      }
+    } catch (error) {
+      console.error("Failed to save answers:", error);
+    }
+  };
+
   // Handle answer selection
   const handleAnswerSelect = (questionId: number, optionId: number) => {
     setAnswers((prev) => {
@@ -269,28 +309,34 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
       const isMultipleChoice =
         currentQuestion.question_type === "multiple_choice";
 
+      let newAnswers: number[];
       if (isMultipleChoice) {
         // Toggle option for multiple choice
-        const newAnswers = currentAnswers.includes(optionId)
+        newAnswers = currentAnswers.includes(optionId)
           ? currentAnswers.filter((id) => id !== optionId)
           : [...currentAnswers, optionId];
-        return { ...prev, [questionId]: newAnswers };
       } else {
         // Single choice - replace with new selection
-        return { ...prev, [questionId]: [optionId] };
+        newAnswers = [optionId];
       }
+
+      return { ...prev, [questionId]: newAnswers };
     });
   };
 
   // Navigation
   const goToNext = () => {
     if (currentQuestionIndex < totalQuestions - 1) {
+      // Save answers before moving to next question
+      saveAllAnswersToBackend();
       setCurrentQuestionIndex(currentQuestionIndex + 1);
     }
   };
 
   const goToPrevious = () => {
     if (currentQuestionIndex > 0) {
+      // Save answers before moving to previous question
+      saveAllAnswersToBackend();
       setCurrentQuestionIndex(currentQuestionIndex - 1);
     }
   };
@@ -532,6 +578,8 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
               onClick={async () => {
                 setIsExiting(true);
                 try {
+                  // Save all answers before submitting
+                  await saveAllAnswersToBackend();
                   await submitAttemptIfPossible();
                   const pending = pendingHrefRef.current;
                   if (pending === "back") {

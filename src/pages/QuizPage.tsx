@@ -174,16 +174,24 @@ export default function QuizPage() {
         onComplete={() => {
           toast.success("Quiz completed");
           // Navigate back to the course page
-          console.log("Quiz completed, navigating back...");
           // Try both methods to ensure navigation works
           try {
-            navigate(-1);
+            if (quiz?.course_id) {
+              navigate("/unit/" + quiz.course_id);
+            } else {
+              navigate(-1);
+            }
           } catch (error) {
-            console.log("navigate(-1) failed, trying window.history.back()");
             window.history.back();
           }
         }}
-        onExit={() => navigate(-1)}
+        onExit={() => {
+          if (quiz?.course_id) {
+            navigate("/unit/" + quiz.course_id);
+          } else {
+            navigate(-1);
+          }
+        }}
       />
     );
   }
@@ -202,7 +210,7 @@ export default function QuizPage() {
           </span>
         </div>
         <div className="flex gap-2">
-          <Button variant="outline" onClick={() => navigate(-1)}>
+          <Button variant="outline" onClick={() => navigate("/unit/" + quiz.course_id)}>
             Cancel
           </Button>
           <Button onClick={() => setShowConfirm(true)}>Start Quiz</Button>
@@ -211,7 +219,14 @@ export default function QuizPage() {
 
       <QuizStartConfirmationModal
         isOpen={showConfirm}
-        onClose={() => navigate(-1)}
+        onClose={() => {
+          if (quiz?.course_id) {
+            navigate("/unit/" + quiz.course_id);
+          } else {
+            // Fallback to previous page or home if course_id is not available
+            navigate(-1);
+          }
+        }}
         onConfirm={handleConfirmStart}
         quizTitle={quiz.title}
         durationMinutes={quiz.duration_minutes}

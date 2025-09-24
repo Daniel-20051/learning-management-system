@@ -787,6 +787,35 @@ async StartQuizAttempt(quizId: number) {
 }
 
 
+// Save quiz answers as user answers questions
+async SaveQuizAnswers(attemptId: number, data: { answers: { question_id: number; selected_option_id: number }[] }) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const response = await axios.post(
+      `${BASE_URL}/api/quiz/attempts/${attemptId}/answers`,
+      data,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    console.log("Quiz answers save response:", response);
+    return response;
+  } catch (err: any) {
+    console.error("Error during saving quiz answers:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
 // Submit an in-progress quiz attempt
 async SubmitQuizAttempt(attemptId: number, data: { answers: { question_id: number; selected_option_ids: number[] }[] }) {
   try {

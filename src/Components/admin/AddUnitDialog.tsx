@@ -208,7 +208,7 @@ const AddUnitDialog = ({
         });
 
         try {
-          const uploadResponse = await api.UploadUnitVideo(
+          await api.UploadUnitVideo(
             moduleId,
             String(unitId),
             videoFile,

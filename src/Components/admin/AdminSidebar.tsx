@@ -5,6 +5,7 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
+  BarChart3,
 } from "lucide-react";
 
 import type { MenuItem } from "@/types/admin";
@@ -39,6 +40,11 @@ const AdminSidebar = ({
       id: "courses" as MenuItem,
       label: "My Courses",
       icon: BookOpen,
+    },
+    {
+      id: "results" as MenuItem,
+      label: "Results",
+      icon: BarChart3,
     },
   ];
 

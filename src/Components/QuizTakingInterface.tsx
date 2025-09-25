@@ -142,7 +142,6 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
 
       // Use a longer delay to ensure all effects are processed and navigation works
       setTimeout(() => {
-        console.log("Attempting navigation after quiz submission...");
         // Force navigation using window.location to bypass any interception
         navigate("/unit/" + courseId);
       }, 1000);
@@ -295,9 +294,6 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
       );
 
       if (answersPayload.length > 0) {
-        console.log("Saving all quiz answers payload:", {
-          answers: answersPayload,
-        });
         await api.SaveQuizAnswers(attemptId, { answers: answersPayload });
       }
     } catch (error) {

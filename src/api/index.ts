@@ -878,7 +878,7 @@ async GetQuizStats(quizId?: number) {
          'Authorization': `Bearer ${token}`
        }
      });
-     console.log("Latest attempt response:", response);
+     
      return response;
    } catch (err: any) {
      console.error("Error during getting latest attempt:", err);

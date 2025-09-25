@@ -32,6 +32,42 @@ export interface Quiz {
   questions: any[];
 }
 
+export interface QuizStats {
+  average_score?: number;
+  max_possible_score?: number;
+  quiz_id?: number;
+  submitted_attempts?: number;
+  distribution?: {
+    "0-39"?: number;
+    "40-49"?: number;
+    "50-59"?: number;
+    "60-69"?: number;
+    "70-100"?: number;
+  };
+  participation?: {
+    completion_rate?: number;
+    total_attempted?: number;
+    total_enrolled?: number;
+  };
+  questions_insights?: Array<{
+    question_id: number;
+    correct_rate: number;
+  }>;
+  students?: Array<{
+    student_id: number;
+    full_name: string;
+    email: string;
+    attempt_id?: number;
+    total_score?: number;
+    max_score?: number;
+    percentage?: number;
+    started_at?: string;
+    submitted_at?: string;
+  }>;
+  message?: string;
+  status?: boolean;
+}
+
 export interface Unit {
   id: string;
   title: string;
@@ -41,4 +77,4 @@ export interface Unit {
   order: number;
 }
 
-export type MenuItem = "dashboard" | "courses" ; 
+export type MenuItem = "dashboard" | "courses" | "results"; 

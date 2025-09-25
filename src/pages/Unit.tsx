@@ -92,7 +92,6 @@ const Unit = () => {
             }
           }
         } else {
-          console.log("Invalid response structure:", response.data);
         }
       } catch (error) {
         console.error("Error fetching course modules:", error);
@@ -126,11 +125,9 @@ const Unit = () => {
           if (responseData.status && responseData.data) {
             setQuizzes(responseData.data);
           } else {
-            console.log("Invalid quiz response structure:", response.data);
             setQuizzes([]);
           }
         } else {
-          console.log("Invalid quiz response structure:", response.data);
           setQuizzes([]);
         }
       } catch (error) {

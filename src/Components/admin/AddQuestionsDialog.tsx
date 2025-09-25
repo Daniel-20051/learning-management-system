@@ -249,7 +249,6 @@ const AddQuestionsDialog = forwardRef<
         );
 
         if (validNewQuestions.length === 0) {
-          console.log("No new questions to add");
           setOpen(false);
           return;
         }

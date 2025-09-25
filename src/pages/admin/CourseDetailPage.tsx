@@ -140,7 +140,6 @@ const CourseDetailPage = () => {
       const modulesArray: any[] = Array.isArray(modulesData) ? modulesData : [];
       setApiModules(() => [...modulesArray]);
     } catch (e: any) {
-      console.log(e);
       setApiModules(() => []);
     } finally {
       setIsLoadingModules(false);
@@ -242,7 +241,6 @@ const CourseDetailPage = () => {
         setCourseCode(resp.data.data.course_code);
         setCourseTitle(resp.data.data.title);
       } catch (e: any) {
-        console.log(e);
       } finally {
         setIsLoadingCourse(false);
       }

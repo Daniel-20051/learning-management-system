@@ -92,9 +92,6 @@ export default function QuizPage() {
           "Time limit exceeded for existing attempt"
         )
       ) {
-        console.log("Detected time limit exceeded error, showing submit modal");
-        // Show the submit confirmation modal directly
-        // We'll try to get the attempt ID from the error response or use a placeholder
         const errorData = e?.response?.data;
         const attemptId = errorData?.attempt_id || null;
 

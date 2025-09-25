@@ -18,6 +18,8 @@ const AdminLayout = () => {
     if (path === "/admin" || path === "/admin/dashboard") return "dashboard";
     if (path === "/admin/courses" || path.startsWith("/admin/courses/"))
       return "courses";
+    if (path === "/admin/results" || path.startsWith("/admin/results/"))
+      return "results";
     return "dashboard";
   };
 
@@ -30,6 +32,9 @@ const AdminLayout = () => {
         break;
       case "dashboard":
         navigate("/admin/dashboard");
+        break;
+      case "results":
+        navigate("/admin/results");
         break;
     }
   };

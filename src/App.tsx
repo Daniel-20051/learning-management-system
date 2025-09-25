@@ -8,6 +8,8 @@ import AdminLayout from "@/Components/admin/AdminLayout";
 import DashboardPage from "./pages/admin/DashboardPage";
 import CoursesPage from "./pages/admin/CoursesPage";
 import CourseDetailPage from "./pages/admin/CourseDetailPage";
+import ResultsPage from "./pages/admin/ResultsPage";
+import CourseQuizzesPage from "./pages/admin/CourseQuizzesPage";
 import Unit from "./pages/Unit";
 import { SidebarSelectionProvider } from "@/context/SidebarSelectionContext";
 import CertificatePage from "./pages/CertificatePage";
@@ -56,6 +58,11 @@ function App() {
                 <Route
                   path="courses/:courseId"
                   element={<CourseDetailPage />}
+                />
+                <Route path="results" element={<ResultsPage />} />
+                <Route
+                  path="results/:courseId"
+                  element={<CourseQuizzesPage />}
                 />
               </Route>
               <Route

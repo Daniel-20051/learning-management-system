@@ -221,7 +221,6 @@ const AddUnitDialog = ({
               });
             }
           );
-          console.log("Video Upload Response:", uploadResponse);
 
           // Video uploaded successfully
           setUploadProgress(100);

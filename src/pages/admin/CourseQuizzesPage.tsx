@@ -132,22 +132,22 @@ const CourseQuizzesPage = () => {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex flex-col gap-4 items-start">
+      <div className="space-y-4">
         <Button
           variant="ghost"
           size="sm"
           onClick={handleBack}
-          className=" gap-2"
+          className="flex items-center gap-2"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to Results
         </Button>
         <div>
-          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-2">
-            <ClipboardList className="h-8 w-8 text-primary" />
+          <h2 className="text-xl sm:text-2xl md:text-3xl font-bold tracking-tight flex items-center gap-2">
+            <ClipboardList className="h-6 w-6 sm:h-8 sm:w-8 text-primary" />
             Course Quizzes
           </h2>
-          <p className="text-sm sm:text-base text-muted-foreground">
+          <p className="text-sm sm:text-base text-muted-foreground mt-1">
             Manage and view quiz performance for this course
           </p>
         </div>
@@ -156,18 +156,16 @@ const CourseQuizzesPage = () => {
       {/* Quizzes Table */}
       <Card className="pt-3">
         <CardHeader>
-          <div className="flex flex-col sm:flex-row gap-4 items-start sm:items-center justify-between">
+          <div className="flex flex-col gap-4">
             <CardTitle>Quiz List</CardTitle>
-            <div className="flex gap-2">
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-                <Input
-                  placeholder="Search quizzes..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 w-64"
-                />
-              </div>
+            <div className="relative w-full max-w-sm">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <Input
+                placeholder="Search quizzes..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="pl-10 w-full"
+              />
             </div>
           </div>
         </CardHeader>
@@ -190,47 +188,34 @@ const CourseQuizzesPage = () => {
                 : "No quizzes available for this course."}
             </div>
           ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Quiz Title</TableHead>
+            <>
+              {/* Mobile Card View */}
+              <div className="block md:hidden space-y-4">
+                {filteredQuizzes.map((quiz) => (
+                  <Card key={quiz.id} className="p-4">
+                    <div className="space-y-3">
+                      <div>
+                        <h3 className="font-medium text-lg">{quiz.title}</h3>
+                        {quiz.description && (
+                          <p className="text-sm text-muted-foreground mt-1">
+                            {quiz.description}
+                          </p>
+                        )}
+                      </div>
 
-                    <TableHead>Duration</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Created</TableHead>
-                    <TableHead className="text-center">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {filteredQuizzes.map((quiz) => (
-                    <TableRow key={quiz.id}>
-                      <TableCell>
-                        <div>
-                          <div className="font-medium">{quiz.title}</div>
-                          {quiz.description && (
-                            <div className="text-sm text-muted-foreground">
-                              {quiz.description}
-                            </div>
-                          )}
-                        </div>
-                      </TableCell>
-
-                      <TableCell>
+                      <div className="flex flex-wrap gap-2 text-sm">
                         <div className="flex items-center gap-1">
                           <Clock className="h-4 w-4 text-muted-foreground" />
-                          {formatDuration(quiz.duration_minutes)}
+                          <span>{formatDuration(quiz.duration_minutes)}</span>
                         </div>
-                      </TableCell>
+                        <div className="flex items-center gap-1">
+                          <Calendar className="h-4 w-4 text-muted-foreground" />
+                          <span>{formatDate(quiz.created_at)}</span>
+                        </div>
+                      </div>
 
-                      <TableCell>{getStatusBadge(quiz.status)}</TableCell>
-                      <TableCell>
-                        <div className="flex items-center gap-1 text-sm text-muted-foreground">
-                          <Calendar className="h-4 w-4" />
-                          {formatDate(quiz.created_at)}
-                        </div>
-                      </TableCell>
-                      <TableCell className="text-center">
+                      <div className="flex items-center justify-between">
+                        {getStatusBadge(quiz.status)}
                         <Button
                           variant="outline"
                           size="sm"
@@ -240,12 +225,69 @@ const CourseQuizzesPage = () => {
                           <Eye className="h-4 w-4" />
                           View Scores
                         </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+                      </div>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+
+              {/* Desktop Table View */}
+              <div className="hidden md:block">
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Quiz Title</TableHead>
+                        <TableHead>Duration</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>Created</TableHead>
+                        <TableHead className="text-center">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {filteredQuizzes.map((quiz) => (
+                        <TableRow key={quiz.id}>
+                          <TableCell>
+                            <div>
+                              <div className="font-medium">{quiz.title}</div>
+                              {quiz.description && (
+                                <div className="text-sm text-muted-foreground">
+                                  {quiz.description}
+                                </div>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1">
+                              <Clock className="h-4 w-4 text-muted-foreground" />
+                              {formatDuration(quiz.duration_minutes)}
+                            </div>
+                          </TableCell>
+                          <TableCell>{getStatusBadge(quiz.status)}</TableCell>
+                          <TableCell>
+                            <div className="flex items-center gap-1 text-sm text-muted-foreground">
+                              <Calendar className="h-4 w-4" />
+                              {formatDate(quiz.created_at)}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-center">
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleViewStudentScores(quiz.id)}
+                              className="flex items-center gap-1"
+                            >
+                              <Eye className="h-4 w-4" />
+                              View Scores
+                            </Button>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              </div>
+            </>
           )}
         </CardContent>
       </Card>

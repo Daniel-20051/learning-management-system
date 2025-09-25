@@ -5,7 +5,7 @@ import { Badge } from "@/Components/ui/badge";
 import { ArrowLeft, ArrowRight, CheckCircle2, Circle } from "lucide-react";
 import { toast } from "sonner";
 import { CircularProgress } from "@/Components/ui/circular-progress";
-import { useBeforeUnload } from "react-router-dom";
+import { useBeforeUnload, useNavigate } from "react-router-dom";
 import {
   Dialog,
   DialogContent,
@@ -31,6 +31,7 @@ interface QuizTakingInterfaceProps {
   quizId: number;
   attemptId?: number;
   quizTitle: string;
+  courseId: number;
   durationMinutes: number;
   initialRemainingSeconds?: number;
   questions: Question[];
@@ -42,6 +43,7 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
   quizId: _quizId,
   attemptId,
   quizTitle,
+  courseId,
   durationMinutes,
   initialRemainingSeconds,
   questions,
@@ -63,6 +65,7 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
   const [isExiting, setIsExiting] = useState(false);
   const intervalRef = useRef<NodeJS.Timeout | null>(null);
   const pendingHrefRef = useRef<string | null>(null);
+  const navigate = useNavigate();
 
   const currentQuestion = questions[currentQuestionIndex];
   const totalQuestions = questions.length;
@@ -141,7 +144,7 @@ export const QuizTakingInterface: React.FC<QuizTakingInterfaceProps> = ({
       setTimeout(() => {
         console.log("Attempting navigation after quiz submission...");
         // Force navigation using window.location to bypass any interception
-        window.location.href = document.referrer || "/";
+        navigate("/unit/" + courseId);
       }, 1000);
     } catch (error) {
       const e: any = error as any;

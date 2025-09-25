@@ -7,6 +7,9 @@ import { Badge } from "@/Components/ui/badge";
 // ModuleCard is not currently used after extraction; keeping UnitsList/QuizzesList
 import UnitsList from "@/Components/admin/UnitsList";
 import QuizzesList from "@/Components/admin/QuizzesList";
+import QuizStatsDialog, {
+  type QuizStatsDialogRef,
+} from "@/Components/admin/QuizStatsDialog";
 import DeleteModuleDialog from "@/Components/admin/DeleteModuleDialog";
 
 import CourseDetailSkeleton from "@/Components/CourseDetailSkeleton";
@@ -91,6 +94,7 @@ const CourseDetailPage = () => {
 
   // Unit preview state
   const [isPreviewUnitOpen, setIsPreviewUnitOpen] = useState(false);
+  const quizStatsDialogRef = useRef<QuizStatsDialogRef>(null);
   const [unitToPreview, setUnitToPreview] = useState<any | null>(null);
 
   // Quiz creation state
@@ -810,6 +814,12 @@ const CourseDetailPage = () => {
                           onView={openQuizDetailsDialog}
                           onEdit={openEditQuiz}
                           onDelete={openDeleteQuiz}
+                          onStats={(quiz) =>
+                            quizStatsDialogRef.current?.openDialog({
+                              id: quiz.id,
+                              title: quiz.title,
+                            })
+                          }
                         />
                       )}
                     </div>
@@ -879,6 +889,9 @@ const CourseDetailPage = () => {
           onOpenChange={setIsQuizDialogOpen}
         />
       )}
+
+      {/* Quiz Stats Dialog */}
+      <QuizStatsDialog ref={quizStatsDialogRef} />
 
       {/* Add Questions Dialog */}
       {selectedQuizForQuestions && (

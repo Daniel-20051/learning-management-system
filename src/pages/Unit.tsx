@@ -23,6 +23,7 @@ import VideoControl from "@/Components/video-control";
 import { useNavigate, useParams } from "react-router-dom";
 import { Api } from "@/api/index";
 import ModuleNotes from "@/Components/ModuleNotes";
+import LatestAttemptSummary from "@/Components/quiz/LatestAttemptSummary";
 
 const Unit = () => {
   const navigate = useNavigate();
@@ -49,6 +50,13 @@ const Unit = () => {
   const api = new Api();
 
   // Quiz start/attempt are handled in QuizPage
+
+  // Latest attempt state for selected quiz
+  const [latestAttemptLoading, setLatestAttemptLoading] = useState(false);
+  const [latestAttempt, setLatestAttempt] = useState<any | null>(null);
+  const [latestAttemptError, setLatestAttemptError] = useState<string | null>(
+    null
+  );
 
   // Fetch course modules when component mounts or courseId changes
   useEffect(() => {
@@ -135,6 +143,38 @@ const Unit = () => {
     };
     fetchQuizzes();
   }, [courseId, setQuizzes]);
+
+  // Fetch latest attempt whenever selected quiz changes
+  useEffect(() => {
+    const fetchLatestAttempt = async () => {
+      if (!selectedQuiz?.id) {
+        setLatestAttempt(null);
+        setLatestAttemptError(null);
+        return;
+      }
+      try {
+        setLatestAttemptLoading(true);
+        setLatestAttemptError(null);
+        const res = await api.GetMyLatestAttempt(Number(selectedQuiz.id));
+        const payload = ((res as any) ?? {})?.data?.data ?? null;
+        setLatestAttempt(payload);
+      } catch (err: any) {
+        // Treat 404 (no attempt yet) as non-error
+        if (err?.response?.status === 404) {
+          setLatestAttempt(null);
+          setLatestAttemptError(null);
+        } else {
+          setLatestAttempt(null);
+          setLatestAttemptError(
+            err?.response?.data?.message || "Failed to load latest attempt"
+          );
+        }
+      } finally {
+        setLatestAttemptLoading(false);
+      }
+    };
+    fetchLatestAttempt();
+  }, [selectedQuiz?.id]);
 
   // Current module and unit logic
   const currentModule = modules[module] || null;
@@ -517,15 +557,11 @@ const Unit = () => {
                         </div>
                       </div>
                     </div>
-                    <div className="rounded-lg border bg-card">
-                      <div className="p-5 border-b">
-                        <p className="font-semibold">Your grade</p>
-                      </div>
-                      <div className="p-5 text-sm text-muted-foreground">
-                        You haven’t submitted this yet. We keep your highest
-                        score.
-                      </div>
-                    </div>
+                    <LatestAttemptSummary
+                      loading={latestAttemptLoading}
+                      error={latestAttemptError}
+                      attempt={latestAttempt}
+                    />
                   </div>
                 </div>
               )}

@@ -844,6 +844,51 @@ async SubmitQuizAttempt(attemptId: number, data: { answers: { question_id: numbe
     throw err;
   }
 }
+async GetQuizStats(quizId?: number) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const response = await axios.get(`${BASE_URL}/api/quiz/${quizId}/stats`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during getting quiz stats:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+ // Get the student's latest attempt details for a quiz
+ async GetMyLatestAttempt(quizId: number) {
+   try {
+     const token = getAccessToken();
+     if (!token) {
+       throw new Error("No access token found. Please login again.");
+     }
+     const response = await axios.get(`${BASE_URL}/api/quiz/${quizId}/my-latest`, {
+       headers: {
+         'Authorization': `Bearer ${token}`
+       }
+     });
+     console.log("Latest attempt response:", response);
+     return response;
+   } catch (err: any) {
+     console.error("Error during getting latest attempt:", err);
+     if (err.response?.status === 401) {
+       removeAccessToken();
+       console.log("Token expired or invalid, removed from cookie");
+     }
+     throw err;
+   }
+ }
 
 
 

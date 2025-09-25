@@ -1,4 +1,5 @@
 import { Button } from "@/Components/ui/button";
+import { Info } from "lucide-react";
 import {
   ClipboardList,
   ChevronDown,
@@ -16,6 +17,7 @@ interface QuizzesListProps {
   onView: (quiz: any) => void;
   onEdit: (quiz: any) => void;
   onDelete: (quiz: any) => void;
+  onStats?: (quiz: any) => void;
 }
 
 const QuizzesList = ({
@@ -26,6 +28,7 @@ const QuizzesList = ({
   onView,
   onEdit,
   onDelete,
+  onStats,
 }: QuizzesListProps) => {
   if (!Array.isArray(quizzes) || quizzes.length === 0) return null;
   return (
@@ -62,6 +65,15 @@ const QuizzesList = ({
                 </span>
               </div>
               <div className="flex items-center gap-2">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onStats?.(quiz)}
+                  title="View stats"
+                  className="h-8 w-8 p-0 text-blue-600 hover:text-blue-800 hover:bg-blue-50"
+                >
+                  <Info className="h-4 w-4" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="sm"

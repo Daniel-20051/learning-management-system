@@ -168,6 +168,7 @@ export default function QuizPage() {
         quizId={quiz.id}
         attemptId={attemptId || undefined}
         quizTitle={quiz.title}
+        courseId={quiz.course_id}
         durationMinutes={quiz.duration_minutes || 30}
         initialRemainingSeconds={initialRemainingSeconds ?? undefined}
         questions={(quiz.questions || []) as QuizQuestion[]}

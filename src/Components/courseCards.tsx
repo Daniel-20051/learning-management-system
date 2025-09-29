@@ -6,8 +6,9 @@ import {
   CardTitle,
 } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Badge } from "@/Components/ui/badge";
+import { useSession } from "@/context/SessionContext";
 
 interface CourseCardsProps {
   courseCode: string;
@@ -36,6 +37,9 @@ const CourseCards = ({
   courseId,
   actionLabel,
 }: CourseCardsProps) => {
+  const navigate = useNavigate();
+  const { selectedSession, selectedSemester } = useSession();
+
   const typeLabel =
     courseType === "C"
       ? "Core"
@@ -43,6 +47,18 @@ const CourseCards = ({
       ? "Elective"
       : courseType || "Course";
   const resolvedAction = actionLabel || "Details";
+
+  const handleCourseClick = () => {
+    const params = new URLSearchParams();
+    if (selectedSession) params.set("session", selectedSession);
+    if (selectedSemester) params.set("semester", selectedSemester);
+
+    const queryString = params.toString();
+    const url = `/unit/${courseId ?? "1"}${
+      queryString ? `?${queryString}` : ""
+    }`;
+    navigate(url);
+  };
   return (
     <div>
       <Card className="overflow-hidden">
@@ -79,8 +95,12 @@ const CourseCards = ({
           <Badge variant="secondary" className="text-xs">
             {academicYear ? `Session ${academicYear}` : ""}
           </Badge>
-          <Button asChild size="sm" className="text-xs md:text-sm">
-            <Link to={`/unit/${courseId ?? "1"}`}>{resolvedAction}</Link>
+          <Button
+            onClick={handleCourseClick}
+            size="sm"
+            className="text-xs md:text-sm"
+          >
+            {resolvedAction}
           </Button>
         </CardFooter>
       </Card>

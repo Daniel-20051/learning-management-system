@@ -17,17 +17,31 @@ import {
 } from "@/Components/ui/breadcrumb";
 import UserCard from "@/Components/user-card";
 import { useSidebarSelection } from "@/context/SidebarSelectionContext";
+import { useAuth } from "@/context/AuthContext";
 import { useState, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import VideoControl from "@/Components/video-control";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Api } from "@/api/index";
 import ModuleNotes from "@/Components/ModuleNotes";
 import LatestAttemptSummary from "@/Components/quiz/LatestAttemptSummary";
+import Discussion from "@/Components/Discussion";
+import socketService from "@/services/Socketservice";
+import { useSession } from "@/context/SessionContext";
 
 const Unit = () => {
   const navigate = useNavigate();
   const { courseId } = useParams<{ courseId: string }>();
+  const [searchParams] = useSearchParams();
+  const { user } = useAuth();
+  const { selectedSession, selectedSemester } = useSession();
+
+  // Get session and semester from URL params first, then fall back to context
+  const sessionFromUrl = searchParams.get("session");
+  const semesterFromUrl = searchParams.get("semester");
+  const academicYear = sessionFromUrl || selectedSession || "2024/2025";
+  const semester = semesterFromUrl || selectedSemester || "2ND";
+
   const {
     selectedIndex,
     setSelectedIndex,
@@ -140,6 +154,34 @@ const Unit = () => {
     };
     fetchQuizzes();
   }, [courseId, setQuizzes]);
+
+  // Socket connection effect
+  useEffect(() => {
+    if (user?.id && courseId) {
+      socketService.connect(user.id, () => {
+        console.log("✅ Socket connected successfully");
+
+        // Verify connection status
+        const status = socketService.getConnectionStatus();
+        console.log("🔍 Connection Status:", status);
+
+        // Get detailed connection info
+        const info = socketService.getConnectionInfo();
+        console.log("🔍 Connection Info:", info);
+
+        toast.success("Connected to real-time updates");
+
+        // Automatically join the discussion room when connected
+        socketService.joinDiscussion(courseId, academicYear, semester);
+      });
+    }
+
+    // Cleanup on unmount
+    return () => {
+      console.log("🔌 Disconnecting socket on component unmount");
+      socketService.disconnect();
+    };
+  }, [user?.id, courseId]);
 
   // Fetch latest attempt whenever selected quiz changes
   useEffect(() => {
@@ -498,7 +540,10 @@ const Unit = () => {
                   </BreadcrumbList>
                 </Breadcrumb>
               </div>
-              <UserCard sidebar={false} />
+
+              <div className="flex items-center gap-4">
+                <UserCard sidebar={false} />
+              </div>
             </div>
           </header>
           <div className="flex flex-1 flex-col gap-1 md:gap-2  p-3">
@@ -630,12 +675,14 @@ const Unit = () => {
                         isLoading={isLoading}
                       />
                     </TabsContent>
-                    <TabsContent value="discussion">
-                      {/* TODO: Implement discussion endpoint */}
-                      <p className="text-muted-foreground">
-                        Discussion functionality will be implemented when
-                        endpoint is available
-                      </p>
+                    <TabsContent value="discussion" className="h-full">
+                      <Discussion
+                        unitId={currentUnit?.id || ""}
+                        moduleId={currentModule?.id || ""}
+                        courseId={courseId || ""}
+                        academicYear={academicYear}
+                        semester={semester}
+                      />
                     </TabsContent>
                   </Tabs>
                 ) : (

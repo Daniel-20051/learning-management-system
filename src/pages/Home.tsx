@@ -9,18 +9,18 @@ import { Card, CardContent } from "@/Components/ui/card";
 import { Badge } from "@/Components/ui/badge";
 import { Input } from "@/Components/ui/input";
 import { useAuth } from "@/context/AuthContext";
+import { useSession } from "@/context/SessionContext";
 import { BookOpen, CheckCircle2, Clock, Search } from "lucide-react";
 
 const Home = () => {
   const api = new Api();
+  const { user } = useAuth();
+  const { selectedSession, selectedSemester, setSessionAndSemester } =
+    useSession();
 
-  // Set default values to match SessionSemesterDialog defaults
-  const [selectedSession, setSelectedSession] = useState<string>("");
-  const [selectedSemester, setSelectedSemester] = useState<string>("");
   const [courses, setCourses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>("");
-  const { user } = useAuth();
 
   // Derive first name from authenticated user
   const userFirstName = useMemo(() => {
@@ -60,8 +60,7 @@ const Home = () => {
   const inProgressCourses = Math.max(totalCourses - completedCourses, 0);
 
   const handleSessionSemesterChange = (session: string, semester: string) => {
-    setSelectedSession(session);
-    setSelectedSemester(semester);
+    setSessionAndSemester(session, semester);
   };
 
   // Fetch courses when session/semester changes

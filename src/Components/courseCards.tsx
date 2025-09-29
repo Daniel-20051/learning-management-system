@@ -6,7 +6,7 @@ import {
   CardTitle,
 } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
-import { Link, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Badge } from "@/Components/ui/badge";
 import { useSession } from "@/context/SessionContext";
 

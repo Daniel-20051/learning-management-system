@@ -1,9 +1,9 @@
-import Navbar from "../Components/navbar";
-import CourseCards from "../Components/courseCards";
-import CourseCardSkeleton from "../Components/CourseCardSkeleton";
-import EmptyCoursesState from "../Components/EmptyCoursesState";
-import SessionSemesterDialog from "../Components/SessionSemesterDialog";
-import { Api } from "../api/index";
+import Navbar from "../../../Components/navbar";
+import CourseCards from "./components/courseCards";
+import CourseCardSkeleton from "./components/CourseCardSkeleton";
+import EmptyCoursesState from "./components/EmptyCoursesState";
+import SessionSemesterDialog from "../../../Components/SessionSemesterDialog";
+import { Api } from "../../../api/index";
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/Components/ui/card";
 import { Badge } from "@/Components/ui/badge";

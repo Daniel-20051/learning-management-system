@@ -10,7 +10,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../../Components/ui/table";
+} from "../../../Components/ui/table";
 import {
   ArrowLeft,
   Search,
@@ -21,8 +21,8 @@ import {
 } from "lucide-react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Api } from "@/api";
-import StudentScoresDialog from "@/Components/admin/StudentScoresDialog";
-import type { StudentScoresDialogRef } from "@/Components/admin/StudentScoresDialog";
+import StudentScoresDialog from "./components/StudentScoresDialog";
+import type { StudentScoresDialogRef } from "./components/StudentScoresDialog";
 
 interface QuizData {
   id: number;

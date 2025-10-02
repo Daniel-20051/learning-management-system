@@ -2,7 +2,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Badge } from "@/Components/ui/badge";
 import { Button } from "@/Components/ui/button";
 import { Plus, ChevronDown, ChevronRight, Trash2 } from "lucide-react";
-import AddUnitDialog from "@/Components/admin/AddUnitDialog";
+import AddUnitDialog from "@/pages/course-details/components/AddUnitDialog";
 import type React from "react";
 
 interface ModuleCardProps {

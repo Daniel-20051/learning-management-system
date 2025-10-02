@@ -12,7 +12,7 @@ import {
   TableHead,
   TableHeader,
   TableRow,
-} from "../../Components/ui/table";
+} from "../../../Components/ui/table";
 import { BarChart3, Users, Search } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 

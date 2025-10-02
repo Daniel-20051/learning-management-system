@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Api } from "@/api/index";
 import { toast } from "sonner";
-import { QuizTakingInterface } from "@/Components/QuizTakingInterface";
-import { QuizStartConfirmationModal } from "@/Components/QuizStartConfirmationModal";
-import { SubmitAttemptConfirmationModal } from "@/Components/SubmitAttemptConfirmationModal";
+import { QuizTakingInterface } from "./components/QuizTakingInterface";
+import { QuizStartConfirmationModal } from "./components/QuizStartConfirmationModal";
+import { SubmitAttemptConfirmationModal } from "./components/SubmitAttemptConfirmationModal";
 
 type QuizQuestion = {
   id: number;

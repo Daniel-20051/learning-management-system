@@ -5,14 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
 import { Badge } from "@/Components/ui/badge";
 // ModuleCard is not currently used after extraction; keeping UnitsList/QuizzesList
-import UnitsList from "@/Components/admin/UnitsList";
-import QuizzesList from "@/Components/admin/QuizzesList";
+import UnitsList from "./components/UnitsList";
+import QuizzesList from "./components/QuizzesList";
 import QuizStatsDialog, {
   type QuizStatsDialogRef,
-} from "@/Components/admin/QuizStatsDialog";
-import DeleteModuleDialog from "@/Components/admin/DeleteModuleDialog";
+} from "./components/QuizStatsDialog";
+import DeleteModuleDialog from "./components/DeleteModuleDialog";
 
-import CourseDetailSkeleton from "@/Components/CourseDetailSkeleton";
+import CourseDetailSkeleton from "./components/CourseDetailSkeleton";
 
 import {
   Trash2,
@@ -28,32 +28,32 @@ import { Loader2 } from "lucide-react";
 import { Api } from "@/api";
 import CourseHeader from "@/Components/admin/CourseHeader";
 import CourseStats from "@/Components/admin/CourseStats";
-import EditCourseModal from "@/Components/admin/EditCourseModal";
+import EditCourseModal from "./components/EditCourseModal";
 import AddUnitDialog, {
   type UnitFormData,
-} from "@/Components/admin/AddUnitDialog";
+} from "./components/AddUnitDialog";
 import AddModuleDialog, {
   type AddModuleDialogRef,
-} from "@/Components/admin/AddModuleDialog";
-import EditUnitDialog from "@/Components/admin/EditUnitDialog";
-import DeleteUnitDialog from "@/Components/admin/DeleteUnitDialog";
-import UnitPreviewModal from "@/Components/admin/UnitPreviewModal";
+} from "./components/AddModuleDialog";
+import EditUnitDialog from "./components/EditUnitDialog";
+import DeleteUnitDialog from "./components/DeleteUnitDialog";
+import UnitPreviewModal from "./components/UnitPreviewModal";
 import CreateQuizDialog, {
   type CreateQuizDialogRef,
   type QuizFormData,
-} from "@/Components/admin/CreateQuizDialog";
+} from "./components/CreateQuizDialog";
 import AddQuestionsDialog, {
   type AddQuestionsDialogRef,
   type Question as AddQuestion,
-} from "@/Components/admin/AddQuestionsDialog";
+} from "./components/AddQuestionsDialog";
 import QuizDetailsDialog, {
   type QuizDetailsDialogRef,
-} from "@/Components/admin/QuizDetailsDialog";
+} from "./components/QuizDetailsDialog";
 import EditQuizDialog, {
   type EditQuizDialogRef,
   type Quiz,
   type Question as EditQuestion,
-} from "@/Components/admin/EditQuizDialog";
+} from "./components/EditQuizDialog";
 import ConfirmDialog from "@/Components/ConfirmDialog";
 
 const CourseDetailPage = () => {

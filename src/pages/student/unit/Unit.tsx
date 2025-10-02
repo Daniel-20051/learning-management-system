@@ -23,9 +23,9 @@ import { toast } from "sonner";
 import VideoControl from "@/Components/video-control";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { Api } from "@/api/index";
-import ModuleNotes from "@/Components/ModuleNotes";
-import LatestAttemptSummary from "@/Components/quiz/LatestAttemptSummary";
-import Discussion from "@/Components/Discussion";
+import ModuleNotes from "./components/ModuleNotes";
+import LatestAttemptSummary from "./components/LatestAttemptSummary";
+import Discussion from "./components/Discussion";
 import socketService from "@/services/Socketservice";
 import { useSession } from "@/context/SessionContext";
 

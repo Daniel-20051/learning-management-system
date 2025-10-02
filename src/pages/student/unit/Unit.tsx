@@ -172,7 +172,19 @@ const Unit = () => {
         toast.success("Connected to real-time updates");
 
         // Automatically join the discussion room when connected
-        socketService.joinDiscussion(courseId, academicYear, semester);
+        socketService.joinDiscussion(
+          Number(courseId),
+          academicYear,
+          semester,
+          (response) => {
+            if (response.ok) {
+              console.log('Joined discussion:', response.discussionId);
+              console.log('Recent messages:', response.messages);
+            } else {
+              console.error('Failed to join discussion:', response.error);
+            }
+          }
+        );
       });
     }
 

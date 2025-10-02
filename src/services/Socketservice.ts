@@ -83,14 +83,37 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
     return this.isConnected && this.socket !== null;
   }
 
-  joinDiscussion(courseId: string, academicYear: string, semester: string): void {
+  joinDiscussion(
+    courseId: number,
+    academicYear: string,
+    semester: string,
+    callback?: (response: { ok: boolean; discussionId?: string | number; messages?: any[]; error?: string }) => void
+  ): void {
     if (!this.isConnected || !this.socket) {
       console.error('Socket not connected');
+      if (callback) callback({ ok: false, error: 'Socket not connected' });
       return;
     }
-    console.log('🔌 Joining discussion for course:', courseId);
-    this.socket.emit('join_discussion', { courseId, academicYear, semester }, (response: any) => {
-      console.log('🔌 Joined discussion for course:', response);
+    
+    const payload = {
+      courseId: Number(courseId),
+      academicYear,
+      semester,
+    };
+    
+    console.log('📡 Emitting joinDiscussion with payload:', payload);
+    
+    this.socket.emit('joinDiscussion', payload, (response: any) => {
+      if (response?.ok) {
+        console.log('Joined discussion:', response.discussionId);
+        console.log('Recent messages:', response.messages); // Last 100 messages
+      } else {
+        console.error('Failed to join discussion:', response?.error);
+      }
+      
+      if (callback) {
+        callback(response);
+      }
     });
   }
 

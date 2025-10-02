@@ -2,9 +2,12 @@ import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/Components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar";
 import { Badge } from "@/Components/ui/badge";
-import { Send, Smile, Clock } from "lucide-react";
+import { Send, Smile, Clock, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import socketService from "@/services/Socketservice";
+
+// Helper function to generate random IDs
+const generateRandomId = () => Math.random().toString(36).substr(2, 9);
 
 // Types for discussion messages
 interface Message {
@@ -21,6 +24,8 @@ interface Message {
   };
   timestamp: Date;
   isEdited?: boolean;
+  isPending?: boolean;
+  isFailed?: boolean;
 }
 
 // API message data structure
@@ -37,108 +42,18 @@ interface DiscussionProps {
   courseId: string;
   academicYear?: string;
   semester?: string;
+  initialMessages?: any[];
 }
 
-// Mock data for demonstration
-const mockMessages: Message[] = [
-  {
-    id: "1",
-    courseId: 123,
-    academicYear: "2024/2025",
-    semester: "2ND",
-    message_text:
-      "Hey everyone! I have a question about the video we just watched. Can someone explain the concept of recursion in more detail?",
-    author: {
-      id: "user1",
-      name: "Sarah Johnson",
-      avatar: "/assets/avatar.png",
-      role: "student",
-    },
-    timestamp: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-  },
-  {
-    id: "2",
-    courseId: 123,
-    academicYear: "2024/2025",
-    semester: "2ND",
-    message_text:
-      "Great question Sarah! Recursion is when a function calls itself to solve a problem. Think of it like Russian nesting dolls - each doll contains a smaller version of itself.",
-    author: {
-      id: "instructor1",
-      name: "Dr. Michael Chen",
-      avatar: "/assets/avatar.png",
-      role: "instructor",
-    },
-    timestamp: new Date(Date.now() - 90 * 60 * 1000), // 90 minutes ago
-  },
-  {
-    id: "3",
-    courseId: 123,
-    academicYear: "2024/2025",
-    semester: "2ND",
-    message_text:
-      "Thanks Dr. Chen! That analogy really helps. I'm still confused about the base case though. How do we know when to stop?",
-    author: {
-      id: "user1",
-      name: "Sarah Johnson",
-      avatar: "/assets/avatar.png",
-      role: "student",
-    },
-    timestamp: new Date(Date.now() - 60 * 60 * 1000), // 1 hour ago
-  },
-  {
-    id: "4",
-    courseId: 123,
-    academicYear: "2024/2025",
-    semester: "2ND",
-    message_text:
-      "The base case is the condition that stops the recursion. It's like the smallest doll that doesn't open - it's the final answer. For example, in factorial: n! = n * (n-1)!, but 1! = 1 (base case).",
-    author: {
-      id: "instructor1",
-      name: "Dr. Michael Chen",
-      avatar: "/assets/avatar.png",
-      role: "instructor",
-    },
-    timestamp: new Date(Date.now() - 45 * 60 * 1000), // 45 minutes ago
-  },
-  {
-    id: "5",
-    courseId: 123,
-    academicYear: "2024/2025",
-    semester: "2ND",
-    message_text:
-      "I found this helpful diagram that explains recursion visually. What do you all think?",
-    author: {
-      id: "user2",
-      name: "Alex Rodriguez",
-      avatar: "/assets/avatar.png",
-      role: "student",
-    },
-    timestamp: new Date(Date.now() - 30 * 60 * 1000), // 30 minutes ago
-  },
-  {
-    id: "6",
-    courseId: 123,
-    academicYear: "2024/2025",
-    semester: "2ND",
-    message_text:
-      "Perfect timing! I was just about to ask about the practical applications. When would you actually use recursion in real projects?",
-    author: {
-      id: "user3",
-      name: "Emma Wilson",
-      avatar: "/assets/avatar.png",
-      role: "student",
-    },
-    timestamp: new Date(Date.now() - 15 * 60 * 1000), // 15 minutes ago
-  },
-];
+
 
 const Discussion: React.FC<DiscussionProps> = ({
   courseId,
   academicYear = "2024/2025",
   semester = "2ND",
+  initialMessages = [],
 }) => {
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -150,13 +65,84 @@ const Discussion: React.FC<DiscussionProps> = ({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages]);
 
+  // Load recent messages from parent when provided
+  useEffect(() => {
+    if (!initialMessages || initialMessages.length === 0) return;
+    const normalized = initialMessages.map((m: any): Message => ({
+      id: String(m?.id ?? m?._id ?? generateRandomId()),
+      courseId: Number(m?.course_id ?? m?.courseId ?? courseId),
+      academicYear: String(m?.academic_year ?? m?.academicYear ?? academicYear),
+      semester: String(m?.semester ?? semester),
+      message_text: String(m?.message_text ?? m?.text ?? ""),
+      author: {
+        id: String(m?.sender_id ?? m?.author?.id ?? "unknown"),
+        name: String(m?.sender_type ?? m?.author?.name ?? "Unknown User"),
+        avatar: m?.author?.avatar ?? "/assets/avatar.png",
+        role: (m?.author?.role as any) ?? "student",
+      },
+      timestamp: m?.created_at ? new Date(m.created_at) : new Date(),
+      isPending: false,
+      isFailed: false,
+    }));
+    setMessages(normalized);
+  }, [initialMessages]);
+
   // Message listening - socket connection is handled by Unit page
   useEffect(() => {
     // Listen for new messages
     socketService.onNewMessage((message: any) => {
       console.log("📨 New message received in Discussion:", message);
-      // Add the new message to the messages list
-      setMessages((prev) => [...prev, message]);
+      // Normalize shape and provide safe fallbacks
+      const normalized: Message = {
+        id: String(message?.id),
+        courseId: Number(message?.courseId ?? courseId),
+        academicYear: String(message?.academicYear ?? academicYear),
+        semester: String(message?.semester ?? semester),
+        message_text: String(message?.message_text ?? message?.text ?? ""),
+        author:
+          message?.author && typeof message.author === "object"
+            ? {
+                id: String(message.author.id ?? "unknown"),
+                name: String(message.author.name ?? "Unknown User"),
+                avatar: message.author.avatar ?? "/assets/avatar.png",
+                role: (message.author.role as any) ?? "student",
+              }
+            : {
+                id: "unknown",
+                name: "Unknown User",
+                avatar: "/assets/avatar.png",
+                role: "student",
+              },
+        timestamp: message?.timestamp ? new Date(message.timestamp) : new Date(),
+        isPending: false,
+      };
+
+      setMessages((prev) => {
+        // If same id already exists, merge and clear pending/failed
+        const existingIndex = prev.findIndex((m) => m.id === normalized.id);
+        if (existingIndex !== -1) {
+          const copy = [...prev];
+          copy[existingIndex] = {
+            ...copy[existingIndex],
+            ...normalized,
+            isPending: false,
+            isFailed: false,
+          };
+          return copy;
+        }
+
+        // If a pending message with same text exists, replace it (server echo)
+        const pendingIndex = prev.findIndex(
+          (m) => m.isPending && m.message_text === normalized.message_text
+        );
+        if (pendingIndex !== -1) {
+          const copy = [...prev];
+          copy[pendingIndex] = { ...normalized, isPending: false, isFailed: false };
+          return copy;
+        }
+
+        return [...prev, normalized];
+      });
     });
 
     // Cleanup on unmount
@@ -199,8 +185,9 @@ const Discussion: React.FC<DiscussionProps> = ({
     console.log("📤 Message data structure being sent:", messageData);
 
     // Create message for UI immediately (optimistic update)
+    const tempId = Date.now().toString();
     const message: Message = {
-      id: Date.now().toString(),
+      id: tempId,
       courseId: parseInt(courseId),
       academicYear,
       semester,
@@ -212,6 +199,7 @@ const Discussion: React.FC<DiscussionProps> = ({
         role: "student",
       },
       timestamp: new Date(),
+      isPending: true,
     };
 
     // Add to UI immediately
@@ -226,12 +214,27 @@ const Discussion: React.FC<DiscussionProps> = ({
       socketService.postMessage(messageData, (response) => {
         if (response.ok) {
           console.log("✅ Message sent successfully:", response.message);
-          // Message was sent successfully, no need to remove from UI
+          // Clear pending state; if server returns an id, update it
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === tempId
+                ? {
+                    ...m,
+                    id: String(response?.message?.id ?? response?.message?._id ?? m.id),
+                    isPending: false,
+                    isFailed: false,
+                  }
+                : m
+            )
+          );
         } else {
           console.error("❌ Failed to send message:", response.error);
-          // Optionally remove the message from UI if socket call fails
-          setMessages((prev) => prev.filter((msg) => msg.id !== message.id));
-          // You could also show a toast notification here
+          // Mark as failed (keep it visible but greyed + could allow retry later)
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === tempId ? { ...m, isPending: false, isFailed: true } : m
+            )
+          );
         }
         setIsLoading(false);
       });
@@ -243,9 +246,10 @@ const Discussion: React.FC<DiscussionProps> = ({
     }
   };
 
-  const formatTime = (timestamp: Date) => {
+  const formatTime = (timestamp: Date | string | number) => {
+    const ts = timestamp instanceof Date ? timestamp : new Date(timestamp);
     const now = new Date();
-    const diff = now.getTime() - timestamp.getTime();
+    const diff = now.getTime() - ts.getTime();
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
     const days = Math.floor(diff / 86400000);
@@ -270,47 +274,74 @@ const Discussion: React.FC<DiscussionProps> = ({
   return (
     <div className="flex flex-col h-full bg-white">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
-          <div key={message.id} className="flex space-x-3 group">
-            <Avatar className="w-8 h-8 flex-shrink-0">
-              <AvatarImage src={message.author.avatar} />
-              <AvatarFallback className="text-xs">
-                {message.author.name
-                  .split(" ")
-                  .map((n) => n[0])
-                  .join("")}
-              </AvatarFallback>
-            </Avatar>
-
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center space-x-2 mb-1">
-                <span className="font-medium text-sm text-gray-900">
-                  {message.author.name}
-                </span>
-                <Badge
-                  variant="outline"
-                  className={cn(
-                    "text-xs px-1.5 py-0.5",
-                    getRoleColor(message.author.role)
-                  )}
-                >
-                  {message.author.role}
-                </Badge>
-                <span className="text-xs text-gray-500 flex items-center">
-                  <Clock className="w-3 h-3 mr-1" />
-                  {formatTime(message.timestamp)}
-                </span>
+        <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.length === 0 ? (
+          <div className="h-full w-full flex items-center justify-center py-12">
+            <div className="flex flex-col items-center text-center text-gray-500">
+              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
+                <MessageSquare className="w-6 h-6 text-gray-400" />
               </div>
-
-              <div className="bg-gray-50 rounded-lg px-3 py-2 max-w-2xl">
-                <p className="text-sm text-gray-900 whitespace-pre-wrap">
-                  {message.message_text}
-                </p>
-              </div>
+              <p className="font-medium text-gray-700">No messages yet</p>
+              <p className="text-sm text-gray-500">Start the conversation by sending a message.</p>
             </div>
           </div>
-        ))}
+        ) : (
+        messages.map((message) => {
+          const name = message.author?.name ?? "Unknown User";
+          const avatar = message.author?.avatar ?? "/assets/avatar.png";
+          const role = message.author?.role ?? "student";
+          return (
+            <div
+              key={message.id}
+              className={cn(
+                "flex space-x-3 group",
+                message.isPending && "opacity-60",
+                message.isFailed && "opacity-60"
+              )}
+            >
+              <Avatar className="w-8 h-8 flex-shrink-0">
+                <AvatarImage src={avatar} />
+                <AvatarFallback className="text-xs">
+                  {name
+                    .split(" ")
+                    .map((n) => n[0])
+                    .join("")}
+                </AvatarFallback>
+              </Avatar>
+
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center space-x-2 mb-1">
+                  <span className="font-medium text-sm text-gray-900">
+                    {name}
+                  </span>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "text-xs px-1.5 py-0.5",
+                      getRoleColor(role)
+                    )}
+                  >
+                    {role}
+                  </Badge>
+                  <span className="text-xs text-gray-500 flex items-center">
+                    <Clock className="w-3 h-3 mr-1" />
+                    {formatTime(message.timestamp)}
+                  </span>
+                </div>
+
+                <div className="bg-gray-50 rounded-lg px-2 py-1.5 max-w-2xl">
+                  <p className="text-sm text-gray-900 whitespace-pre-wrap leading-relaxed">
+                    {message.message_text}
+                  </p>
+                  {message.isFailed && (
+                    <p className="text-[10px] text-red-500 mt-1">Failed to send</p>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })
+        )}
 
         {/* Typing indicator */}
         {typingUsers.length > 0 && (

@@ -105,8 +105,7 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
     
     this.socket.emit('joinDiscussion', payload, (response: any) => {
       if (response?.ok) {
-        console.log('Joined discussion:', response.discussionId);
-        console.log('Recent messages:', response.messages); // Last 100 messages
+        // Successfully joined; consumer may handle messages
       } else {
         console.error('Failed to join discussion:', response?.error);
       }

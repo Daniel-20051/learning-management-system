@@ -71,6 +71,8 @@ const Unit = () => {
   const [latestAttemptError, setLatestAttemptError] = useState<string | null>(
     null
   );
+  // Recent discussion messages loaded on join
+  const [recentDiscussionMessages, setRecentDiscussionMessages] = useState<any[]>([]);
 
   // Fetch course modules when component mounts or courseId changes
   useEffect(() => {
@@ -160,15 +162,6 @@ const Unit = () => {
     if (user?.id && courseId) {
       socketService.connect(user.id, () => {
         console.log("✅ Socket connected successfully");
-
-        // Verify connection status
-        const status = socketService.getConnectionStatus();
-        console.log("🔍 Connection Status:", status);
-
-        // Get detailed connection info
-        const info = socketService.getConnectionInfo();
-        console.log("🔍 Connection Info:", info);
-
         toast.success("Connected to real-time updates");
 
         // Automatically join the discussion room when connected
@@ -178,8 +171,9 @@ const Unit = () => {
           semester,
           (response) => {
             if (response.ok) {
-              console.log('Joined discussion:', response.discussionId);
-              console.log('Recent messages:', response.messages);
+              if (Array.isArray(response.messages)) {
+                setRecentDiscussionMessages(response.messages);
+              }
             } else {
               console.error('Failed to join discussion:', response.error);
             }
@@ -694,6 +688,7 @@ const Unit = () => {
                         courseId={courseId || ""}
                         academicYear={academicYear}
                         semester={semester}
+                        initialMessages={recentDiscussionMessages}
                       />
                     </TabsContent>
                   </Tabs>

@@ -101,6 +101,7 @@ const ChatDialog = () => {
   const { user } = useAuth();
   const [{ chats, messages }, setStore] = React.useState(getInitialData());
   const [open, setOpen] = React.useState(false);
+  const isAuthed = Boolean(user && (user as any).id);
   const [activeChatId, setActiveChatId] = React.useState<string | null>(
     chats[0]?.id ?? null
   );
@@ -128,6 +129,10 @@ const ChatDialog = () => {
       else setMobileView("thread");
     }
   }, [open, isMobile]);
+
+  React.useEffect(() => {
+    if (!isAuthed && open) setOpen(false);
+  }, [isAuthed, open]);
 
   React.useEffect(() => {
     saveChats({ chats, messages });
@@ -190,10 +195,12 @@ const ChatDialog = () => {
     if (isMobile) setMobileView("thread");
   }
 
+  if (!isAuthed) return null;
+
   return (
-    <Sheet open={open} onOpenChange={setOpen}>
+    <Sheet open={open} onOpenChange={(v) => { if (isAuthed) setOpen(v); }}>
       <SheetTrigger asChild>
-        <Button variant="default" size="lg" aria-label="Open chat">
+        <Button variant="default" size="lg" aria-label="Open chat" disabled={!isAuthed}>
           <MessageSquare className="mr-2 size-4" /> Chat
         </Button>
       </SheetTrigger>

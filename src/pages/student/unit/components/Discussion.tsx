@@ -55,7 +55,6 @@ const Discussion: React.FC<DiscussionProps> = ({
 }) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
-  const [typingUsers, setTypingUsers] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
@@ -152,22 +151,6 @@ const Discussion: React.FC<DiscussionProps> = ({
     };
   }, []);
 
-  // Handle typing indicator
-  useEffect(() => {
-    let typingTimer: NodeJS.Timeout;
-
-    if (newMessage.trim()) {
-      setTypingUsers(["You"]);
-
-      typingTimer = setTimeout(() => {
-        setTypingUsers([]);
-      }, 1000);
-    } else {
-      setTypingUsers([]);
-    }
-
-    return () => clearTimeout(typingTimer);
-  }, [newMessage]);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -205,7 +188,6 @@ const Discussion: React.FC<DiscussionProps> = ({
     // Add to UI immediately
     setMessages((prev) => [...prev, message]);
     setNewMessage("");
-    setTypingUsers([]);
 
     // Send via socket
     try {
@@ -343,26 +325,6 @@ const Discussion: React.FC<DiscussionProps> = ({
         })
         )}
 
-        {/* Typing indicator */}
-        {typingUsers.length > 0 && (
-          <div className="flex items-center mb-3 space-x-2 text-sm text-gray-500">
-            <div className="flex space-x-1">
-              <div className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"></div>
-              <div
-                className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                style={{ animationDelay: "0.1s" }}
-              ></div>
-              <div
-                className="w-2 h-2 bg-gray-400 rounded-full animate-bounce"
-                style={{ animationDelay: "0.2s" }}
-              ></div>
-            </div>
-            <span>
-              {typingUsers.join(", ")} {typingUsers.length === 1 ? "is" : "are"}{" "}
-              typing...
-            </span>
-          </div>
-        )}
 
         <div ref={messagesEndRef} />
       </div>

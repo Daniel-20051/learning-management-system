@@ -889,6 +889,30 @@ async GetQuizStats(quizId?: number) {
      throw err;
    }
  }
+ async GetStudents() {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const response = await axios.get(`${BASE_URL}/api/students/`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+    console.log(response)
+    return response;
+  } catch (err: any) {
+    console.error("Error during getting quiz by id:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
 
 
 

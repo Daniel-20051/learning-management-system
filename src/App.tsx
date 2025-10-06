@@ -16,6 +16,7 @@ import { SessionProvider } from "@/context/SessionContext";
 import CertificatePage from "./pages/student/certificate/CertificatePage";
 import NotFoundPage from "./pages/NotFoundPage";
 import QuizPage from "./pages/student/quiz/QuizPage";
+import ChatDialog from "@/Components/chat/ChatDialog";
 
 function App() {
   const { isLoggedIn, isAdmin, isInitializing } = useAuth();
@@ -92,6 +93,10 @@ function App() {
             </BrowserRouter>
           )}
           <Toaster />
+          {/* Global Chat trigger, fixed bottom-right so it's visible across pages */}
+          <div className="fixed bottom-4 right-4 z-50">
+            <ChatDialog />
+          </div>
         </ThemeProvider>
       </SidebarSelectionProvider>
     </SessionProvider>

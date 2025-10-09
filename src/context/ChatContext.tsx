@@ -6,6 +6,9 @@ export type ChatThread = {
   title: string;
   lastMessage: string;
   updatedAt: number;
+  peerId?: string; // Add peer ID for socket joining
+  unreadCount?: number; // Number of unread messages
+  peerRole?: string; // Role of the peer (e.g., "staff", "student")
 };
 
 type ChatContextValue = {
@@ -29,6 +32,7 @@ export const ChatProvider: React.FC<{ children: React.ReactNode } & { enabled?: 
   const [isRefreshing, setIsRefreshing] = React.useState(false);
 
   const mapToThread = React.useCallback((raw: any): ChatThread => {
+    
     const id = String(raw?.id ?? raw?._id ?? raw?.thread_id ?? crypto.randomUUID());
     const titleCandidates = [
       raw?.title,
@@ -56,7 +60,49 @@ export const ChatProvider: React.FC<{ children: React.ReactNode } & { enabled?: 
     const updatedAtVal =
       raw?.updatedAt ?? raw?.updated_at ?? raw?.last_message?.created_at ?? raw?.lastMessage?.created_at ?? Date.now();
     const updatedAt = typeof updatedAtVal === "number" ? updatedAtVal : new Date(updatedAtVal).getTime();
-    return { id, title, lastMessage, updatedAt: Number.isFinite(updatedAt) ? updatedAt : Date.now() };
+    
+    // Extract peer ID for socket joining - try multiple possible locations
+    let peerId = "";
+    
+    // Try different locations for peer ID
+    if (raw?.peer?.id) {
+      peerId = String(raw.peer.id);
+    } else if (raw?.peer?.user_id) {
+      peerId = String(raw.peer.user_id);
+    } else if (raw?.peer?._id) {
+      peerId = String(raw.peer._id);
+    } else if (raw?.peerId) {
+      peerId = String(raw.peerId);
+    } else if (raw?.peer_id) {
+      peerId = String(raw.peer_id);
+    } else if (Array.isArray(raw?.participants) && raw.participants.length > 0) {
+      // Try to extract from participants array (for DM threads)
+      const participant = raw.participants[0];
+      peerId = String(participant?.id ?? participant?.user_id ?? participant?._id ?? "");
+    } else if (raw?.id && (raw?.type === 'dm' || raw?.isDM)) {
+      // If this is a DM thread, the chat ID itself might be the peer ID
+      peerId = String(raw.id);
+    }
+    
+    
+    
+    
+    // Extract unread count
+    const unreadCount = typeof raw?.unreadCount === 'number' ? raw.unreadCount : 
+                       typeof raw?.unread_count === 'number' ? raw.unread_count : 0;
+    
+    // Extract peer role
+    const peerRole = raw?.peer?.role || raw?.peerRole || undefined;
+    
+    return { 
+      id, 
+      title, 
+      lastMessage, 
+      updatedAt: Number.isFinite(updatedAt) ? updatedAt : Date.now(),
+      peerId: peerId || undefined,
+      unreadCount: unreadCount > 0 ? unreadCount : undefined,
+      peerRole: peerRole
+    };
   }, []);
 
   const fetchThreads = React.useCallback(async () => {

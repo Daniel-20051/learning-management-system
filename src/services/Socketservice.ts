@@ -243,6 +243,78 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
     else this.socket.off('dm:newMessage');
   }
 
+  // Typing indicators
+  sendTypingStatus(peerUserId: string | number, isTyping: boolean): void {
+    if (!this.isConnected || !this.socket) {
+      console.error('Socket not connected');
+      return;
+    }
+    const payload = { peerUserId, isTyping };
+    this.socket.emit('dm:typing', payload);
+  }
+
+  onTypingStatus(callback: (data: { userId: string | number; peerUserId: string | number; isTyping: boolean }) => void): void {
+    if (!this.socket) {
+      console.error('Socket not connected');
+      return;
+    }
+    this.socket.off('dm:typing');
+    this.socket.on('dm:typing', (data: any) => {
+      callback(data);
+    });
+  }
+
+  offTypingStatus(callback?: (data: any) => void): void {
+    if (!this.socket) return;
+    if (callback) this.socket.off('dm:typing', callback as any);
+    else this.socket.off('dm:typing');
+  }
+
+  // Message status (delivered/read)
+  markMessageAsRead(messageId: string, callback?: (response: any) => void): void {
+    if (!this.isConnected || !this.socket) {
+      console.error('Socket not connected');
+      callback?.({ ok: false, error: 'Socket not connected' });
+      return;
+    }
+    const payload = { messageId };
+    console.log('📤 Marking message as read:', payload);
+    this.socket.emit('dm:read', payload, (response: any) => {
+      console.log('🔌 dm:read response:', response);
+      callback?.(response);
+    });
+  }
+
+  onMessageDelivered(callback: (data: { messageId: string; delivered_at: string }) => void): void {
+    if (!this.socket) {
+      console.error('Socket not connected');
+      return;
+    }
+    this.socket.off('dm:delivered');
+    this.socket.on('dm:delivered', (data: any) => {
+      console.log('📥 Message delivered event:', data);
+      callback(data);
+    });
+  }
+
+  onMessageRead(callback: (data: { messageId: string; read_at: string }) => void): void {
+    if (!this.socket) {
+      console.error('Socket not connected');
+      return;
+    }
+    this.socket.off('dm:read');
+    this.socket.on('dm:read', (data: any) => {
+      console.log('📥 Message read event:', data);
+      callback(data);
+    });
+  }
+
+  offMessageStatus(): void {
+    if (!this.socket) return;
+    this.socket.off('dm:delivered');
+    this.socket.off('dm:read');
+  }
+
   
 
  

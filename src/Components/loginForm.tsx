@@ -38,6 +38,7 @@ export function LoginForm({
 
     try {
       const response = await api.LoginUser({ email, password });
+    
 
       if (response && response.data) {
         const userData = response.data;
@@ -48,7 +49,7 @@ export function LoginForm({
         }
 
         const user = {
-          id: userData.user?.id || email,
+          id: userData.data.user?.id ,
           email: userData.data.user?.email,
           matricNumber: userData.data.user?.matricNumber,
           name:

@@ -7,7 +7,7 @@ import { type DirectoryUser } from "@/Components/chat/NewChatDialog";
 import NewChatMenu from "@/Components/chat/NewChatMenu";
 import ChatList from "@/Components/chat/ChatList";
 import MessageThread from "@/Components/chat/MessageThread";
-import { type ChatMessage, type ChatSummary } from "@/Components/chat/types";
+import { type ChatMessage, type ChatSummary, isMessageFromUser } from "@/Components/chat/types";
 import { useAuth } from "@/context/AuthContext";
 import { Api } from "@/api";
 import { useChat } from "@/context/ChatContext";
@@ -123,6 +123,11 @@ const ChatDialog = () => {
   const didRefreshOnOpenRef = React.useRef(false);
   // Track chats started in this UI session so we can show them optimistically
   const [ephemeralChatIds, setEphemeralChatIds] = React.useState<string[]>([]);
+  const [loadingChatId, setLoadingChatId] = React.useState<string | null>(null);
+  // Store peer IDs for active chats to ensure consistency between join and send
+  const [chatPeerIds, setChatPeerIds] = React.useState<Record<string, string>>({});
+  // Track typing status for each chat
+  const [typingStatus, setTypingStatus] = React.useState<Record<string, boolean>>({});
 
   React.useEffect(() => {
     let cancelled = false;
@@ -187,16 +192,21 @@ const ChatDialog = () => {
 
   const activeMessages = React.useMemo(() => {
     if (!activeChatId) return [] as ChatMessage[];
-    return messages
+    const filtered = messages
       .filter((m) => m.chatId === activeChatId && (m.message_text ?? "").toString().trim().length > 0)
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+ 
+    return filtered;
   }, [messages, activeChatId]);
 
   function handleSend() {
     if (!activeChatId || !draft.trim()) return;
     const text = draft.trim();
-    const chat = chats.find((c) => c.id === activeChatId);
+    
+    // Look for chat in both local chats and server threads (filteredChats)
+    const chat = chats.find((c) => c.id === activeChatId) || filteredChats.find((c) => c.id === activeChatId);
     if (!chat) return;
+    
     // Optimistic local append
     const tempId = crypto.randomUUID();
     const optimistic: ChatMessage = {
@@ -216,9 +226,28 @@ const ChatDialog = () => {
     });
     setDraft("");
 
-    // Resolve peer id from chat title via directory match if available
-    const peer = directory.find((d) => d.name === chat.title);
-    const peerId = peer?.id ?? undefined;
+    // Use the stored peer ID that was used when joining this chat
+    let peerId: string | undefined = chatPeerIds[activeChatId];
+    
+    
+    // Fallback: try to resolve peer ID if not stored
+    if (!peerId) {
+      
+      // First try to get peerId from the chat thread (server data)
+      if ((chat as any).peerId) {
+        peerId = String((chat as any).peerId);
+      } else {
+        // Fallback: resolve peer id from chat title via directory match
+        const peer = directory.find((d) => d.name === chat.title);
+        peerId = peer?.id;
+      }
+      
+      // Store the resolved peer ID for future use
+      if (peerId) {
+        setChatPeerIds(prev => ({ ...prev, [activeChatId]: peerId! }));
+      }
+    }
+    
     if (peerId) {
       socketService.sendDirectMessage(peerId, text, (response) => {
         if (response?.ok && response?.message) {
@@ -235,12 +264,31 @@ const ChatDialog = () => {
                       sender_id: user?.id ?? serverMsg.sender_id,
                       chatId: activeChatId,
                       pending: false,
+                      // Mark as delivered immediately when sent successfully
+                      delivered_at: serverMsg.delivered_at || new Date().toISOString(),
                     }
                   : m
               )),
           }));
+        } else {
+          // Handle send failure - remove pending flag and show error state
+          setStore((prev) => ({
+            chats: prev.chats,
+            messages: prev.messages.map((m) => (
+              m.id === tempId ? { ...m, pending: false, failed: true } : m
+            )),
+          }));
         }
       });
+    } else {
+      // No peer ID found - mark message as failed
+      setStore((prev) => ({
+        chats: prev.chats,
+        messages: prev.messages.map((m) => (
+          m.id === tempId ? { ...m, pending: false, failed: true } : m
+        )),
+      }));
+      console.error('Cannot send message: No peer ID found for chat', chat);
     }
   }
 
@@ -304,44 +352,334 @@ const ChatDialog = () => {
     };
   }, [chats, messages, directory, activeChatId, user?.id]);
 
+  // Handle typing indicators
+  React.useEffect(() => {
+    const handleTyping = (data: { userId: string | number; peerUserId: string | number; isTyping: boolean }) => {
+      const senderId = String(data.userId);
+      // Find chat by peer ID
+      const chatId = Object.keys(chatPeerIds).find(id => chatPeerIds[id] === senderId);
+      if (chatId) {
+        setTypingStatus(prev => ({
+          ...prev,
+          [chatId]: data.isTyping
+        }));
+      }
+    };
+
+    socketService.onTypingStatus(handleTyping);
+    return () => {
+      socketService.offTypingStatus(handleTyping);
+    };
+  }, [chatPeerIds]);
+
+  // Handle message status updates
+  React.useEffect(() => {
+    const handleDelivered = (data: { messageId: string; delivered_at: string }) => {
+      setStore(prev => ({
+        chats: prev.chats,
+        messages: prev.messages.map(m => 
+          m.id === data.messageId 
+            ? { ...m, delivered_at: data.delivered_at }
+            : m
+        )
+      }));
+    };
+
+    const handleRead = (data: { messageId: string; read_at: string }) => {
+      setStore(prev => ({
+        chats: prev.chats,
+        messages: prev.messages.map(m => 
+          m.id === data.messageId 
+            ? { ...m, read_at: data.read_at }
+            : m
+        )
+      }));
+    };
+
+    socketService.onMessageDelivered(handleDelivered);
+    socketService.onMessageRead(handleRead);
+    
+    return () => {
+      socketService.offMessageStatus();
+    };
+  }, [setStore]);
+
+  // Typing handlers
+  const handleTyping = React.useCallback(() => {
+    if (!activeChatId) return;
+    const peerId = chatPeerIds[activeChatId];
+    if (peerId) {
+      socketService.sendTypingStatus(peerId, true);
+    }
+  }, [activeChatId, chatPeerIds]);
+
+  const handleStopTyping = React.useCallback(() => {
+    if (!activeChatId) return;
+    const peerId = chatPeerIds[activeChatId];
+    if (peerId) {
+      socketService.sendTypingStatus(peerId, false);
+    }
+  }, [activeChatId, chatPeerIds]);
+
+  // Mark messages as read when viewing a chat
+  React.useEffect(() => {
+    if (!activeChatId) return;
+    
+    // Mark unread messages as read
+    const unreadMessages = activeMessages.filter(m => 
+      !isMessageFromUser(m, user?.id) && !m.read_at
+    );
+    
+    unreadMessages.forEach(message => {
+      socketService.markMessageAsRead(message.id, () => {
+        // Message marked as read
+      });
+    });
+  }, [activeChatId, activeMessages, user?.id]);
+
   React.useEffect(() => {
     if (!open) {
       didRefreshOnOpenRef.current = false;
     }
   }, [open]);
 
+  // Helper function to process and store server messages
+  const processServerMessages = React.useCallback((serverMessages: any[], chatId: string) => {
+    if (!Array.isArray(serverMessages) || serverMessages.length === 0) {
+      setLoadingChatId(null);
+      return;
+    }
+    
+    // Clear existing messages for this chat first to avoid duplicates
+    setStore((prev) => {
+      const filteredMessages = prev.messages.filter(m => m.chatId !== chatId);
+      
+      const processedMessages: ChatMessage[] = serverMessages
+        .map((msg: any) => {
+          // Extract sender ID - try multiple possible field names
+          const senderId = String(
+            msg.senderId || 
+            msg.sender_id || 
+            msg.sender?.id || 
+            msg.sender || 
+            ''
+          );
+          
+          // Extract receiver ID - try multiple possible field names  
+          const receiverId = String(
+            msg.receiverId || 
+            msg.receiver_id || 
+            msg.receiver?.id || 
+            msg.receiver || 
+            ''
+          );
+          
+          const processed = {
+            id: String(msg._id || msg.id || crypto.randomUUID()),
+            chatId: chatId,
+            sender_id: senderId,
+            receiver_id: receiverId,
+            message_text: String(msg.messageText || msg.message_text || msg.text || msg.content || ''),
+            created_at: msg.created_at || msg.createdAt || msg.timestamp || new Date().toISOString(),
+            delivered_at: msg.deliveredAt || msg.delivered_at || null,
+            read_at: msg.readAt || msg.read_at || null,
+          };
+          
+          
+          return processed;
+        })
+        .filter(msg => msg.message_text.trim().length > 0)
+        .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+      
+      const newMessages = [...filteredMessages, ...processedMessages];
+      
+      return {
+        chats: prev.chats,
+        messages: newMessages
+      };
+    });
+    
+    setLoadingChatId(null);
+  }, [setStore]);
+
+  function handleSelectChat(chatId: string) {
+    setActiveChatId(chatId);
+    setLoadingChatId(chatId); // Set loading state
+    if (isMobile) setMobileView("thread");
+    
+    // Set a timeout to clear loading state in case socket doesn't respond
+    setTimeout(() => {
+      setLoadingChatId((current) => current === chatId ? null : current);
+    }, 10000); // 10 second timeout
+    
+    // Find the chat to get peer information
+    const chat = filteredChats.find((c) => c.id === chatId);
+    if (!chat) {
+      setLoadingChatId(null);
+      return;
+    }
+    
+    // If this is a server thread that doesn't exist in local chats, create a local copy
+    const localChat = chats.find((c) => c.id === chatId);
+    if (!localChat) {
+      const newLocalChat: ChatSummary = {
+        id: chat.id,
+        title: chat.title,
+        lastMessage: chat.lastMessage,
+        updatedAt: chat.updatedAt,
+        unreadCount: (chat as any).unreadCount,
+        peerRole: (chat as any).peerRole,
+      };
+      setStore({ chats: [newLocalChat, ...chats], messages });
+      setEphemeralChatIds((prev) => Array.from(new Set([...prev, chatId])));
+    }
+    
+    // First try to get peer ID from the chat thread data (from server)
+    let peerId = (chat as any).peerId;
+    
+    // Fallback: try to find the peer user ID from directory or chat title
+    if (!peerId) {
+      const peer = directory.find((d) => d.name === chat.title);
+      peerId = peer?.id;
+    }
+    
+    if (peerId) {
+      // Store the peer ID for this chat to use when sending messages
+      setChatPeerIds(prev => ({ ...prev, [chatId]: peerId }));
+      
+      // Check if socket is connected before trying to join
+      if (!socketService.isSocketConnected()) {
+        if (user?.id) {
+          socketService.connect(String(user.id), () => {
+            socketService.joinDirectMessage(peerId, (response) => {
+              if (response?.ok) {
+                // Process and store the received messages - use the chatId parameter instead of activeChatId
+                if (response?.messages && Array.isArray(response.messages)) {
+                  processServerMessages(response.messages, chatId);
+                }
+                } else {
+                  setLoadingChatId(null);
+                }
+            });
+          });
+        }
+      } else {
+        // Join the chat via socket
+        socketService.joinDirectMessage(peerId, (response) => {
+          if (response?.ok) {
+            // Process and store the received messages - use the chatId parameter instead of activeChatId
+            if (response?.messages && Array.isArray(response.messages)) {
+              processServerMessages(response.messages, chatId);
+            }
+        } else {
+          setLoadingChatId(null);
+        }
+        });
+      }
+    } else {
+      // Try to load directory if not loaded yet
+      if (directory.length === 0) {
+        setIsLoadingUsers(true);
+        fetchDirectoryStudents().then((users) => {
+          setDirectory(users);
+          setIsLoadingUsers(false);
+          // Retry finding the peer
+          const retryPeer = users.find((d) => d.name === chat.title);
+          if (retryPeer?.id) {
+            // Store the peer ID for this chat to use when sending messages
+            setChatPeerIds(prev => ({ ...prev, [chatId]: retryPeer.id }));
+            
+            // Check if socket is connected before trying to join
+            if (!socketService.isSocketConnected()) {
+              if (user?.id) {
+                socketService.connect(String(user.id), () => {
+                  socketService.joinDirectMessage(retryPeer.id, (response) => {
+                    if (response?.ok) {
+                      // Process and store the received messages - use the chatId parameter instead of activeChatId
+                      if (response?.messages && Array.isArray(response.messages)) {
+                        processServerMessages(response.messages, chatId);
+                      }
+                  } else {
+                    setLoadingChatId(null);
+                  }
+                  });
+                });
+              }
+            } else {
+              socketService.joinDirectMessage(retryPeer.id, (response) => {
+                if (response?.ok) {
+                  // Process and store the received messages - use the chatId parameter instead of activeChatId
+                  if (response?.messages && Array.isArray(response.messages)) {
+                    processServerMessages(response.messages, chatId);
+                  }
+                } else {
+                  setLoadingChatId(null);
+                }
+              });
+            }
+          }
+        }).catch(() => {
+          setIsLoadingUsers(false);
+        });
+      }
+    }
+  }
+
   function startChatWith(user: DirectoryUser) {
     // Join DM via socket, then navigate to thread on success
     const peerId = user.id;
-    socketService.joinDirectMessage(peerId, (response) => {
-      if (response?.ok) {
-        console.log('Joined chat:', response?.messages);
-        // Create/find local thread for this peer
-        const existing = chats.find((c) => c.title === user.name);
-        let id = existing?.id;
-        if (!id) {
-          id = crypto.randomUUID();
-          const now = Date.now();
-          const newChat: ChatSummary = {
-            id,
-            title: user.name,
-            lastMessage: "",
-            updatedAt: now,
-          };
-          setStore({ chats: [newChat, ...chats], messages });
-          setEphemeralChatIds((prev) => Array.from(new Set([...prev, id!])));
-        } else {
-          // Mark existing local chat as ephemeral so it shows while server threads are empty
-          setEphemeralChatIds((prev) => Array.from(new Set([...prev, id!])));
-        }
-        setActiveChatId(id!);
-        setMenuOpen(false);
-        setNewDialogOpen(false);
-        if (isMobile) setMobileView("thread");
-      } else {
-        console.error('Failed to join:', response?.error);
+    
+    // Check if socket is connected before trying to join
+    if (!socketService.isSocketConnected()) {
+      if (user?.id) {
+        socketService.connect(String(user.id), () => {
+          socketService.joinDirectMessage(peerId, (response) => {
+            handleStartChatResponse(response, user, peerId);
+          });
+        });
       }
+      return;
+    }
+    
+    socketService.joinDirectMessage(peerId, (response) => {
+      handleStartChatResponse(response, user, peerId);
     });
+  }
+  
+  function handleStartChatResponse(response: any, user: DirectoryUser, peerId: string) {
+    if (response?.ok) {
+      // Create/find local thread for this peer
+      const existing = chats.find((c) => c.title === user.name);
+      let id = existing?.id;
+      if (!id) {
+        id = crypto.randomUUID();
+        const now = Date.now();
+        const newChat: ChatSummary = {
+          id,
+          title: user.name,
+          lastMessage: "",
+          updatedAt: now,
+        };
+        setStore({ chats: [newChat, ...chats], messages });
+        setEphemeralChatIds((prev) => Array.from(new Set([...prev, id!])));
+      } else {
+        // Mark existing local chat as ephemeral so it shows while server threads are empty
+        setEphemeralChatIds((prev) => Array.from(new Set([...prev, id!])));
+      }
+      
+      // Store the peer ID for this chat
+      setChatPeerIds(prev => ({ ...prev, [id!]: peerId }));
+      
+      // Process and store the received messages
+      if (response?.messages && Array.isArray(response.messages)) {
+        processServerMessages(response.messages, id!);
+      }
+      
+      setActiveChatId(id!);
+      setMenuOpen(false);
+      setNewDialogOpen(false);
+      if (isMobile) setMobileView("thread");
+    }
   }
 
   if (!isAuthed) return null;
@@ -353,8 +691,8 @@ const ChatDialog = () => {
           <MessageSquare className="mr-2 size-4" /> Chat
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="p-0 w-full max-w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl">
-        <SheetHeader className="border-b p-4">
+      <SheetContent side="right" className="p-0 w-full max-w-full sm:max-w-xl md:max-w-2xl lg:max-w-3xl h-screen flex flex-col">
+        <SheetHeader className="border-b p-2 sm:p-4 flex-shrink-0">
           <div className="flex items-center gap-2">
             <SheetTitle>Messages</SheetTitle>
             {chatCtx?.isRefreshing ? (
@@ -364,15 +702,12 @@ const ChatDialog = () => {
             ) : null}
           </div>
         </SheetHeader>
-        <div className="flex h-full min-h-0 w-full flex-1">
+        <div className="flex h-full min-h-0 w-full flex-1 overflow-hidden">
           <aside className="hidden w-72 shrink-0 border-r sm:block">
             <ChatList
               chats={filteredChats}
               activeChatId={activeChatId}
-              onSelect={(id) => {
-                setActiveChatId(id);
-                if (isMobile) setMobileView("thread");
-              }}
+              onSelect={handleSelectChat}
               onNew={handleNewChat}
             />
           </aside>
@@ -380,18 +715,28 @@ const ChatDialog = () => {
             <ChatList
               chats={filteredChats}
               activeChatId={activeChatId}
-              onSelect={(id) => {
-                setActiveChatId(id);
-                setMobileView("thread");
-              }}
+              onSelect={handleSelectChat}
               onNew={handleNewChat}
             />
           ) : (
-          <main className="flex min-w-0 flex-1 flex-col">
+          <main className="flex min-w-0 flex-1 flex-col h-full overflow-hidden">
             {activeChatId ? (
               <>
                 {(() => {
-                  const chat = chats.find((c) => c.id === activeChatId)!;
+                  // Look for chat in both local chats and filteredChats (which includes server threads)
+                  const chat = chats.find((c) => c.id === activeChatId) || filteredChats.find((c) => c.id === activeChatId);
+                  
+                  if (!chat) {
+                    return (
+                      <div className="grid flex-1 place-items-center p-6">
+                        <div className="flex flex-col items-center text-center">
+                          <div className="text-base font-medium">Chat not found</div>
+                          <div className="mt-1 text-sm text-muted-foreground">Please select a valid chat</div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
                   return (
                     <MessageThread
                       chat={chat}
@@ -400,7 +745,19 @@ const ChatDialog = () => {
                       onDraft={setDraft}
                       onSend={handleSend}
                       showBack={isMobile}
-                      onBack={() => setMobileView("list")}
+                      onBack={() => {
+                        if (isMobile) {
+                          setMobileView("list");
+                        } else {
+                          // Clear active chat to return to neutral state
+                          setActiveChatId(null);
+                          setDraft("");
+                        }
+                      }}
+                      isLoading={loadingChatId === activeChatId}
+                      isTyping={typingStatus[activeChatId] || false}
+                      onTyping={handleTyping}
+                      onStopTyping={handleStopTyping}
                     />
                   );
                 })()}
@@ -408,14 +765,18 @@ const ChatDialog = () => {
               </>
             ) : (
               <div className="grid flex-1 place-items-center p-6">
-                <div className="flex flex-col items-center text-center">
+                <div className="flex flex-col items-center text-center max-w-md">
                   <div className="mb-4 rounded-full bg-muted p-6">
                     <MessageSquare className="size-10 text-muted-foreground" />
                   </div>
-                  <div className="text-base font-medium">Select a chat to see the messages</div>
-                  <div className="mt-1 text-sm text-muted-foreground">Or start a new conversation</div>
-                  <div className="mt-4">
-                    <Button onClick={handleNewChat}>New conversation</Button>
+                  <div className="text-lg font-semibold">Welcome to Messages</div>
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    Select a conversation from the sidebar to start chatting, or create a new conversation to connect with someone.
+                  </div>
+                  <div className="mt-6">
+                    <Button onClick={handleNewChat} className="min-w-[140px]">
+                      New conversation
+                    </Button>
                   </div>
                 </div>
               </div>

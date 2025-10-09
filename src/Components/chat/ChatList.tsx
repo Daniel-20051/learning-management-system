@@ -22,7 +22,7 @@ const ChatList: React.FC<ChatListProps> = ({ chats, activeChatId, onSelect, onNe
   }, [chats, query]);
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col p-3">
+    <div className="flex h-full min-h-0 flex-1 flex-col p-2 sm:p-3">
       <div className="relative">
         <Search className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
@@ -55,10 +55,24 @@ const ChatList: React.FC<ChatListProps> = ({ chats, activeChatId, onSelect, onNe
                   <Avatar className="h-9 w-9">
                     <AvatarFallback>{initialsFromTitle(c.title)}</AvatarFallback>
                   </Avatar>
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-medium">{c.title}</div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2">
+                      <span className="truncate text-sm font-medium">{c.title}</span>
+                      {c.peerRole === 'staff' && (
+                        <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 flex-shrink-0">
+                          STAFF
+                        </span>
+                      )}
+                    </div>
                     <div className="truncate text-xs text-muted-foreground">{c.lastMessage || "Start a conversation"}</div>
                   </div>
+                  {c.unreadCount && c.unreadCount > 0 && (
+                    <div className="flex-shrink-0">
+                      <span className="inline-flex items-center justify-center rounded-full bg-primary px-2 py-1 text-xs font-medium text-white min-w-[20px] h-5">
+                        {c.unreadCount > 99 ? '99+' : c.unreadCount}
+                      </span>
+                    </div>
+                  )}
                 </button>
               </li>
             ))}

@@ -10,15 +10,28 @@ export type ChatMessage = {
   created_at: string; // ISO string
   delivered_at: string | null; // ISO or null
   read_at: string | null; // ISO or null
-  // UI-only flag for optimistic messages
+  // UI-only flags for optimistic messages
   pending?: boolean;
+  failed?: boolean;
 };
+
+export type MessageStatus = 'sending' | 'sent' | 'delivered' | 'read' | 'failed';
+
+export function getMessageStatus(message: ChatMessage): MessageStatus {
+  if (message.failed) return 'failed';
+  if (message.pending) return 'sending';
+  if (message.read_at) return 'read';
+  if (message.delivered_at) return 'delivered';
+  return 'sent';
+}
 
 export type ChatSummary = {
   id: string;
   title: string;
   lastMessage: string;
   updatedAt: number;
+  unreadCount?: number;
+  peerRole?: string;
 };
 
 export function initialsFromTitle(title: string) {

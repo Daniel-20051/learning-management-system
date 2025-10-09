@@ -17,9 +17,21 @@ import CertificatePage from "./pages/student/certificate/CertificatePage";
 import NotFoundPage from "./pages/NotFoundPage";
 import QuizPage from "./pages/student/quiz/QuizPage";
 import ChatDialog from "@/Components/chat/ChatDialog";
+import { ChatProvider } from "@/context/ChatContext";
+import socketService from "@/services/Socketservice";
+import { useEffect } from "react";
 
 function App() {
-  const { isLoggedIn, isAdmin, isInitializing } = useAuth();
+  const { isLoggedIn, isAdmin, isInitializing, user } = useAuth();
+
+  useEffect(() => {
+    if (isLoggedIn && user?.id) {
+      // Connect socket on app load/login
+      socketService.connect(String(user.id));
+    } else {
+      socketService.disconnect();
+    }
+  }, [isLoggedIn, user?.id]);
 
   return (
     <SessionProvider>
@@ -93,10 +105,12 @@ function App() {
             </BrowserRouter>
           )}
           <Toaster />
-          {/* Global Chat trigger, fixed bottom-right so it's visible across pages */}
-          <div className="fixed bottom-4 right-4 z-50">
-            <ChatDialog />
-          </div>
+          {/* Provide chat threads globally and mount trigger */}
+          <ChatProvider enabled={isLoggedIn}>
+            <div className="fixed bottom-4 right-4 z-50">
+              <ChatDialog />
+            </div>
+          </ChatProvider>
         </ThemeProvider>
       </SidebarSelectionProvider>
     </SessionProvider>

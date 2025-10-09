@@ -187,6 +187,62 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
     };
   }
 
+  // Direct message join: dm:join
+  joinDirectMessage(peerUserId: string | number, callback?: (response: any) => void): void {
+    if (!this.isConnected || !this.socket) {
+      console.error('Socket not connected');
+      callback?.({ ok: false, error: 'Socket not connected' });
+      return;
+    }
+    const payload = { peerUserId } as any;
+    console.log('📡 Emitting dm:join with payload:', payload);
+    this.socket.emit('dm:join', payload, (response: any) => {
+      console.log('🔌 dm:join response:', response);
+      callback?.(response);
+    });
+  }
+
+  // Send a direct message: dm:send
+  sendDirectMessage(peerUserId: string | number, message_text: string, callback?: (response: any) => void): void {
+    if (!this.isConnected || !this.socket) {
+      console.error('Socket not connected');
+      callback?.({ ok: false, error: 'Socket not connected' });
+      return;
+    }
+    const payload: any = { peerUserId, message_text };
+    console.log('📤 Emitting dm:send with payload:', payload);
+    this.socket.emit('dm:send', payload, (response: any) => {
+      console.log('🔌 dm:send response:', response);
+      callback?.(response);
+    });
+  }
+
+  // Listen for new direct messages: dm:newMessage
+  onDirectMessage(callback: (message: any) => void): void {
+    if (!this.socket) {
+      console.error('Socket not connected');
+      return;
+    }
+    this.socket.off('dm:newMessage');
+    this.socket.on('dm:newMessage', (message: any) => {
+      console.log('📥 dm:newMessage:', message);
+      try {
+        // Immediately mark as delivered
+        const id = (message && (message.id || message._id)) as string | number | undefined;
+        if (id) {
+          this.socket?.emit('dm:delivered', { messageId: id });
+        }
+      } catch {}
+      callback(message);
+    });
+  }
+
+  offDirectMessage(callback?: (message: any) => void): void {
+    if (!this.socket) return;
+    if (callback) this.socket.off('dm:newMessage', callback as any);
+    else this.socket.off('dm:newMessage');
+  }
+
   
 
  

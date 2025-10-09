@@ -889,13 +889,39 @@ async GetQuizStats(quizId?: number) {
      throw err;
    }
  }
- async GetStudents() {
+ async GetStudents(search?: string) {
   try {
     const token = getAccessToken();
     if (!token) {
       throw new Error("No access token found. Please login again.");
     }
-    const response = await axios.get(`${BASE_URL}/api/students/`,
+    const url = search && search.trim().length > 0
+      ? `${BASE_URL}/api/students/?search=${encodeURIComponent(search.trim())}`
+      : `${BASE_URL}/api/students/`;
+    const response = await axios.get(url,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      }
+    );
+    return response;
+  } catch (err: any) {
+    console.error("Error during getting quiz by id:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+async GetChatThreads() {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const response = await axios.get(`${BASE_URL}/api/chat/dm/threads`,
       {
         headers: {
           'Authorization': `Bearer ${token}`

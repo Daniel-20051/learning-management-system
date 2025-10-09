@@ -39,18 +39,18 @@ const MessageThread: React.FC<MessageThreadProps> = ({ chat, messages, draft, on
           {messages.length === 0 ? (
             <div className="text-center text-sm text-muted-foreground">No messages yet</div>
           ) : (
-            messages.map((m) => (
-              <div key={m.id} className={isMessageFromUser(m, user?.id) ? "ml-auto max-w-[88%]" : "mr-auto max-w-[88%]"}>
-                <div
-                  className={
-                    "rounded-lg px-3 py-2 text-sm shadow-xs " +
-                    (isMessageFromUser(m, user?.id) ? "bg-primary text-primary-foreground" : "bg-accent text-foreground")
-                  }
-                >
-                  {m.message_text}
+            messages.map((m) => {
+              const mine = isMessageFromUser(m, user?.id);
+              const base = mine ? "bg-primary text-primary-foreground" : "bg-accent text-foreground";
+              const pending = m.pending ? (mine ? " opacity-60" : " opacity-60") : "";
+              return (
+                <div key={m.id} className={mine ? "ml-auto max-w-[88%]" : "mr-auto max-w-[88%]"}>
+                  <div className={"rounded-lg px-3 py-2 text-sm shadow-xs " + base + pending}>
+                    {m.message_text}
+                  </div>
                 </div>
-              </div>
-            ))
+              );
+            })
           )}
         </div>
       </div>

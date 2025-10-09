@@ -1,33 +1,26 @@
 import React from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/Components/ui/dialog";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/Components/ui/sheet";
 import { Input } from "@/Components/ui/input";
 import { Avatar, AvatarFallback } from "@/Components/ui/avatar";
 import { Search } from "lucide-react";
+import { type DirectoryUser } from "@/Components/chat/NewChatDialog";
 
-export type DirectoryUser = {
-  id: string;
-  name: string;
-  role: "Student" | "Staff";
-};
-
-export type NewChatDialogProps = {
+export type NewChatMenuProps = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   users: DirectoryUser[];
-  onSelectUser: (user: DirectoryUser) => void;
   loading?: boolean;
   onSearch?: (term: string) => void;
+  onSelectUser: (user: DirectoryUser) => void;
 };
 
-const NewChatDialog: React.FC<NewChatDialogProps> = ({ open, onOpenChange, users, onSelectUser, loading, onSearch }) => {
+const NewChatMenu: React.FC<NewChatMenuProps> = ({ open, onOpenChange, users, loading, onSearch, onSelectUser }) => {
   const [query, setQuery] = React.useState("");
 
   React.useEffect(() => {
     if (!onSearch) return;
-    const handler = setTimeout(() => {
-      onSearch(query.trim());
-    }, 350);
-    return () => clearTimeout(handler);
+    const t = setTimeout(() => onSearch(query.trim()), 350);
+    return () => clearTimeout(t);
   }, [query, onSearch]);
 
   function initials(name: string) {
@@ -40,19 +33,18 @@ const NewChatDialog: React.FC<NewChatDialogProps> = ({ open, onOpenChange, users
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-xl p-0">
-        <DialogHeader className="p-4 pb-2">
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="right" className="p-0 w-[420px] max-w-[90vw]">
+        <SheetHeader className="p-4 pb-2">
           <div className="flex items-center gap-2">
-            <DialogTitle>Start new chat</DialogTitle>
-            
+            <SheetTitle>New chat</SheetTitle>
           </div>
-        </DialogHeader>
+        </SheetHeader>
         <div className="px-4 pb-4">
           <div className="relative">
             <Search className="pointer-events-none absolute left-2 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Search by name"
+              placeholder="Search name, email or matric number"
               className="pl-8"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
@@ -63,7 +55,7 @@ const NewChatDialog: React.FC<NewChatDialogProps> = ({ open, onOpenChange, users
               </span>
             ) : null}
           </div>
-          <div className="mt-3 max-h-[50vh] overflow-auto">
+          <div className="mt-3 overflow-auto">
             {loading && users.length === 0 ? (
               <div className="flex items-center justify-center py-10 text-sm text-muted-foreground">
                 <span className="mr-2 inline-block h-4 w-4 animate-spin rounded-full border-2 border-muted-foreground border-t-transparent" />
@@ -88,7 +80,7 @@ const NewChatDialog: React.FC<NewChatDialogProps> = ({ open, onOpenChange, users
                       </Avatar>
                       <div className="min-w-0">
                         <div className="truncate text-sm font-medium">{u.name}</div>
-                        <div className="text-xs text-muted-foreground">{u.role}</div>
+                        <div className="text-xs text-muted-foreground">Student</div>
                       </div>
                     </button>
                   </li>
@@ -97,11 +89,11 @@ const NewChatDialog: React.FC<NewChatDialogProps> = ({ open, onOpenChange, users
             )}
           </div>
         </div>
-      </DialogContent>
-    </Dialog>
+      </SheetContent>
+    </Sheet>
   );
 };
 
-export default NewChatDialog;
+export default NewChatMenu;
 
 

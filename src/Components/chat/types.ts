@@ -10,6 +10,8 @@ export type ChatMessage = {
   created_at: string; // ISO string
   delivered_at: string | null; // ISO or null
   read_at: string | null; // ISO or null
+  // UI-only flag for optimistic messages
+  pending?: boolean;
 };
 
 export type ChatSummary = {

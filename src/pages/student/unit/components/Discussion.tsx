@@ -2,10 +2,10 @@ import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/Components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar";
 import { Badge } from "@/Components/ui/badge";
-import { Send, Smile, Clock, MessageSquare, ChevronLeft } from "lucide-react";
+import { Send, Smile, Clock, MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 import socketService from "@/services/Socketservice";
-import { useNavigate } from "react-router-dom";
+// import { useNavigate } from "react-router-dom";
 
 // Helper function to generate random IDs
 const generateRandomId = () => Math.random().toString(36).substr(2, 9);
@@ -54,7 +54,7 @@ const Discussion: React.FC<DiscussionProps> = ({
   semester = "2ND",
   initialMessages = [],
 }) => {
-  const navigate = useNavigate();
+  // const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -231,7 +231,7 @@ const Discussion: React.FC<DiscussionProps> = ({
                         srv?.sender_type ? (srv.sender_type === "staff" ? "staff" : "student") : m.author.name
                       ),
                       avatar: m.author.avatar,
-                      role: ((srv?.sender_type === "staff" ? "instructor" : "student") as any) ?? m.author.role,
+                      role: (srv?.sender_type === "staff" ? "instructor" : "student") as any,
                     },
                     isPending: false,
                     isFailed: false,

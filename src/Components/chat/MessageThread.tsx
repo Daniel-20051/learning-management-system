@@ -25,6 +25,9 @@ export type MessageThreadProps = {
     oldestMessageId: string | null;
   };
   onLoadMore?: () => void;
+  // Online status props
+  isOnline?: boolean;
+  peerId?: string;
 };
 
 const MessageThread: React.FC<MessageThreadProps> = ({ 
@@ -40,7 +43,9 @@ const MessageThread: React.FC<MessageThreadProps> = ({
   onTyping, 
   onStopTyping,
   pagination,
-  onLoadMore
+  onLoadMore,
+  isOnline,
+  peerId
 }) => {
   const { user } = useAuth();
   const typingTimerRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -143,12 +148,30 @@ const MessageThread: React.FC<MessageThreadProps> = ({
             <ChevronLeft className="size-4" />
           </Button>
         ) : null}
-        <Avatar className="h-9 w-9">
-          <AvatarFallback>{initialsFromTitle(chat.title)}</AvatarFallback>
-        </Avatar>
+        <div className="relative">
+          <Avatar className="h-9 w-9">
+            <AvatarFallback>{initialsFromTitle(chat.title)}</AvatarFallback>
+          </Avatar>
+          {isOnline !== undefined && (
+            <div 
+              className={`online-indicator ${isOnline ? 'online' : 'offline'}`}
+              data-user-id={peerId}
+            />
+          )}
+        </div>
         <div className="min-w-0 flex-1">
-          <div className="truncate font-medium">{chat.title}</div>
-          <div className="text-xs text-muted-foreground">{chat.lastMessage ? "Active" : "No messages yet"}</div>
+          <div className="flex items-center gap-2">
+            <div className="truncate font-medium">{chat.title}</div>
+            {isOnline && (
+              <div className="h-2 w-2 rounded-full bg-green-500" />
+            )}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {isOnline !== undefined 
+              ? (isOnline ? 'Online' : 'Offline')
+              : (chat.lastMessage ? "Active" : "No messages yet")
+            }
+          </div>
         </div>
         {/* Close chat button - visible on all screen sizes */}
         <Button 

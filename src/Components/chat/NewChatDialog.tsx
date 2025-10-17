@@ -8,6 +8,7 @@ export type DirectoryUser = {
   id: string;
   name: string;
   role: "Student" | "Staff";
+  isOnline?: boolean;
 };
 
 export type NewChatDialogProps = {
@@ -83,12 +84,27 @@ const NewChatDialog: React.FC<NewChatDialogProps> = ({ open, onOpenChange, users
                       className="flex w-full items-center gap-3 rounded-md p-2 text-left transition hover:bg-accent"
                       onClick={() => onSelectUser(u)}
                     >
-                      <Avatar className="h-9 w-9">
-                        <AvatarFallback>{initials(u.name)}</AvatarFallback>
-                      </Avatar>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium">{u.name}</div>
-                        <div className="text-xs text-muted-foreground">{u.role}</div>
+                      <div className="relative">
+                        <Avatar className="h-9 w-9">
+                          <AvatarFallback>{initials(u.name)}</AvatarFallback>
+                        </Avatar>
+                        {u.isOnline !== undefined && (
+                          <div 
+                            className={`online-indicator ${u.isOnline ? 'online' : 'offline'}`}
+                            data-user-id={u.id}
+                          />
+                        )}
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-2">
+                          <div className="truncate text-sm font-medium">{u.name}</div>
+                          {u.isOnline && (
+                            <div className="h-2 w-2 rounded-full bg-green-500" />
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          {u.role} {u.isOnline !== undefined && (u.isOnline ? '• Online' : '• Offline')}
+                        </div>
                       </div>
                     </button>
                   </li>

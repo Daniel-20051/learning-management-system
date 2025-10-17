@@ -48,4 +48,10 @@ export function isMessageFromUser(message: ChatMessage, userId: UserId | null | 
   return String(message.sender_id) === String(userId);
 }
 
+// Online status types
+export type UserOnlineStatus = {
+  userId: string | number;
+  isOnline: boolean;
+};
+
 

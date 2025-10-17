@@ -10,9 +10,11 @@ export type ChatListProps = {
   activeChatId: string | null;
   onSelect: (chatId: string) => void;
   onNew: () => void;
+  userOnlineStatus?: Record<string, boolean>;
+  chatPeerIds?: Record<string, string>;
 };
 
-const ChatList: React.FC<ChatListProps> = ({ chats, activeChatId, onSelect, onNew }) => {
+const ChatList: React.FC<ChatListProps> = ({ chats, activeChatId, onSelect, onNew, userOnlineStatus = {}, chatPeerIds = {} }) => {
   const [query, setQuery] = React.useState("");
   const filtered = React.useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -52,9 +54,21 @@ const ChatList: React.FC<ChatListProps> = ({ chats, activeChatId, onSelect, onNe
                   }
                   onClick={() => onSelect(c.id)}
                 >
-                  <Avatar className="h-9 w-9">
-                    <AvatarFallback>{initialsFromTitle(c.title)}</AvatarFallback>
-                  </Avatar>
+                  <div className="relative">
+                    <Avatar className="h-9 w-9">
+                      <AvatarFallback>{initialsFromTitle(c.title)}</AvatarFallback>
+                    </Avatar>
+                    {(() => {
+                      const peerId = chatPeerIds[c.id];
+                      const isOnline = peerId ? userOnlineStatus[peerId] : undefined;
+                      return isOnline !== undefined && (
+                        <div 
+                          className={`online-indicator ${isOnline ? 'online' : 'offline'}`}
+                          data-user-id={peerId}
+                        />
+                      );
+                    })()}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate text-sm font-medium">{c.title}</span>

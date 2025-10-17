@@ -88,25 +88,20 @@ function getUserTypeForSocket(role: "Student" | "Staff"): "staff" | "student" {
 
 // Helper function to get peer user type from directory or chat context
 function getPeerUserType(peerId: string, directory: DirectoryUser[], chat?: any): "staff" | "student" {
-  console.log('🔍 getPeerUserType called with:', { peerId, directoryLength: directory.length, chat });
-  
   // First try to get from directory
   const directoryUser = directory.find(u => u.id === peerId);
   if (directoryUser) {
     const result = getUserTypeForSocket(directoryUser.role);
-    console.log('🔍 Found in directory:', directoryUser, 'returning:', result);
     return result;
   }
   
   // Fallback: try to get from chat context peerRole
   if (chat?.peerRole) {
     const result = chat.peerRole === "staff" ? "staff" : "student";
-    console.log('🔍 Found in chat peerRole:', chat.peerRole, 'returning:', result);
     return result;
   }
   
   // Default fallback to student
-  console.log('🔍 No match found, defaulting to student');
   return "student";
 }
 
@@ -165,6 +160,8 @@ const ChatDialog = () => {
   const [loadingChatId, setLoadingChatId] = React.useState<string | null>(null);
   // Store peer IDs for active chats to ensure consistency between join and send
   const [chatPeerIds, setChatPeerIds] = React.useState<Record<string, string>>({});
+  // Map chat titles to peer IDs so switching away/back still resolves correctly
+  const [titleToPeerId, setTitleToPeerId] = React.useState<Record<string, string>>({});
   // Track typing status for each chat
   const [typingStatus, setTypingStatus] = React.useState<Record<string, boolean>>({});
   // Pagination state for each chat
@@ -173,6 +170,24 @@ const ChatDialog = () => {
     loading: boolean; 
     oldestMessageId: string | null;
   }>>({});
+  // Online status state for users
+  const [userOnlineStatus, setUserOnlineStatus] = React.useState<Record<string, boolean>>({});
+
+  // Helper function to update user online status
+  const updateUserStatus = React.useCallback((userId: string | number, isOnline: boolean) => {
+    const userIdStr = String(userId);
+    setUserOnlineStatus(prev => ({
+      ...prev,
+      [userIdStr]: isOnline
+    }));
+    
+    // Also update the directory users to reflect online status
+    setDirectory(prev => prev.map(user => 
+      user.id === userIdStr 
+        ? { ...user, isOnline }
+        : user
+    ));
+  }, []);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -244,6 +259,8 @@ const ChatDialog = () => {
     return filtered;
   }, [messages, activeChatId]);
 
+  const normalizeTitle = (title?: string) => (title || "").trim().toLowerCase();
+
   function handleSend() {
     if (!activeChatId || !draft.trim()) return;
     const text = draft.trim();
@@ -282,22 +299,25 @@ const ChatDialog = () => {
       if ((chat as any).peerId) {
         peerId = String((chat as any).peerId);
       } else {
-        // Fallback: resolve peer id from chat title via directory match
-        const peer = directory.find((d) => d.name === chat.title);
-        peerId = peer?.id;
+        // Fallback: resolve peer id from chat title via cache, then directory
+        const cached = titleToPeerId[normalizeTitle(chat.title)];
+        if (cached) {
+          peerId = cached;
+        } else {
+          const peer = directory.find((d) => d.name === chat.title);
+          peerId = peer?.id;
+        }
       }
       
       // Store the resolved peer ID for future use
       if (peerId) {
         setChatPeerIds(prev => ({ ...prev, [activeChatId]: peerId! }));
+        setTitleToPeerId(prev => ({ ...prev, [normalizeTitle(chat.title)]: peerId! }));
       }
     }
     
     if (peerId) {
       const receiverType = getPeerUserType(peerId, directory, chat);
-      console.log('🔍 Sending message with receiverType:', receiverType, 'for peerId:', peerId);
-      console.log('🔍 Directory:', directory);
-      console.log('🔍 Chat:', chat);
       socketService.sendDirectMessage(peerId, text, receiverType, (response) => {
         if (response?.ok && response?.message) {
           // Replace optimistic with server message
@@ -330,7 +350,18 @@ const ChatDialog = () => {
         }
       });
     } else {
-      // No peer ID found - mark message as failed
+      // No peer ID found - attempt a quick re-join to refresh mapping, then mark failed
+      const cached = titleToPeerId[normalizeTitle(chat.title)];
+      if (cached) {
+        const receiverType = getPeerUserType(cached, directory, chat);
+        socketService.joinDirectMessage(cached, receiverType, (joinResponse) => {
+          console.log("Auto-join to refresh mapping before send:", { activeChatId, cached, receiverType, joinResponse });
+          if (joinResponse?.ok) {
+            setChatPeerIds(prev => ({ ...prev, [activeChatId]: cached }));
+          }
+        });
+      }
+      // Mark message as failed for this attempt
       setStore((prev) => ({
         chats: prev.chats,
         messages: prev.messages.map((m) => (
@@ -459,7 +490,14 @@ const ChatDialog = () => {
         if (existing) targetChatId = existing.id;
         else {
           const id = crypto.randomUUID();
-          const newChat: ChatSummary = { id, title: matchInDir.name, lastMessage: text, updatedAt: Date.now() };
+          const newChat: ChatSummary = { 
+            id, 
+            title: matchInDir.name, 
+            lastMessage: text, 
+            updatedAt: Date.now(),
+            // New chat from incoming message should have unread count of 1
+            unreadCount: 1
+          };
           setStore({ chats: [newChat, ...chats], messages });
           setEphemeralChatIds((prev) => Array.from(new Set([...prev, id])));
           targetChatId = id;
@@ -477,7 +515,28 @@ const ChatDialog = () => {
         read_at: message?.read_at ?? null,
       };
       setStore({
-        chats: chats.map((c) => (c.id === targetChatId ? { ...c, lastMessage: text, updatedAt: Date.now() } : c)),
+        chats: chats.map((c) => {
+          if (c.id === targetChatId) {
+            if (activeChatId === targetChatId) {
+              // If this chat is currently active, don't show unread count
+              const { unreadCount, ...chatWithoutUnreadCount } = c;
+              return {
+                ...chatWithoutUnreadCount,
+                lastMessage: text,
+                updatedAt: Date.now()
+              };
+            } else {
+              // If this chat is not active, increment unread count
+              return {
+                ...c,
+                lastMessage: text,
+                updatedAt: Date.now(),
+                unreadCount: (c.unreadCount || 0) + 1
+              };
+            }
+          }
+          return c;
+        }),
         messages: [...messages, serverMessage],
       });
     };
@@ -571,6 +630,39 @@ const ChatDialog = () => {
       });
     });
   }, [activeChatId, activeMessages, user?.id]);
+
+  // Listen for online status updates
+  React.useEffect(() => {
+    const handleOnlineStatus = (data: { userId: string | number; isOnline: boolean }) => {
+      console.log('📡 User online status update:', data);
+      updateUserStatus(data.userId, data.isOnline);
+    };
+
+    socketService.onUserOnlineStatus(handleOnlineStatus);
+    return () => {
+      socketService.offUserOnlineStatus(handleOnlineStatus);
+    };
+  }, [updateUserStatus]);
+
+  // Clear unread count when a chat becomes active
+  React.useEffect(() => {
+    if (!activeChatId) return;
+    
+    // Clear unread count in local chats
+    setStore(prev => ({
+      chats: prev.chats.map(chat => {
+        if (chat.id === activeChatId && chat.unreadCount && chat.unreadCount > 0) {
+          const { unreadCount, ...chatWithoutUnreadCount } = chat;
+          return chatWithoutUnreadCount;
+        }
+        return chat;
+      }),
+      messages: prev.messages
+    }));
+    
+    // Note: Server threads unread count will be handled by the server
+    // when messages are marked as read via the socket
+  }, [activeChatId]);
 
   React.useEffect(() => {
     if (!open) {
@@ -706,13 +798,19 @@ const ChatDialog = () => {
     
     // Fallback: try to find the peer user ID from directory or chat title
     if (!peerId) {
-      const peer = directory.find((d) => d.name === chat.title);
-      peerId = peer?.id;
+      const cached = titleToPeerId[normalizeTitle(chat.title)];
+      if (cached) {
+        peerId = cached;
+      } else {
+        const peer = directory.find((d) => d.name === chat.title);
+        peerId = peer?.id;
+      }
     }
     
     if (peerId) {
       // Store the peer ID for this chat to use when sending messages
       setChatPeerIds(prev => ({ ...prev, [chatId]: peerId }));
+      setTitleToPeerId(prev => ({ ...prev, [normalizeTitle(chat.title)]: peerId }));
       
       // Check if socket is connected before trying to join
       if (!socketService.isSocketConnected()) {
@@ -720,6 +818,7 @@ const ChatDialog = () => {
           socketService.connect(String(user.id), () => {
             const peerUserType = getPeerUserType(peerId, directory, chat);
             socketService.joinDirectMessage(peerId, peerUserType, (response) => {
+              console.log("joinDirectMessage response (connected via connect):", { chatId, peerId, peerUserType, response });
               if (response?.ok) {
                 // Process and store the received messages - use the chatId parameter instead of activeChatId
                 processServerMessages(response?.messages || [], chatId);
@@ -733,6 +832,7 @@ const ChatDialog = () => {
         // Join the chat via socket
         const peerUserType = getPeerUserType(peerId, directory, chat);
         socketService.joinDirectMessage(peerId, peerUserType, (response) => {
+          console.log("joinDirectMessage response:", { chatId, peerId, peerUserType, response });
           if (response?.ok) {
             // Process and store the received messages - use the chatId parameter instead of activeChatId
             processServerMessages(response?.messages || [], chatId);
@@ -753,6 +853,7 @@ const ChatDialog = () => {
           if (retryPeer?.id) {
             // Store the peer ID for this chat to use when sending messages
             setChatPeerIds(prev => ({ ...prev, [chatId]: retryPeer.id }));
+            setTitleToPeerId(prev => ({ ...prev, [normalizeTitle(chat.title)]: retryPeer.id }));
             
             // Check if socket is connected before trying to join
             if (!socketService.isSocketConnected()) {
@@ -760,6 +861,7 @@ const ChatDialog = () => {
                 socketService.connect(String(user.id), () => {
                   const peerUserType = getPeerUserType(retryPeer.id, users, chat);
                   socketService.joinDirectMessage(retryPeer.id, peerUserType, (response) => {
+                    console.log("joinDirectMessage response (retry via connect):", { chatId, peerId: retryPeer.id, peerUserType, response });
                     if (response?.ok) {
                       // Process and store the received messages - use the chatId parameter instead of activeChatId
                       processServerMessages(response?.messages || [], chatId);
@@ -772,6 +874,7 @@ const ChatDialog = () => {
             } else {
               const peerUserType = getPeerUserType(retryPeer.id, users, chat);
               socketService.joinDirectMessage(retryPeer.id, peerUserType, (response) => {
+                console.log("joinDirectMessage response (retry):", { chatId, peerId: retryPeer.id, peerUserType, response });
                 if (response?.ok) {
                   // Process and store the received messages - use the chatId parameter instead of activeChatId
                   processServerMessages(response?.messages || [], chatId);
@@ -834,6 +937,7 @@ const ChatDialog = () => {
       
       // Store the peer ID for this chat
       setChatPeerIds(prev => ({ ...prev, [id!]: peerId }));
+      setTitleToPeerId(prev => ({ ...prev, [normalizeTitle(user.name)]: peerId }));
       
       // Process and store the received messages (this will clear any existing messages for this chat)
       processServerMessages(response?.messages || [], id!);
@@ -872,15 +976,21 @@ const ChatDialog = () => {
               activeChatId={activeChatId}
               onSelect={handleSelectChat}
               onNew={handleNewChat}
+              userOnlineStatus={userOnlineStatus}
+              chatPeerIds={chatPeerIds}
             />
           </aside>
           {isMobile && mobileView === "list" ? (
-            <ChatList
-              chats={filteredChats}
-              activeChatId={activeChatId}
-              onSelect={handleSelectChat}
-              onNew={handleNewChat}
-            />
+            <div className="w-full sm:hidden">
+              <ChatList
+                chats={filteredChats}
+                activeChatId={activeChatId}
+                onSelect={handleSelectChat}
+                onNew={handleNewChat}
+                userOnlineStatus={userOnlineStatus}
+                chatPeerIds={chatPeerIds}
+              />
+            </div>
           ) : (
             <main className="flex min-w-0 flex-1 flex-col h-full overflow-hidden">
             {activeChatId ? (
@@ -924,20 +1034,24 @@ const ChatDialog = () => {
                       // Pagination props
                       pagination={chatPagination[activeChatId]}
                       onLoadMore={() => handleLoadMoreMessages(activeChatId)}
+                      // Online status props
+                      peerId={chatPeerIds[activeChatId]}
+                      isOnline={chatPeerIds[activeChatId] ? userOnlineStatus[chatPeerIds[activeChatId]] : undefined}
                     />
                   );
                 })()}
                 {null}
               </>
             ) : (
+              // Empty state when no chat is selected
               <div className="grid flex-1 place-items-center p-6">
                 <div className="flex flex-col items-center text-center max-w-md">
                   <div className="mb-4 rounded-full bg-muted p-6">
                     <MessageSquare className="size-10 text-muted-foreground" />
                   </div>
-                  <div className="text-lg font-semibold">Welcome to Messages</div>
+                  <div className="text-lg font-semibold">Start a new conversation</div>
                   <div className="mt-2 text-sm text-muted-foreground">
-                    Select a conversation from the sidebar to start chatting, or create a new conversation to connect with someone.
+                    Choose a conversation from the list{!isMobile ? " on the left" : " above"}, or start a new one.
                   </div>
                   <div className="mt-6">
                     <Button onClick={handleNewChat} className="min-w-[140px]">

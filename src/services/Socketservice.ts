@@ -359,6 +359,25 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
     };
   }
 
+  // Online status methods
+  onUserOnlineStatus(callback: (data: { userId: string | number; isOnline: boolean }) => void): void {
+    if (!this.socket) {
+      console.error('Socket not connected');
+      return;
+    }
+    this.socket.off('dm:online');
+    this.socket.on('dm:online', (data: any) => {
+      console.log('📡 dm:online:', data);
+      callback(data);
+    });
+  }
+
+  offUserOnlineStatus(callback?: (data: any) => void): void {
+    if (!this.socket) return;
+    if (callback) this.socket.off('dm:online', callback as any);
+    else this.socket.off('dm:online');
+  }
+
  }
 
 const socketService = new SocketService();

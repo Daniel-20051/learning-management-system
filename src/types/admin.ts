@@ -77,4 +77,4 @@ export interface Unit {
   order: number;
 }
 
-export type MenuItem = "dashboard" | "courses" | "results"; 
+export type MenuItem = "dashboard" | "courses" | "results" | "discussions"; 

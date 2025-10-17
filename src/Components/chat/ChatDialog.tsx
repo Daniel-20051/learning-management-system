@@ -81,14 +81,44 @@ function getInitialData(): { chats: ChatSummary[]; messages: ChatMessage[] } {
   return data;
 }
 
-// initials helper moved to types.ts
+// Helper function to convert DirectoryUser role to socket format
+function getUserTypeForSocket(role: "Student" | "Staff"): "staff" | "student" {
+  return role === "Staff" ? "staff" : "student";
+}
 
-async function fetchDirectoryStudents(search?: string): Promise<DirectoryUser[]> {
+// Helper function to get peer user type from directory or chat context
+function getPeerUserType(peerId: string, directory: DirectoryUser[], chat?: any): "staff" | "student" {
+  console.log('🔍 getPeerUserType called with:', { peerId, directoryLength: directory.length, chat });
+  
+  // First try to get from directory
+  const directoryUser = directory.find(u => u.id === peerId);
+  if (directoryUser) {
+    const result = getUserTypeForSocket(directoryUser.role);
+    console.log('🔍 Found in directory:', directoryUser, 'returning:', result);
+    return result;
+  }
+  
+  // Fallback: try to get from chat context peerRole
+  if (chat?.peerRole) {
+    const result = chat.peerRole === "staff" ? "staff" : "student";
+    console.log('🔍 Found in chat peerRole:', chat.peerRole, 'returning:', result);
+    return result;
+  }
+  
+  // Default fallback to student
+  console.log('🔍 No match found, defaulting to student');
+  return "student";
+}
+
+// Fetch directory users (currently only students, can be extended for staff)
+async function fetchDirectoryUsers(search?: string): Promise<DirectoryUser[]> {
   try {
     const api = new Api();
-    const res: any = await api.GetStudents(search);
-    const list: any[] = res?.data?.data?.students ?? res?.data?.data ?? res?.data ?? [];
-    return (Array.isArray(list) ? list : []).map((s: any) => {
+    
+    // Fetch students
+    const studentsRes: any = await api.GetStudents(search);
+    const studentsList: any[] = studentsRes?.data?.data?.students ?? studentsRes?.data?.data ?? studentsRes?.data ?? [];
+    const students = (Array.isArray(studentsList) ? studentsList : []).map((s: any) => {
       const id = String(s.id ?? s.user_id ?? s._id ?? s.uuid ?? crypto.randomUUID());
       const nameParts = [
         s.name,
@@ -100,10 +130,19 @@ async function fetchDirectoryStudents(search?: string): Promise<DirectoryUser[]>
       const name = (nameParts[0] as string) || String(s.email ?? id);
       return { id, name, role: "Student" as const };
     });
+
+    // TODO: Add staff fetching when API is available
+    // const staffRes = await api.GetStaff(search);
+    // const staff = processStaffData(staffRes);
+    
+    return [...students];
   } catch {
     return [];
   }
 }
+
+// Keep the old function name for backward compatibility
+const fetchDirectoryStudents = fetchDirectoryUsers;
 
 const ChatDialog = () => {
   const { user } = useAuth();
@@ -128,6 +167,12 @@ const ChatDialog = () => {
   const [chatPeerIds, setChatPeerIds] = React.useState<Record<string, string>>({});
   // Track typing status for each chat
   const [typingStatus, setTypingStatus] = React.useState<Record<string, boolean>>({});
+  // Pagination state for each chat
+  const [chatPagination, setChatPagination] = React.useState<Record<string, { 
+    hasMore: boolean; 
+    loading: boolean; 
+    oldestMessageId: string | null;
+  }>>({});
 
   React.useEffect(() => {
     let cancelled = false;
@@ -249,7 +294,11 @@ const ChatDialog = () => {
     }
     
     if (peerId) {
-      socketService.sendDirectMessage(peerId, text, (response) => {
+      const receiverType = getPeerUserType(peerId, directory, chat);
+      console.log('🔍 Sending message with receiverType:', receiverType, 'for peerId:', peerId);
+      console.log('🔍 Directory:', directory);
+      console.log('🔍 Chat:', chat);
+      socketService.sendDirectMessage(peerId, text, receiverType, (response) => {
         if (response?.ok && response?.message) {
           // Replace optimistic with server message
           const serverMsg = response.message as ChatMessage;
@@ -290,6 +339,92 @@ const ChatDialog = () => {
       }));
       console.error('Cannot send message: No peer ID found for chat', chat);
     }
+  }
+
+  // Load more messages for pagination
+  function handleLoadMoreMessages(chatId: string) {
+    const peerId = chatPeerIds[chatId];
+    if (!peerId) {
+      console.error('No peer ID found for chat:', chatId);
+      return;
+    }
+
+    // Get current pagination state
+    const currentPagination = chatPagination[chatId];
+    if (currentPagination?.loading || !currentPagination?.hasMore) {
+      return; // Already loading or no more messages
+    }
+
+    // Set loading state
+    setChatPagination(prev => ({
+      ...prev,
+      [chatId]: {
+        ...prev[chatId],
+        loading: true
+      }
+    }));
+
+    // Load more messages via socket
+    socketService.loadMoreMessages(
+      peerId,
+      currentPagination?.oldestMessageId || null,
+      50,
+      (response) => {
+        if (response?.ok && Array.isArray(response.messages)) {
+          // Prepend new messages to existing messages
+          setStore(prev => {
+            const existingMessages = prev.messages.filter(m => m.chatId === chatId);
+            const newMessages = response.messages
+              .map((msg: any) => ({
+                id: String(msg._id || msg.id || crypto.randomUUID()),
+                chatId: chatId,
+                sender_id: String(msg.senderId || msg.sender_id || msg.sender?.id || msg.sender || ''),
+                receiver_id: String(msg.receiverId || msg.receiver_id || msg.receiver?.id || msg.receiver || ''),
+                message_text: String(msg.messageText || msg.message_text || msg.text || msg.content || ''),
+                created_at: msg.created_at || msg.createdAt || msg.timestamp || new Date().toISOString(),
+                delivered_at: msg.deliveredAt || msg.delivered_at || null,
+                read_at: msg.readAt || msg.read_at || null,
+              }))
+              .filter((msg: any) => msg.message_text.trim().length > 0)
+              .sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+
+            // Combine and deduplicate messages
+            const allMessages = [...newMessages, ...existingMessages];
+            const uniqueMessages = allMessages.filter((msg, index, arr) => 
+              arr.findIndex(m => m.id === msg.id) === index
+            );
+
+            return {
+              chats: prev.chats,
+              messages: [
+                ...prev.messages.filter(m => m.chatId !== chatId),
+                ...uniqueMessages
+              ]
+            };
+          });
+
+          // Update pagination state
+          setChatPagination(prev => ({
+            ...prev,
+            [chatId]: {
+              hasMore: response.hasMore || false,
+              loading: false,
+              oldestMessageId: response.messages.length > 0 ? response.messages[0]?.id || response.messages[0]?._id : prev[chatId]?.oldestMessageId || null
+            }
+          }));
+        } else {
+          // Handle error
+          setChatPagination(prev => ({
+            ...prev,
+            [chatId]: {
+              ...prev[chatId],
+              loading: false
+            }
+          }));
+          console.error('Failed to load more messages:', response?.error);
+        }
+      }
+    );
   }
 
   function handleNewChat() {
@@ -445,7 +580,29 @@ const ChatDialog = () => {
 
   // Helper function to process and store server messages
   const processServerMessages = React.useCallback((serverMessages: any[], chatId: string) => {
-    if (!Array.isArray(serverMessages) || serverMessages.length === 0) {
+    if (!Array.isArray(serverMessages)) {
+      setLoadingChatId(null);
+      return;
+    }
+    
+    // Handle empty message array case
+    if (serverMessages.length === 0) {
+      // Clear existing messages for this chat and set up pagination
+      setStore((prev) => ({
+        chats: prev.chats,
+        messages: prev.messages.filter(m => m.chatId !== chatId)
+      }));
+      
+      // Initialize pagination state for empty chat
+      setChatPagination(prev => ({
+        ...prev,
+        [chatId]: {
+          hasMore: false,
+          loading: false,
+          oldestMessageId: null
+        }
+      }));
+      
       setLoadingChatId(null);
       return;
     }
@@ -499,6 +656,16 @@ const ChatDialog = () => {
       };
     });
     
+    // Initialize pagination state for this chat
+    setChatPagination(prev => ({
+      ...prev,
+      [chatId]: {
+        hasMore: serverMessages.length >= 50, // Assume more messages if we got a full batch
+        loading: false,
+        oldestMessageId: serverMessages.length > 0 ? serverMessages[0]?.id || serverMessages[0]?._id : null
+      }
+    }));
+    
     setLoadingChatId(null);
   }, [setStore]);
 
@@ -551,12 +718,11 @@ const ChatDialog = () => {
       if (!socketService.isSocketConnected()) {
         if (user?.id) {
           socketService.connect(String(user.id), () => {
-            socketService.joinDirectMessage(peerId, (response) => {
+            const peerUserType = getPeerUserType(peerId, directory, chat);
+            socketService.joinDirectMessage(peerId, peerUserType, (response) => {
               if (response?.ok) {
                 // Process and store the received messages - use the chatId parameter instead of activeChatId
-                if (response?.messages && Array.isArray(response.messages)) {
-                  processServerMessages(response.messages, chatId);
-                }
+                processServerMessages(response?.messages || [], chatId);
                 } else {
                   setLoadingChatId(null);
                 }
@@ -565,12 +731,11 @@ const ChatDialog = () => {
         }
       } else {
         // Join the chat via socket
-        socketService.joinDirectMessage(peerId, (response) => {
+        const peerUserType = getPeerUserType(peerId, directory, chat);
+        socketService.joinDirectMessage(peerId, peerUserType, (response) => {
           if (response?.ok) {
             // Process and store the received messages - use the chatId parameter instead of activeChatId
-            if (response?.messages && Array.isArray(response.messages)) {
-              processServerMessages(response.messages, chatId);
-            }
+            processServerMessages(response?.messages || [], chatId);
         } else {
           setLoadingChatId(null);
         }
@@ -593,12 +758,11 @@ const ChatDialog = () => {
             if (!socketService.isSocketConnected()) {
               if (user?.id) {
                 socketService.connect(String(user.id), () => {
-                  socketService.joinDirectMessage(retryPeer.id, (response) => {
+                  const peerUserType = getPeerUserType(retryPeer.id, users, chat);
+                  socketService.joinDirectMessage(retryPeer.id, peerUserType, (response) => {
                     if (response?.ok) {
                       // Process and store the received messages - use the chatId parameter instead of activeChatId
-                      if (response?.messages && Array.isArray(response.messages)) {
-                        processServerMessages(response.messages, chatId);
-                      }
+                      processServerMessages(response?.messages || [], chatId);
                   } else {
                     setLoadingChatId(null);
                   }
@@ -606,12 +770,11 @@ const ChatDialog = () => {
                 });
               }
             } else {
-              socketService.joinDirectMessage(retryPeer.id, (response) => {
+              const peerUserType = getPeerUserType(retryPeer.id, users, chat);
+              socketService.joinDirectMessage(retryPeer.id, peerUserType, (response) => {
                 if (response?.ok) {
                   // Process and store the received messages - use the chatId parameter instead of activeChatId
-                  if (response?.messages && Array.isArray(response.messages)) {
-                    processServerMessages(response.messages, chatId);
-                  }
+                  processServerMessages(response?.messages || [], chatId);
                 } else {
                   setLoadingChatId(null);
                 }
@@ -625,24 +788,26 @@ const ChatDialog = () => {
     }
   }
 
-  function startChatWith(user: DirectoryUser) {
+  function startChatWith(directoryUser: DirectoryUser) {
     // Join DM via socket, then navigate to thread on success
-    const peerId = user.id;
+    const peerId = directoryUser.id;
     
     // Check if socket is connected before trying to join
     if (!socketService.isSocketConnected()) {
       if (user?.id) {
         socketService.connect(String(user.id), () => {
-          socketService.joinDirectMessage(peerId, (response) => {
-            handleStartChatResponse(response, user, peerId);
+          const peerUserType = getUserTypeForSocket(directoryUser.role);
+          socketService.joinDirectMessage(peerId, peerUserType, (response) => {
+            handleStartChatResponse(response, directoryUser, peerId);
           });
         });
       }
       return;
     }
     
-    socketService.joinDirectMessage(peerId, (response) => {
-      handleStartChatResponse(response, user, peerId);
+    const peerUserType = getUserTypeForSocket(directoryUser.role);
+    socketService.joinDirectMessage(peerId, peerUserType, (response) => {
+      handleStartChatResponse(response, directoryUser, peerId);
     });
   }
   
@@ -670,10 +835,8 @@ const ChatDialog = () => {
       // Store the peer ID for this chat
       setChatPeerIds(prev => ({ ...prev, [id!]: peerId }));
       
-      // Process and store the received messages
-      if (response?.messages && Array.isArray(response.messages)) {
-        processServerMessages(response.messages, id!);
-      }
+      // Process and store the received messages (this will clear any existing messages for this chat)
+      processServerMessages(response?.messages || [], id!);
       
       setActiveChatId(id!);
       setMenuOpen(false);
@@ -719,7 +882,7 @@ const ChatDialog = () => {
               onNew={handleNewChat}
             />
           ) : (
-          <main className="flex min-w-0 flex-1 flex-col h-full overflow-hidden">
+            <main className="flex min-w-0 flex-1 flex-col h-full overflow-hidden">
             {activeChatId ? (
               <>
                 {(() => {
@@ -758,6 +921,9 @@ const ChatDialog = () => {
                       isTyping={typingStatus[activeChatId] || false}
                       onTyping={handleTyping}
                       onStopTyping={handleStopTyping}
+                      // Pagination props
+                      pagination={chatPagination[activeChatId]}
+                      onLoadMore={() => handleLoadMoreMessages(activeChatId)}
                     />
                   );
                 })()}
@@ -781,7 +947,7 @@ const ChatDialog = () => {
                 </div>
               </div>
             )}
-          </main>
+            </main>
           )}
         </div>
       </SheetContent>

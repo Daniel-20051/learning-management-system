@@ -38,7 +38,7 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
     // Get fresh token each time we connect
     const token = getAccessToken();
 
-    console.log('Connecting to socket server...');
+    
 
     this.socket = io(serverUrl, {
       timeout: 10000,
@@ -50,29 +50,26 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
     });
 
     this.socket.on('connect', () => {
-      console.log('✅ Connected to socket server');
       this.isConnected = true;
 
       const authData: AuthenticationData = { userId: this.userId! };
       this.socket?.emit('authenticate', authData);
-      console.log('🔐 Authentication sent');
+      
       if (onConnect) onConnect();
     });
 
-    this.socket.on('connect_error', (error: any) => {
-      console.error('❌ Socket connection failed:', error);
+    this.socket.on('connect_error', (_error: any) => {
       this.isConnected = false;
     });
 
     this.socket.on('disconnect', () => {
-      console.log('🔌 Disconnected from socket server');
       this.isConnected = false;
     });
   }
 
   disconnect(): void {
     if (this.socket) {
-      console.log('🔌 Manually disconnecting socket...');
+      
       this.socket.disconnect();
       this.socket = null;
       this.isConnected = false;
@@ -90,7 +87,7 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
     callback?: (response: { ok: boolean; discussionId?: string | number; messages?: any[]; error?: string }) => void
   ): void {
     if (!this.isConnected || !this.socket) {
-      console.error('Socket not connected');
+      
       if (callback) callback({ ok: false, error: 'Socket not connected' });
       return;
     }
@@ -101,13 +98,13 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
       semester,
     };
     
-    console.log('📡 Emitting joinDiscussion with payload:', payload);
+    
     
     this.socket.emit('joinDiscussion', payload, (response: any) => {
       if (response?.ok) {
         // Successfully joined; consumer may handle messages
       } else {
-        console.error('Failed to join discussion:', response?.error);
+        
       }
       
       if (callback) {
@@ -118,14 +115,14 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
 
   postMessage(messageData: MessageData, callback?: (response: MessageResponse) => void): void {
     if (!this.isConnected || !this.socket) {
-      console.error('Socket not connected');
+      
       if (callback) {
         callback({ ok: false, error: 'Socket not connected' });
       }
       return;
     }
 
-    console.log('📤 Sending message:', messageData);
+    
     
     // Prepare the exact format as specified
     const socketMessage = {
@@ -138,31 +135,24 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
   
     
     // Emit with exact format as specified
-    this.socket.emit('postMessage', socketMessage, (response: MessageResponse) => {
-      if (response.ok) {
-        console.log('✅ Message sent successfully:', response.message);
-      } else {
-        console.error('❌ Failed to send message:', response.error);
-      }
+    this.socket.emit('postMessage', socketMessage, (res: MessageResponse) => {
       if (callback) {
-        callback(response);
+        callback(res);
       }
     });
   }
 
   // Legacy method for backward compatibility
   sendMessage(message: any): void {
-    console.warn('⚠️ sendMessage is deprecated. Use postMessage instead.');
+    
     if (this.socket) {
-      this.socket.emit('postMessage', message, (response: any) => {
-        console.log('🔌 Message sent:', response);
-      });
+      this.socket.emit('postMessage', message, () => {});
     }
   }
 
   onNewMessage(callback: (message: any) => void): void {
     if (!this.socket) {
-      console.error('Socket not connected');
+      
       return;
     }
     
@@ -170,7 +160,6 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
     this.socket.off('newMessage');
     this.socket.on('newMessage', (message: any) => {
       callback(message);
-      console.log('🔌 New message received:', message);
     });
   }
 
@@ -188,31 +177,46 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
   }
 
   // Direct message join: dm:join
-  joinDirectMessage(peerUserId: string | number, callback?: (response: any) => void): void {
+  joinDirectMessage(peerUserId: string | number, peerUserType: 'staff' | 'student', callback?: (response: any) => void): void {
     if (!this.isConnected || !this.socket) {
-      console.error('Socket not connected');
+      
       callback?.({ ok: false, error: 'Socket not connected' });
       return;
     }
-    const payload = { peerUserId } as any;
-    console.log('📡 Emitting dm:join with payload:', payload);
+    const payload = { 
+      peerUserId, 
+      peerUserType 
+    } as any;
+    
     this.socket.emit('dm:join', payload, (response: any) => {
-      console.log('🔌 dm:join response:', response);
+      
       callback?.(response);
     });
   }
 
   // Send a direct message: dm:send
-  sendDirectMessage(peerUserId: string | number, message_text: string, callback?: (response: any) => void): void {
+  sendDirectMessage(peerUserId: string | number, message_text: string, receiverType: 'staff' | 'student', callback?: (response: any) => void): void {
     if (!this.isConnected || !this.socket) {
-      console.error('Socket not connected');
+      
       callback?.({ ok: false, error: 'Socket not connected' });
       return;
     }
-    const payload: any = { peerUserId, message_text };
-    console.log('📤 Emitting dm:send with payload:', payload);
+    
+    // Validate receiverType
+    if (!receiverType || (receiverType !== 'staff' && receiverType !== 'student')) {
+      
+      callback?.({ ok: false, error: 'Invalid receiverType. Must be "staff" or "student"' });
+      return;
+    }
+    
+    const payload = { 
+      peerUserId: peerUserId, 
+      message_text: message_text,
+      peerUserType: receiverType
+    };
+    
     this.socket.emit('dm:send', payload, (response: any) => {
-      console.log('🔌 dm:send response:', response);
+      
       callback?.(response);
     });
   }
@@ -220,7 +224,7 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
   // Listen for new direct messages: dm:newMessage
   onDirectMessage(callback: (message: any) => void): void {
     if (!this.socket) {
-      console.error('Socket not connected');
+      
       return;
     }
     this.socket.off('dm:newMessage');
@@ -246,7 +250,7 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
   // Typing indicators
   sendTypingStatus(peerUserId: string | number, isTyping: boolean): void {
     if (!this.isConnected || !this.socket) {
-      console.error('Socket not connected');
+      
       return;
     }
     const payload = { peerUserId, isTyping };
@@ -255,7 +259,7 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
 
   onTypingStatus(callback: (data: { userId: string | number; peerUserId: string | number; isTyping: boolean }) => void): void {
     if (!this.socket) {
-      console.error('Socket not connected');
+      
       return;
     }
     this.socket.off('dm:typing');
@@ -278,33 +282,33 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
       return;
     }
     const payload = { messageId };
-    console.log('📤 Marking message as read:', payload);
+    
     this.socket.emit('dm:read', payload, (response: any) => {
-      console.log('🔌 dm:read response:', response);
+      
       callback?.(response);
     });
   }
 
   onMessageDelivered(callback: (data: { messageId: string; delivered_at: string }) => void): void {
     if (!this.socket) {
-      console.error('Socket not connected');
+      
       return;
     }
     this.socket.off('dm:delivered');
     this.socket.on('dm:delivered', (data: any) => {
-      console.log('📥 Message delivered event:', data);
+      
       callback(data);
     });
   }
 
   onMessageRead(callback: (data: { messageId: string; read_at: string }) => void): void {
     if (!this.socket) {
-      console.error('Socket not connected');
+      
       return;
     }
     this.socket.off('dm:read');
     this.socket.on('dm:read', (data: any) => {
-      console.log('📥 Message read event:', data);
+      
       callback(data);
     });
   }
@@ -315,9 +319,29 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
     this.socket.off('dm:read');
   }
 
-  
-
- 
+  // Load More Messages (Pagination)
+  loadMoreMessages(
+    peerUserId: string, 
+    beforeMessageId: string | null = null, 
+    limit: number = 50,
+    callback?: (response: any) => void
+  ): void {
+    if (!this.socket) {
+      
+      return;
+    }
+    
+    
+    
+    this.socket.emit('dm:loadMore', {
+      peerUserId,
+      beforeMessageId,
+      limit
+    }, (response: any) => {
+      
+      if (callback) callback(response);
+    });
+  }
 
   // Get detailed connection info
   getConnectionInfo(): any {

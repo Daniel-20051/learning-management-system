@@ -10,6 +10,8 @@ import CoursesPage from "./pages/admin/course/CoursesPage";
 import CourseDetailPage from "./pages/admin/course-details/CourseDetailPage";
 import ResultsPage from "./pages/admin/result/ResultsPage";
 import CourseQuizzesPage from "./pages/admin/quiz/CourseQuizzesPage";
+import AdminDiscussionsListPage from "./pages/admin/discussions/AdminDiscussionsListPage";
+import AdminCourseDiscussionPage from "./pages/admin/discussions/AdminCourseDiscussionPage";
 import Unit from "./pages/student/unit/Unit";
 import { SidebarSelectionProvider } from "@/context/SidebarSelectionContext";
 import { SessionProvider } from "@/context/SessionContext";
@@ -79,6 +81,8 @@ function App() {
                     path="results/:courseId"
                     element={<CourseQuizzesPage />}
                   />
+                  <Route path="discussions" element={<AdminDiscussionsListPage />} />
+                  <Route path="discussions/:courseId" element={<AdminCourseDiscussionPage />} />
                 </Route>
                 <Route
                   path="/unit/:courseId"

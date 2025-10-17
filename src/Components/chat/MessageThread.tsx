@@ -18,6 +18,13 @@ export type MessageThreadProps = {
   isTyping?: boolean;
   onTyping?: () => void;
   onStopTyping?: () => void;
+  // Pagination props
+  pagination?: {
+    hasMore: boolean;
+    loading: boolean;
+    oldestMessageId: string | null;
+  };
+  onLoadMore?: () => void;
 };
 
 const MessageThread: React.FC<MessageThreadProps> = ({ 
@@ -31,7 +38,9 @@ const MessageThread: React.FC<MessageThreadProps> = ({
   isLoading, 
   isTyping = false, 
   onTyping, 
-  onStopTyping 
+  onStopTyping,
+  pagination,
+  onLoadMore
 }) => {
   const { user } = useAuth();
   const typingTimerRef = React.useRef<NodeJS.Timeout | null>(null);
@@ -175,6 +184,28 @@ const MessageThread: React.FC<MessageThreadProps> = ({
             <div className="text-center text-sm text-muted-foreground">No messages yet</div>
           ) : (
             <>
+              {/* Load More Messages Button */}
+              {pagination?.hasMore && onLoadMore && (
+                <div className="flex justify-center py-4">
+                  <Button 
+                    variant="outline" 
+                    size="sm"
+                    onClick={onLoadMore}
+                    disabled={pagination.loading}
+                    className="text-xs"
+                  >
+                    {pagination.loading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin mr-2" />
+                        Loading...
+                      </>
+                    ) : (
+                      'Load More Messages'
+                    )}
+                  </Button>
+                </div>
+              )}
+              
               {messages.map((m) => {
                 const mine = isMessageFromUser(m, user?.id);
                 const base = mine ? "bg-primary text-primary-foreground" : "bg-accent text-foreground";

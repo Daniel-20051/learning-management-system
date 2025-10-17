@@ -2,9 +2,10 @@ import React, { useState, useRef, useEffect } from "react";
 import { Button } from "@/Components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/Components/ui/avatar";
 import { Badge } from "@/Components/ui/badge";
-import { Send, Smile, Clock, MessageSquare } from "lucide-react";
+import { Send, Smile, Clock, MessageSquare, ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import socketService from "@/services/Socketservice";
+import { useNavigate } from "react-router-dom";
 
 // Helper function to generate random IDs
 const generateRandomId = () => Math.random().toString(36).substr(2, 9);
@@ -53,6 +54,7 @@ const Discussion: React.FC<DiscussionProps> = ({
   semester = "2ND",
   initialMessages = [],
 }) => {
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -67,22 +69,27 @@ const Discussion: React.FC<DiscussionProps> = ({
   // Load recent messages from parent when provided
   useEffect(() => {
     if (!initialMessages || initialMessages.length === 0) return;
-    const normalized = initialMessages.map((m: any): Message => ({
-      id: String(m?.id ?? m?._id ?? generateRandomId()),
-      courseId: Number(m?.course_id ?? m?.courseId ?? courseId),
-      academicYear: String(m?.academic_year ?? m?.academicYear ?? academicYear),
-      semester: String(m?.semester ?? semester),
-      message_text: String(m?.message_text ?? m?.text ?? ""),
-      author: {
-        id: String(m?.sender_id ?? m?.author?.id ?? "unknown"),
-        name: String(m?.sender_type ?? m?.author?.name ?? "Unknown User"),
-        avatar: m?.author?.avatar ?? "/assets/avatar.png",
-        role: (m?.author?.role as any) ?? "student",
-      },
-      timestamp: m?.created_at ? new Date(m.created_at) : new Date(),
-      isPending: false,
-      isFailed: false,
-    }));
+    const normalized = initialMessages.map((m: any): Message => {
+      const senderType = String(m?.sender_type ?? (m?.author?.role as any) ?? "student");
+      const role = senderType === "staff" ? "instructor" : "student";
+      const name = senderType === "staff" ? "staff" : "student";
+      return {
+        id: String(m?.id ?? m?._id ?? generateRandomId()),
+        courseId: Number(m?.course_id ?? m?.courseId ?? courseId),
+        academicYear: String(m?.academic_year ?? m?.academicYear ?? academicYear),
+        semester: String(m?.semester ?? semester),
+        message_text: String(m?.message_text ?? m?.text ?? ""),
+        author: {
+          id: String(m?.sender_id ?? m?.author?.id ?? "unknown"),
+          name,
+          avatar: m?.author?.avatar ?? "/assets/avatar.png",
+          role,
+        },
+        timestamp: m?.created_at ? new Date(m.created_at) : new Date(),
+        isPending: false,
+        isFailed: false,
+      };
+    });
     setMessages(normalized);
   }, [initialMessages]);
 
@@ -90,29 +97,41 @@ const Discussion: React.FC<DiscussionProps> = ({
   useEffect(() => {
     // Listen for new messages
     socketService.onNewMessage((message: any) => {
-      console.log("📨 New message received in Discussion:", message);
       // Normalize shape and provide safe fallbacks
       const normalized: Message = {
         id: String(message?.id),
-        courseId: Number(message?.courseId ?? courseId),
-        academicYear: String(message?.academicYear ?? academicYear),
+        courseId: Number(message?.courseId ?? message?.course_id ?? courseId),
+        academicYear: String(message?.academicYear ?? message?.academic_year ?? academicYear),
         semester: String(message?.semester ?? semester),
         message_text: String(message?.message_text ?? message?.text ?? ""),
-        author:
-          message?.author && typeof message.author === "object"
-            ? {
-                id: String(message.author.id ?? "unknown"),
-                name: String(message.author.name ?? "Unknown User"),
-                avatar: message.author.avatar ?? "/assets/avatar.png",
-                role: (message.author.role as any) ?? "student",
-              }
-            : {
-                id: "unknown",
-                name: "Unknown User",
-                avatar: "/assets/avatar.png",
-                role: "student",
-              },
-        timestamp: message?.timestamp ? new Date(message.timestamp) : new Date(),
+        author: (() => {
+          // Prefer explicit author object if present
+          if (message?.author && typeof message.author === "object") {
+            return {
+              id: String(message.author.id ?? "unknown"),
+              name: String(message.author.name ?? "Unknown User"),
+              avatar: message.author.avatar ?? "/assets/avatar.png",
+              role: (message.author.role as any) ?? "student",
+            } as Message["author"];
+          }
+          // Fallback to sender fields commonly returned by API
+          const senderId = String(message?.sender_id ?? "unknown");
+          const senderType = String(message?.sender_type ?? "student");
+          // Map API sender_type to local roles
+          const role = senderType === "staff" ? "instructor" : "student";
+          const prettyName = senderType === "staff" ? "staff" : "student";
+          return {
+            id: senderId,
+            name: prettyName,
+            avatar: "/assets/avatar.png",
+            role: role as any,
+          };
+        })(),
+        timestamp: message?.created_at
+          ? new Date(message.created_at)
+          : message?.timestamp
+          ? new Date(message.timestamp)
+          : new Date(),
         isPending: false,
       };
 
@@ -165,7 +184,7 @@ const Discussion: React.FC<DiscussionProps> = ({
     };
 
     // Log the message data structure for debugging
-    console.log("📤 Message data structure being sent:", messageData);
+    
 
     // Create message for UI immediately (optimistic update)
     const tempId = Date.now().toString();
@@ -195,22 +214,33 @@ const Discussion: React.FC<DiscussionProps> = ({
 
       socketService.postMessage(messageData, (response) => {
         if (response.ok) {
-          console.log("✅ Message sent successfully:", response.message);
           // Clear pending state; if server returns an id, update it
-          setMessages((prev) =>
-            prev.map((m) =>
+          setMessages((prev) => {
+            const srv = response.message || {};
+            const updated = prev.map((m) =>
               m.id === tempId
                 ? {
                     ...m,
-                    id: String(response?.message?.id ?? response?.message?._id ?? m.id),
+                    id: String(srv?.id ?? srv?._id ?? m.id),
+                    // Use server timestamp if provided
+                    timestamp: srv?.created_at ? new Date(srv.created_at) : m.timestamp,
+                    // Populate author from server sender fields
+                    author: {
+                      id: String(srv?.sender_id ?? m.author.id ?? "current-user"),
+                      name: String(
+                        srv?.sender_type ? (srv.sender_type === "staff" ? "staff" : "student") : m.author.name
+                      ),
+                      avatar: m.author.avatar,
+                      role: ((srv?.sender_type === "staff" ? "instructor" : "student") as any) ?? m.author.role,
+                    },
                     isPending: false,
                     isFailed: false,
                   }
                 : m
-            )
-          );
+            );
+            return updated;
+          });
         } else {
-          console.error("❌ Failed to send message:", response.error);
           // Mark as failed (keep it visible but greyed + could allow retry later)
           setMessages((prev) =>
             prev.map((m) =>
@@ -221,7 +251,6 @@ const Discussion: React.FC<DiscussionProps> = ({
         setIsLoading(false);
       });
     } catch (error) {
-      console.error("Failed to send message:", error);
       // Remove the message from UI if there's an error
       setMessages((prev) => prev.filter((msg) => msg.id !== message.id));
       setIsLoading(false);

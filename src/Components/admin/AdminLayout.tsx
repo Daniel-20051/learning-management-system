@@ -20,6 +20,8 @@ const AdminLayout = () => {
       return "courses";
     if (path === "/admin/results" || path.startsWith("/admin/results/"))
       return "results";
+    if (path === "/admin/discussions" || path.startsWith("/admin/discussions/"))
+      return "discussions";
     return "dashboard";
   };
 
@@ -35,6 +37,9 @@ const AdminLayout = () => {
         break;
       case "results":
         navigate("/admin/results");
+        break;
+      case "discussions":
+        navigate("/admin/discussions");
         break;
     }
   };

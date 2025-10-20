@@ -13,6 +13,7 @@ import { Textarea } from "@/Components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
 import { Switch } from "@/Components/ui/switch";
 import { toast } from "sonner";
+import ConfirmDialog from "@/Components/ConfirmDialog";
 
 // Local interface definition as fallback
 interface Exam {
@@ -31,7 +32,6 @@ interface Exam {
   selection_mode?: "all" | "random";
   objective_count?: number;
   theory_count?: number;
-  description?: string;
   status: "draft" | "published" | "archived";
   created_at: string;
   updated_at?: string;
@@ -48,20 +48,24 @@ const AdminCourseExamsPage = () => {
   
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [createLoading, setCreateLoading] = useState<boolean>(false);
   const [courseInfo, setCourseInfo] = useState<any>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingExam, setEditingExam] = useState<Exam | null>(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [examToDelete, setExamToDelete] = useState<number | null>(null);
+  const [deleteLoading, setDeleteLoading] = useState(false);
+  const [editLoading, setEditLoading] = useState(false);
   
   // Form states
   const [formData, setFormData] = useState({
     title: "",
     instructions: "",
-    description: "",
     duration_minutes: 60,
     status: "draft" as "draft" | "published" | "archived",
-    academic_year: "2024",
-    semester: "first",
+    academic_year: "2024/2025",
+    semester: "1ST",
     start_at: "",
     end_at: "",
     visibility: "draft" as "draft" | "published" | "archived",
@@ -100,7 +104,13 @@ const AdminCourseExamsPage = () => {
       try {
         // This would be the new exam API endpoint
         const response = await api.GetExams(parseInt(courseId));
+        
+        // Log the response from getting exams for debugging
+        console.log("GetExams response:", response);
+        
         const data = (response as any)?.data?.data ?? (response as any)?.data ?? [];
+        console.log("Processed exams data:", data);
+        
         setExams(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Error loading exams:", err);
@@ -121,6 +131,7 @@ const AdminCourseExamsPage = () => {
       return;
     }
     
+    setCreateLoading(true);
     try {
       const examData: any = {
         course_id: parseInt(courseId),
@@ -140,10 +151,6 @@ const AdminCourseExamsPage = () => {
       if (formData.instructions.trim()) {
         examData.instructions = formData.instructions;
       }
-      
-      if (formData.description.trim()) {
-        examData.description = formData.description;
-      }
 
       if (formData.start_at) {
         examData.start_at = formData.start_at;
@@ -153,6 +160,9 @@ const AdminCourseExamsPage = () => {
         examData.end_at = formData.end_at;
       }
 
+      // Log the payload being sent for debugging
+      console.log("Creating exam with payload:", examData);
+
       const response = await api.CreateExam(examData);
       
       if ((response as any)?.data?.success || (response as any)?.status === 200 || (response as any)?.status === 201) {
@@ -160,18 +170,19 @@ const AdminCourseExamsPage = () => {
         
         // Reload exams
         const examsResponse = await api.GetExams(parseInt(courseId));
+        console.log("GetExams response after create:", examsResponse);
         const data = (examsResponse as any)?.data?.data ?? (examsResponse as any)?.data ?? [];
+        console.log("Processed exams data after create:", data);
         setExams(Array.isArray(data) ? data : []);
         
         // Reset form and close dialog
         setFormData({
           title: "",
           instructions: "",
-          description: "",
           duration_minutes: 60,
           status: "draft",
-          academic_year: "2024",
-          semester: "first",
+          academic_year: "2024/2025",
+          semester: "1ST",
           start_at: "",
           end_at: "",
           visibility: "draft",
@@ -189,6 +200,8 @@ const AdminCourseExamsPage = () => {
       console.error("Error creating exam:", err);
       const message = err?.response?.data?.message || err?.message || "Failed to create exam. Please try again.";
       toast.error(message);
+    } finally {
+      setCreateLoading(false);
     }
   };
 
@@ -200,6 +213,7 @@ const AdminCourseExamsPage = () => {
       return;
     }
     
+    setEditLoading(true);
     try {
       const updateData: any = {
         title: formData.title,
@@ -215,10 +229,6 @@ const AdminCourseExamsPage = () => {
 
       if (formData.instructions.trim()) {
         updateData.instructions = formData.instructions;
-      }
-      
-      if (formData.description.trim()) {
-        updateData.description = formData.description;
       }
 
       if (formData.start_at) {
@@ -236,7 +246,9 @@ const AdminCourseExamsPage = () => {
         
         // Reload exams
         const examsResponse = await api.GetExams(parseInt(courseId!));
+        console.log("GetExams response after edit:", examsResponse);
         const data = (examsResponse as any)?.data?.data ?? (examsResponse as any)?.data ?? [];
+        console.log("Processed exams data after edit:", data);
         setExams(Array.isArray(data) ? data : []);
         
         // Reset form and close dialog
@@ -244,11 +256,10 @@ const AdminCourseExamsPage = () => {
         setFormData({
           title: "",
           instructions: "",
-          description: "",
           duration_minutes: 60,
           status: "draft",
-          academic_year: "2024",
-          semester: "first",
+          academic_year: "2024/2025",
+          semester: "1ST",
           start_at: "",
           end_at: "",
           visibility: "draft",
@@ -266,21 +277,31 @@ const AdminCourseExamsPage = () => {
       console.error("Error updating exam:", err);
       const message = err?.response?.data?.message || err?.message || "Failed to update exam. Please try again.";
       toast.error(message);
+    } finally {
+      setEditLoading(false);
     }
   };
 
   const handleDeleteExam = async (examId: number) => {
-    if (!confirm("Are you sure you want to delete this exam? This action cannot be undone.")) return;
+    setExamToDelete(examId);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const confirmDeleteExam = async () => {
+    if (!examToDelete) return;
     
+    setDeleteLoading(true);
     try {
-      const response = await api.DeleteExam(examId);
+      const response = await api.DeleteExam(examToDelete);
       
       if ((response as any)?.data?.success || (response as any)?.status === 200) {
         toast.success("Exam deleted successfully!");
         
         // Reload exams
         const examsResponse = await api.GetExams(parseInt(courseId!));
+        console.log("GetExams response after delete:", examsResponse);
         const data = (examsResponse as any)?.data?.data ?? (examsResponse as any)?.data ?? [];
+        console.log("Processed exams data after delete:", data);
         setExams(Array.isArray(data) ? data : []);
       } else {
         toast.error("Failed to delete exam. Please try again.");
@@ -289,7 +310,16 @@ const AdminCourseExamsPage = () => {
       console.error("Error deleting exam:", err);
       const message = err?.response?.data?.message || err?.message || "Failed to delete exam. Please try again.";
       toast.error(message);
+    } finally {
+      setDeleteLoading(false);
+      setIsDeleteDialogOpen(false);
+      setExamToDelete(null);
     }
+  };
+
+  const cancelDeleteExam = () => {
+    setIsDeleteDialogOpen(false);
+    setExamToDelete(null);
   };
 
   const openEditDialog = (exam: Exam) => {
@@ -297,11 +327,10 @@ const AdminCourseExamsPage = () => {
     setFormData({
       title: exam.title,
       instructions: exam.instructions || "",
-      description: exam.description || "",
       duration_minutes: exam.duration_minutes,
       status: exam.status,
-      academic_year: exam.academic_year || "2024",
-      semester: exam.semester || "first",
+      academic_year: exam.academic_year || "2024/2025",
+      semester: exam.semester || "1ST",
       start_at: exam.start_at ? exam.start_at.slice(0, 16) : "", // Format for datetime-local input
       end_at: exam.end_at ? exam.end_at.slice(0, 16) : "",
       visibility: exam.visibility || exam.status,
@@ -390,17 +419,6 @@ const AdminCourseExamsPage = () => {
                   />
                 </div>
 
-                <div>
-                  <Label htmlFor="description">Description</Label>
-                  <Textarea
-                    id="description"
-                    value={formData.description}
-                    onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                    placeholder="Enter exam description"
-                    rows={2}
-                  />
-                </div>
-
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="academic_year">Academic Year</Label>
@@ -408,7 +426,7 @@ const AdminCourseExamsPage = () => {
                       id="academic_year"
                       value={formData.academic_year}
                       onChange={(e) => setFormData({ ...formData, academic_year: e.target.value })}
-                      placeholder="2024"
+                      placeholder="2024/2025"
                     />
                   </div>
                   <div>
@@ -418,8 +436,8 @@ const AdminCourseExamsPage = () => {
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="first">First</SelectItem>
-                        <SelectItem value="second">Second</SelectItem>
+                        <SelectItem value="1ST">1ST</SelectItem>
+                        <SelectItem value="2ND">2ND</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -527,8 +545,15 @@ const AdminCourseExamsPage = () => {
                   <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                     Cancel
                   </Button>
-                  <Button onClick={handleCreateExam}>
-                    Create Exam
+                  <Button onClick={handleCreateExam} disabled={createLoading}>
+                    {createLoading ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Creating...
+                      </>
+                    ) : (
+                      "Create Exam"
+                    )}
                   </Button>
                 </div>
               </div>
@@ -649,17 +674,6 @@ const AdminCourseExamsPage = () => {
               />
             </div>
 
-            <div>
-              <Label htmlFor="edit-description">Description</Label>
-              <Textarea
-                id="edit-description"
-                value={formData.description}
-                onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                placeholder="Enter exam description"
-                rows={2}
-              />
-            </div>
-
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="edit-start_at">Start Date & Time</Label>
@@ -759,16 +773,34 @@ const AdminCourseExamsPage = () => {
             </div>
 
             <div className="flex justify-end gap-2 pt-4">
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={editLoading}>
                 Cancel
               </Button>
-              <Button onClick={handleEditExam}>
-                Update Exam
+              <Button onClick={handleEditExam} disabled={editLoading}>
+                {editLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  "Update Exam"
+                )}
               </Button>
             </div>
           </div>
         </DialogContent>
       </Dialog>
+      
+      <ConfirmDialog
+        open={isDeleteDialogOpen}
+        title="Delete Exam"
+        description="Are you sure you want to delete this exam? This action cannot be undone."
+        confirmText="Delete"
+        cancelText="Cancel"
+        onConfirm={confirmDeleteExam}
+        onCancel={cancelDeleteExam}
+        isProcessing={deleteLoading}
+      />
     </div>
   );
 };

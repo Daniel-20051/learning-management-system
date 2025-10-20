@@ -12,25 +12,22 @@ import { toast } from "sonner";
 interface Exam {
   id: number;
   course_id: number;
-  academic_year?: string;
-  semester?: string;
+  academic_year: string;
+  semester: string;
   title: string;
   instructions?: string;
   start_at?: string;
   end_at?: string;
   duration_minutes: number;
-  visibility?: "draft" | "published" | "archived";
-  randomize?: boolean;
-  exam_type?: "objective" | "theory" | "mixed";
-  selection_mode?: "all" | "random";
-  objective_count?: number;
-  theory_count?: number;
-  description?: string;
-  status: "draft" | "published" | "archived";
+  visibility: "draft" | "published" | "archived";
+  randomize: boolean;
+  exam_type: "objective" | "theory" | "mixed";
+  selection_mode: "all" | "random";
+  objective_count: number;
+  theory_count: number;
+  created_by: number;
   created_at: string;
   updated_at?: string;
-  total_questions?: number;
-  attempts_count?: number;
   questions?: ExamQuestion[];
 }
 
@@ -83,7 +80,13 @@ const AdminExamDetailsPage = () => {
       setLoading(true);
       try {
         const response = await api.GetExamById(parseInt(examId));
+        
+        // Log the response from getting exam details for debugging
+        console.log("GetExamById response:", response);
+        
         const data = (response as any)?.data?.data ?? (response as any)?.data;
+        console.log("Processed exam data:", data);
+        
         setExam(data);
       } catch (err) {
         console.error("Error loading exam:", err);
@@ -196,17 +199,33 @@ const AdminExamDetailsPage = () => {
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Status:</span>
-              <Badge className={getStatusColor(exam.status)}>
-                {exam.status}
+              <Badge className={getStatusColor(exam.visibility)}>
+                {exam.visibility}
               </Badge>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Academic Year:</span>
+              <span>{exam.academic_year}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Semester:</span>
+              <span>{exam.semester}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Duration:</span>
               <span>{exam.duration_minutes} minutes</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Questions:</span>
-              <span>{exam.total_questions || 0}</span>
+              <span className="text-muted-foreground">Exam Type:</span>
+              <Badge variant="outline">{exam.exam_type}</Badge>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Selection Mode:</span>
+              <Badge variant="outline">{exam.selection_mode}</Badge>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Randomize:</span>
+              <span>{exam.randomize ? "Yes" : "No"}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Created:</span>
@@ -216,23 +235,39 @@ const AdminExamDetailsPage = () => {
         </Card>
 
         <Card className="p-6">
-          <h3 className="font-semibold mb-2">Description</h3>
+          <h3 className="font-semibold mb-2">Instructions</h3>
           <p className="text-sm text-muted-foreground">
-            {exam.description || "No description provided"}
+            {exam.instructions || "No instructions provided"}
           </p>
         </Card>
 
         <Card className="p-6">
-          <h3 className="font-semibold mb-2">Statistics</h3>
+          <h3 className="font-semibold mb-2">Question Configuration</h3>
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Attempts:</span>
-              <span>{exam.attempts_count || 0}</span>
+              <span className="text-muted-foreground">Objective Questions:</span>
+              <span>{exam.objective_count}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Questions:</span>
-              <span>{exam.total_questions || 0}</span>
+              <span className="text-muted-foreground">Theory Questions:</span>
+              <span>{exam.theory_count}</span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Total Questions:</span>
+              <span className="font-semibold">{exam.objective_count + exam.theory_count}</span>
+            </div>
+            {exam.start_at && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Start Time:</span>
+                <span>{new Date(exam.start_at).toLocaleString()}</span>
+              </div>
+            )}
+            {exam.end_at && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">End Time:</span>
+                <span>{new Date(exam.end_at).toLocaleString()}</span>
+              </div>
+            )}
           </div>
         </Card>
       </div>
@@ -318,3 +353,4 @@ const AdminExamDetailsPage = () => {
 };
 
 export default AdminExamDetailsPage;
+

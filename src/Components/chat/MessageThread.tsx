@@ -236,29 +236,52 @@ const MessageThread: React.FC<MessageThreadProps> = ({
                 const failed = m.failed ? " bg-destructive/20 border border-destructive/40" : "";
                 const status = getMessageStatus(m);
                 
+                // Format timestamp to show actual time
+                const formatTimestamp = (timestamp: string) => {
+                  const date = new Date(timestamp);
+                  const now = new Date();
+                  const isToday = date.toDateString() === now.toDateString();
+                  
+                  if (isToday) {
+                    // Show time only for today's messages
+                    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                  } else {
+                    // Show date and time for older messages
+                    return date.toLocaleString([], { 
+                      month: 'short', 
+                      day: 'numeric', 
+                      hour: '2-digit', 
+                      minute: '2-digit' 
+                    });
+                  }
+                };
+                
                 return (
                   <div key={m.id} className={mine ? "ml-auto max-w-[90%] sm:max-w-[88%]" : "mr-auto max-w-[90%] sm:max-w-[88%]"}>
                     <div className={"rounded-lg px-2 sm:px-3 py-2 text-sm shadow-xs " + base + pending + failed}>
                       {m.message_text}
-                      {mine && (
-                        <div className="flex items-center justify-end mt-1 gap-1">
-                          {status === 'failed' && (
-                            <span className="text-xs text-destructive">Failed to send</span>
-                          )}
-                          {status === 'sending' && (
-                            <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin opacity-60" />
-                          )}
-                          {status === 'sent' && (
-                            <Check className="w-3 h-3 opacity-60" />
-                          )}
-                          {status === 'delivered' && (
-                            <CheckCheck className="w-3 h-3 opacity-60" />
-                          )}
-                          {status === 'read' && (
-                            <CheckCheck className="w-3 h-3 text-blue-400" />
-                          )}
-                        </div>
-                      )}
+                      <div className={`flex items-center mt-1 gap-1 text-xs opacity-70 ${mine ? 'justify-end' : 'justify-start'}`}>
+                        <span>{formatTimestamp(m.created_at)}</span>
+                        {mine && (
+                          <>
+                            {status === 'failed' && (
+                              <span className="text-destructive">Failed to send</span>
+                            )}
+                            {status === 'sending' && (
+                              <div className="w-3 h-3 border border-current border-t-transparent rounded-full animate-spin opacity-60" />
+                            )}
+                            {status === 'sent' && (
+                              <Check className="w-3 h-3 opacity-60" />
+                            )}
+                            {status === 'delivered' && (
+                              <CheckCheck className="w-3 h-3 opacity-60" />
+                            )}
+                            {status === 'read' && (
+                              <CheckCheck className="w-3 h-3 text-blue-400" />
+                            )}
+                          </>
+                        )}
+                      </div>
                     </div>
                   </div>
                 );

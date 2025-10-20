@@ -12,6 +12,9 @@ import ResultsPage from "./pages/admin/result/ResultsPage";
 import CourseQuizzesPage from "./pages/admin/quiz/CourseQuizzesPage";
 import AdminDiscussionsListPage from "./pages/admin/discussions/AdminDiscussionsListPage";
 import AdminCourseDiscussionPage from "./pages/admin/discussions/AdminCourseDiscussionPage";
+import AdminExamsListPage from "./pages/admin/exams/AdminExamsListPage";
+import AdminCourseExamsPage from "./pages/admin/exams/AdminCourseExamsPage";
+import AdminExamDetailsPage from "./pages/admin/exams/AdminExamDetailsPage";
 import Unit from "./pages/student/unit/Unit";
 import { SidebarSelectionProvider } from "@/context/SidebarSelectionContext";
 import { SessionProvider } from "@/context/SessionContext";
@@ -83,6 +86,9 @@ function App() {
                   />
                   <Route path="discussions" element={<AdminDiscussionsListPage />} />
                   <Route path="discussions/:courseId" element={<AdminCourseDiscussionPage />} />
+                  <Route path="exams" element={<AdminExamsListPage />} />
+                  <Route path="exams/:courseId" element={<AdminCourseExamsPage />} />
+                  <Route path="exams/:courseId/:examId" element={<AdminExamDetailsPage />} />
                 </Route>
                 <Route
                   path="/unit/:courseId"

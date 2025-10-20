@@ -940,6 +940,174 @@ async GetChatThreads() {
   }
 }
 
+// Exam management API methods
+async GetStaffExams() {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const response = await axios.get(`${BASE_URL}/api/exams`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during getting staff exams:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+async GetExams(courseId: number) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const response = await axios.get(`${BASE_URL}/api/exams?course_id=${courseId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during getting exams:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+async CreateExam(data: {
+  course_id: number;
+  academic_year?: string;
+  semester?: string;
+  title: string;
+  instructions?: string;
+  start_at?: string;
+  end_at?: string;
+  duration_minutes: number;
+  visibility?: string;
+  randomize?: boolean;
+  exam_type?: string;
+  selection_mode?: string;
+  objective_count?: number;
+  theory_count?: number;
+  description?: string;
+  status: string;
+}) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+
+    const response = await axios.post(`${BASE_URL}/api/exams`, data, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    
+    return response;
+  } catch (err: any) {
+    console.error("Error during creating exam:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+async UpdateExam(examId: number, data: {
+  title?: string;
+  instructions?: string;
+  start_at?: string;
+  end_at?: string;
+  duration_minutes?: number;
+  visibility?: string;
+  randomize?: boolean;
+  exam_type?: string;
+  selection_mode?: string;
+  objective_count?: number;
+  theory_count?: number;
+  description?: string;
+  status?: string;
+}) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const response = await axios.put(`${BASE_URL}/api/exams/${examId}`, data, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during updating exam:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+async DeleteExam(examId: number) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const response = await axios.delete(`${BASE_URL}/api/exams/${examId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during deleting exam:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+async GetExamById(examId: number) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    const response = await axios.get(`${BASE_URL}/api/exams/${examId}`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during getting exam by id:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
 
 
 }

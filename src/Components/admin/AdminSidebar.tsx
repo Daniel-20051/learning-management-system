@@ -7,6 +7,7 @@ import {
   ChevronRight,
   BarChart3,
   MessageSquareText,
+  FileText,
 } from "lucide-react";
 
 import type { MenuItem } from "@/types/admin";
@@ -51,6 +52,11 @@ const AdminSidebar = ({
       id: "discussions" as MenuItem,
       label: "Discussions",
       icon: MessageSquareText,
+    },
+    {
+      id: "exams" as MenuItem,
+      label: "Exams",
+      icon: FileText,
     },
   ];
 

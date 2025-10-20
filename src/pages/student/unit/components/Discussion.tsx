@@ -260,15 +260,20 @@ const Discussion: React.FC<DiscussionProps> = ({
   const formatTime = (timestamp: Date | string | number) => {
     const ts = timestamp instanceof Date ? timestamp : new Date(timestamp);
     const now = new Date();
-    const diff = now.getTime() - ts.getTime();
-    const minutes = Math.floor(diff / 60000);
-    const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
-
-    if (minutes < 1) return "now";
-    if (minutes < 60) return `${minutes}m`;
-    if (hours < 24) return `${hours}h`;
-    return `${days}d`;
+    const isToday = ts.toDateString() === now.toDateString();
+    
+    if (isToday) {
+      // Show time only for today's messages
+      return ts.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    } else {
+      // Show date and time for older messages
+      return ts.toLocaleString([], { 
+        month: 'short', 
+        day: 'numeric', 
+        hour: '2-digit', 
+        minute: '2-digit' 
+      });
+    }
   };
 
   const getRoleColor = (role: string) => {

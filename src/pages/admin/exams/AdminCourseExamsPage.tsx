@@ -5,7 +5,7 @@ import { Button } from "@/Components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/Components/ui/table";
 import { Badge } from "@/Components/ui/badge";
 import { Api } from "@/api";
-import { Loader2, Plus, Edit, Trash2, Eye, Calendar, Clock } from "lucide-react";
+import { Loader2, Plus, Edit, Trash2, Eye } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/Components/ui/dialog";
 import { Input } from "@/Components/ui/input";
 import { Label } from "@/Components/ui/label";
@@ -100,7 +100,7 @@ const AdminCourseExamsPage = () => {
       try {
         // This would be the new exam API endpoint
         const response = await api.GetExams(parseInt(courseId));
-        const data = response?.data?.data ?? response?.data ?? [];
+        const data = (response as any)?.data?.data ?? (response as any)?.data ?? [];
         setExams(Array.isArray(data) ? data : []);
       } catch (err) {
         console.error("Error loading exams:", err);
@@ -155,12 +155,12 @@ const AdminCourseExamsPage = () => {
 
       const response = await api.CreateExam(examData);
       
-      if (response?.data?.success || response?.status === 200 || response?.status === 201) {
+      if ((response as any)?.data?.success || (response as any)?.status === 200 || (response as any)?.status === 201) {
         toast.success("Exam created successfully!");
         
         // Reload exams
         const examsResponse = await api.GetExams(parseInt(courseId));
-        const data = examsResponse?.data?.data ?? examsResponse?.data ?? [];
+        const data = (examsResponse as any)?.data?.data ?? (examsResponse as any)?.data ?? [];
         setExams(Array.isArray(data) ? data : []);
         
         // Reset form and close dialog
@@ -231,12 +231,12 @@ const AdminCourseExamsPage = () => {
 
       const response = await api.UpdateExam(editingExam.id, updateData);
       
-      if (response?.data?.success || response?.status === 200) {
+      if ((response as any)?.data?.success || (response as any)?.status === 200) {
         toast.success("Exam updated successfully!");
         
         // Reload exams
         const examsResponse = await api.GetExams(parseInt(courseId!));
-        const data = examsResponse?.data?.data ?? examsResponse?.data ?? [];
+        const data = (examsResponse as any)?.data?.data ?? (examsResponse as any)?.data ?? [];
         setExams(Array.isArray(data) ? data : []);
         
         // Reset form and close dialog
@@ -275,12 +275,12 @@ const AdminCourseExamsPage = () => {
     try {
       const response = await api.DeleteExam(examId);
       
-      if (response?.data?.success || response?.status === 200) {
+      if ((response as any)?.data?.success || (response as any)?.status === 200) {
         toast.success("Exam deleted successfully!");
         
         // Reload exams
         const examsResponse = await api.GetExams(parseInt(courseId!));
-        const data = examsResponse?.data?.data ?? examsResponse?.data ?? [];
+        const data = (examsResponse as any)?.data?.data ?? (examsResponse as any)?.data ?? [];
         setExams(Array.isArray(data) ? data : []);
       } else {
         toast.error("Failed to delete exam. Please try again.");

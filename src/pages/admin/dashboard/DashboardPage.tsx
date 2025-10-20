@@ -16,7 +16,6 @@ import {
   ArrowRight,
   Activity,
   AlertCircle,
-  PlusCircle,
   GraduationCap,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -129,7 +128,7 @@ const DashboardPage = () => {
         setIsStudentsLoading(true);
         try {
           const studentsResponse = await api.GetStudents();
-          const studentsData = studentsResponse?.data?.data?.students ?? studentsResponse?.data?.data ?? studentsResponse?.data ?? [];
+          const studentsData = (studentsResponse as any)?.data?.data?.students ?? (studentsResponse as any)?.data?.data ?? (studentsResponse as any)?.data ?? [];
           const studentsList = Array.isArray(studentsData) ? studentsData : [];
           setStudents(studentsList);
         } catch (studentsError) {
@@ -149,7 +148,7 @@ const DashboardPage = () => {
     fetchDashboardData();
   }, [selectedSession, selectedSemester]);
 
-  const handleSessionChange = (session: string, semester: string) => {
+  const handleSessionChange = (_session: string, _semester: string) => {
     // This will trigger the useEffect above
   };
 
@@ -315,9 +314,9 @@ const DashboardPage = () => {
                       <span className="text-sm font-medium">Level {level}</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">{count} courses</span>
+                      <span className="text-sm text-muted-foreground">{count as number} courses</span>
                       <Badge variant="secondary" className="text-xs">
-                        {Math.round((count / stats.totalCourses) * 100)}%
+                        {Math.round(((count as number) / stats.totalCourses) * 100)}%
                       </Badge>
                     </div>
                   </div>

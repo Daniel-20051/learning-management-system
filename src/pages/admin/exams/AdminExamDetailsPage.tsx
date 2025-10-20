@@ -83,7 +83,7 @@ const AdminExamDetailsPage = () => {
       setLoading(true);
       try {
         const response = await api.GetExamById(parseInt(examId));
-        const data = response?.data?.data ?? response?.data;
+        const data = (response as any)?.data?.data ?? (response as any)?.data;
         setExam(data);
       } catch (err) {
         console.error("Error loading exam:", err);
@@ -101,7 +101,7 @@ const AdminExamDetailsPage = () => {
     try {
       const response = await api.DeleteExam(exam.id);
       
-      if (response?.data?.success || response?.status === 200) {
+      if ((response as any)?.data?.success || (response as any)?.status === 200) {
         toast.success("Exam deleted successfully!");
         navigate(`/admin/exams/${courseId}?session=${encodeURIComponent(session)}`);
       } else {

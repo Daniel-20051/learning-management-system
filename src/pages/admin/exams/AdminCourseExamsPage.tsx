@@ -28,8 +28,8 @@ interface Exam {
   duration_minutes: number;
   visibility?: "draft" | "published" | "archived";
   randomize?: boolean;
-  exam_type?: "objective" | "theory" | "mixed";
-  selection_mode?: "all" | "random";
+  exam_type?: "objective-only" | "theory-only" | "mixed";
+  selection_mode?: "manual" | "random";
   objective_count?: number;
   theory_count?: number;
   status: "draft" | "published" | "archived";
@@ -70,8 +70,8 @@ const AdminCourseExamsPage = () => {
     end_at: "",
     visibility: "draft" as "draft" | "published" | "archived",
     randomize: false,
-    exam_type: "mixed" as "objective" | "theory" | "mixed",
-    selection_mode: "all" as "all" | "random",
+    exam_type: "mixed" as "objective-only" | "theory-only" | "mixed",
+    selection_mode: "manual" as "manual" | "random",
     objective_count: 10,
     theory_count: 5
   });
@@ -188,7 +188,7 @@ const AdminCourseExamsPage = () => {
           visibility: "draft",
           randomize: false,
           exam_type: "mixed",
-          selection_mode: "all",
+          selection_mode: "manual",
           objective_count: 10,
           theory_count: 5
         });
@@ -265,7 +265,7 @@ const AdminCourseExamsPage = () => {
           visibility: "draft",
           randomize: false,
           exam_type: "mixed",
-          selection_mode: "all",
+          selection_mode: "manual",
           objective_count: 10,
           theory_count: 5
         });
@@ -336,7 +336,7 @@ const AdminCourseExamsPage = () => {
       visibility: exam.visibility || exam.status,
       randomize: exam.randomize || false,
       exam_type: exam.exam_type || "mixed",
-      selection_mode: exam.selection_mode || "all",
+      selection_mode: exam.selection_mode || "manual",
       objective_count: exam.objective_count || 10,
       theory_count: exam.theory_count || 5
     });
@@ -467,25 +467,25 @@ const AdminCourseExamsPage = () => {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="exam_type">Exam Type</Label>
-                    <Select value={formData.exam_type} onValueChange={(value: "objective" | "theory" | "mixed") => setFormData({ ...formData, exam_type: value })}>
+                    <Select value={formData.exam_type} onValueChange={(value: "objective-only" | "theory-only" | "mixed") => setFormData({ ...formData, exam_type: value })}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="objective">Objective</SelectItem>
-                        <SelectItem value="theory">Theory</SelectItem>
+                        <SelectItem value="objective-only">Objective Only</SelectItem>
+                        <SelectItem value="theory-only">Theory Only</SelectItem>
                         <SelectItem value="mixed">Mixed</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div>
                     <Label htmlFor="selection_mode">Selection Mode</Label>
-                    <Select value={formData.selection_mode} onValueChange={(value: "all" | "random") => setFormData({ ...formData, selection_mode: value })}>
+                    <Select value={formData.selection_mode} onValueChange={(value: "manual" | "random") => setFormData({ ...formData, selection_mode: value })}>
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="all">All Questions</SelectItem>
+                        <SelectItem value="manual">Manual Selection</SelectItem>
                         <SelectItem value="random">Random Selection</SelectItem>
                       </SelectContent>
                     </Select>
@@ -698,25 +698,25 @@ const AdminCourseExamsPage = () => {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="edit-exam_type">Exam Type</Label>
-                <Select value={formData.exam_type} onValueChange={(value: "objective" | "theory" | "mixed") => setFormData({ ...formData, exam_type: value })}>
+                <Select value={formData.exam_type} onValueChange={(value: "objective-only" | "theory-only" | "mixed") => setFormData({ ...formData, exam_type: value })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="objective">Objective</SelectItem>
-                    <SelectItem value="theory">Theory</SelectItem>
+                    <SelectItem value="objective-only">Objective Only</SelectItem>
+                    <SelectItem value="theory-only">Theory Only</SelectItem>
                     <SelectItem value="mixed">Mixed</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
               <div>
                 <Label htmlFor="edit-selection_mode">Selection Mode</Label>
-                <Select value={formData.selection_mode} onValueChange={(value: "all" | "random") => setFormData({ ...formData, selection_mode: value })}>
+                <Select value={formData.selection_mode} onValueChange={(value: "manual" | "random") => setFormData({ ...formData, selection_mode: value })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="all">All Questions</SelectItem>
+                    <SelectItem value="manual">Manual Selection</SelectItem>
                     <SelectItem value="random">Random Selection</SelectItem>
                   </SelectContent>
                 </Select>

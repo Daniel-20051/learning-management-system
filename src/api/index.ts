@@ -1108,6 +1108,173 @@ async GetExamById(examId: number) {
   }
 }
 
+// Get question bank for exam creation
+async GetBankQuestions(courseId: number, questionType?: string, limit?: number) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    
+    let url = `${BASE_URL}/api/exams/bank/questions?course_id=${courseId}`;
+    if (questionType) {
+      url += `&question_type=${questionType}`;
+    }
+    if (limit) {
+      url += `&limit=${limit}`;
+    }
+    
+    const response = await axios.get(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during getting bank questions:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+// Get all attempts for an exam (for grading)
+async GetExamAttempts(examId: number, status?: string) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    
+    let url = `${BASE_URL}/api/exams/${examId}/attempts`;
+    if (status) {
+      url += `?status=${status}`;
+    }
+    
+    const response = await axios.get(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during getting exam attempts:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+// Get specific attempt for grading
+async GetAttemptForGrading(attemptId: number) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    
+    const response = await axios.get(`${BASE_URL}/api/exams/attempts/${attemptId}/grade`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during getting attempt for grading:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+// Grade a single theory answer
+async GradeTheoryAnswer(answerId: number, score: number, feedback?: string) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    
+    const response = await axios.post(
+      `${BASE_URL}/api/exams/answers/theory/${answerId}/grade`,
+      { score, feedback },
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    return response;
+  } catch (err: any) {
+    console.error("Error during grading theory answer:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+// Bulk grade theory answers
+async BulkGradeTheoryAnswers(attemptId: number, grades: { answer_id: number; score: number; feedback?: string }[]) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    
+    const response = await axios.post(
+      `${BASE_URL}/api/exams/attempts/${attemptId}/grade-bulk`,
+      { grades },
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    return response;
+  } catch (err: any) {
+    console.error("Error during bulk grading:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
+// Get exam statistics
+async GetExamStatistics(examId: number) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    
+    const response = await axios.get(`${BASE_URL}/api/exams/${examId}/statistics`, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during getting exam statistics:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+      console.log("Token expired or invalid, removed from cookie");
+    }
+    throw err;
+  }
+}
+
 
 
 }

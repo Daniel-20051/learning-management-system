@@ -5,7 +5,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
 import { useNavigate } from "react-router-dom";
 import { Api } from "@/api";
-import { Loader2 } from "lucide-react";
+import { Loader2, BookOpen } from "lucide-react";
 import { toast } from "sonner";
 
 const AdminExamsListPage = () => {
@@ -77,6 +77,12 @@ const AdminExamsListPage = () => {
     load();
   }, [api, session]);
 
+  const handleOpenQuestionBank = (course: any) => {
+    const id = String(course.id ?? course.course_id);
+    const title = course?.title ?? course?.course_title ?? `Course ${id}`;
+    navigate(`/admin/exams/question-bank?courseId=${id}&courseTitle=${encodeURIComponent(title)}`);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -142,9 +148,19 @@ const AdminExamsListPage = () => {
                   <TableCell className="font-medium">{title}</TableCell>
                   <TableCell>{code}</TableCell>
                   <TableCell className="text-right">
-                    <Button size="sm" onClick={() => navigate(`/admin/exams/${id}?session=${encodeURIComponent(session)}`)}>
-                      Manage exams
-                    </Button>
+                    <div className="flex items-center justify-end gap-2">
+                      <Button 
+                        size="sm" 
+                        variant="outline"
+                        onClick={() => handleOpenQuestionBank(c)}
+                      >
+                        <BookOpen className="h-4 w-4 mr-1" />
+                        Question Bank
+                      </Button>
+                      <Button size="sm" onClick={() => navigate(`/admin/exams/${id}?session=${encodeURIComponent(session)}`)}>
+                        Manage exams
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               );

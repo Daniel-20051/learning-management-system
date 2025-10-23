@@ -83,7 +83,6 @@ const QuizStatsDialog = forwardRef<QuizStatsDialogRef, QuizStatsDialogProps>(
           setStats(data);
         } catch (err: any) {
           setError(err?.response?.data?.message || "Failed to load stats");
-          console.log("Failed to load quiz stats (dialog)", err);
         } finally {
           setLoading(false);
         }

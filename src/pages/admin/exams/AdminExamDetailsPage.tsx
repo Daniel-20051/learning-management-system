@@ -4,9 +4,10 @@ import { Card } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
 import { Badge } from "@/Components/ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/Components/ui/table";
+import { Input } from "@/Components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs";
 import { Api } from "@/api";
-import { Loader2, ArrowLeft, Edit, Trash2, Plus, Eye, Users, BarChart3 } from "lucide-react";
+import { Loader2, ArrowLeft, Edit, Trash2, Users, BarChart3, ChevronDown, Search, X } from "lucide-react";
 import { toast } from "sonner";
 import GradingDialog from "./components/GradingDialog";
 
@@ -49,14 +50,20 @@ interface ExamAttempt {
   id: number;
   exam_id: number;
   student_id: number;
-  student_name?: string;
-  student_email?: string;
-  status: "in_progress" | "submitted" | "graded";
-  score?: number;
-  max_score?: number;
+  attempt_no: number;
   started_at: string;
   submitted_at?: string;
+  status: "in_progress" | "submitted" | "graded";
+  total_score?: string;
+  max_score?: string;
   graded_at?: string;
+  graded_by?: number;
+  student: {
+    id: number;
+    fname: string;
+    lname: string;
+    matric_number: string;
+  };
 }
 
 interface ExamStatistics {
@@ -65,6 +72,15 @@ interface ExamStatistics {
   average_score: string;
   highest_score: number;
   lowest_score: number;
+}
+
+interface PaginationInfo {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPreviousPage: boolean;
 }
 
 const AdminExamDetailsPage = () => {
@@ -78,13 +94,47 @@ const AdminExamDetailsPage = () => {
   const [courseInfo, setCourseInfo] = useState<any>(null);
   const [attempts, setAttempts] = useState<ExamAttempt[]>([]);
   const [attemptsLoading, setAttemptsLoading] = useState<boolean>(false);
+  const [pagination, setPagination] = useState<PaginationInfo>({
+    total: 0,
+    page: 1,
+    limit: 20,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPreviousPage: false
+  });
   const [statistics, setStatistics] = useState<ExamStatistics | null>(null);
   const [statsLoading, setStatsLoading] = useState<boolean>(false);
   const [selectedAttempt, setSelectedAttempt] = useState<number | null>(null);
   const [isGradingDialogOpen, setIsGradingDialogOpen] = useState(false);
-  const [activeTab, setActiveTab] = useState("questions");
+  const [activeTab, setActiveTab] = useState("attempts");
+  
+  // Search state
+  const [searchQuery, setSearchQuery] = useState<string>("");
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
+  
+  // Collapsible row state
+  const [isExamDetailsExpanded, setIsExamDetailsExpanded] = useState(false);
 
   const session = searchParams.get("session") || "";
+
+  // Debounced search effect
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 500);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Reset pagination when search changes
+  useEffect(() => {
+    if (debouncedSearchQuery !== searchQuery) return;
+    setPagination(prev => ({ ...prev, page: 1 }));
+    if (examId && activeTab === "attempts") {
+      loadAttempts(1);
+    }
+  }, [debouncedSearchQuery]);
+
 
   // Load course info
   useEffect(() => {
@@ -112,11 +162,7 @@ const AdminExamDetailsPage = () => {
       try {
         const response = await api.GetExamById(parseInt(examId));
         
-        // Log the response from getting exam details for debugging
-        console.log("GetExamById response:", response);
-        
         const data = (response as any)?.data?.data ?? (response as any)?.data;
-        console.log("Processed exam data:", data);
         
         setExam(data);
       } catch (err) {
@@ -130,25 +176,38 @@ const AdminExamDetailsPage = () => {
   }, [api, examId]);
 
   // Load exam attempts
-  useEffect(() => {
+  const loadAttempts = async (page: number = 1) => {
     if (!examId || activeTab !== "attempts") return;
     
-    const loadAttempts = async () => {
-      setAttemptsLoading(true);
-      try {
-        const response = await api.GetExamAttempts(parseInt(examId), "submitted");
-        const data = (response as any)?.data?.data ?? (response as any)?.data ?? [];
-        console.log("Exam attempts:", data);
+    setAttemptsLoading(true);
+    try {
+      const response = await api.GetExamAttempts(
+        parseInt(examId), 
+        undefined, 
+        page, 
+        pagination.limit, 
+        debouncedSearchQuery
+      );
+      const responseData = (response as any)?.data;
+      
+      if (responseData?.status && responseData?.data && responseData?.pagination) {
+        setAttempts(Array.isArray(responseData.data) ? responseData.data : []);
+        setPagination(responseData.pagination);
+      } else {
+        // Fallback for old response format
+        const data = responseData?.data ?? responseData ?? [];
         setAttempts(Array.isArray(data) ? data : []);
-      } catch (err) {
-        console.error("Error loading attempts:", err);
-        setAttempts([]);
-      } finally {
-        setAttemptsLoading(false);
       }
-    };
-    
-    loadAttempts();
+    } catch (err) {
+      console.error("Error loading attempts:", err);
+      setAttempts([]);
+    } finally {
+      setAttemptsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadAttempts(pagination.page);
   }, [api, examId, activeTab]);
 
   // Load exam statistics
@@ -160,7 +219,7 @@ const AdminExamDetailsPage = () => {
       try {
         const response = await api.GetExamStatistics(parseInt(examId));
         const data = (response as any)?.data?.data ?? (response as any)?.data;
-        console.log("Exam statistics:", data);
+        
         setStatistics(data);
       } catch (err) {
         console.error("Error loading statistics:", err);
@@ -200,40 +259,12 @@ const AdminExamDetailsPage = () => {
   const handleGraded = () => {
     // Reload attempts after grading
     if (examId && activeTab === "attempts") {
-      api.GetExamAttempts(parseInt(examId), "submitted")
-        .then(response => {
-          const data = (response as any)?.data?.data ?? (response as any)?.data ?? [];
-          setAttempts(Array.isArray(data) ? data : []);
-        })
-        .catch(err => console.error("Error reloading attempts:", err));
+      loadAttempts(pagination.page);
     }
   };
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case "published":
-        return "bg-green-100 text-green-800";
-      case "draft":
-        return "bg-yellow-100 text-yellow-800";
-      case "archived":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
 
-  const getAttemptStatusColor = (status: string) => {
-    switch (status) {
-      case "graded":
-        return "bg-green-100 text-green-800";
-      case "submitted":
-        return "bg-yellow-100 text-yellow-800";
-      case "in_progress":
-        return "bg-blue-100 text-blue-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
+
 
   if (loading) {
     return (
@@ -300,91 +331,109 @@ const AdminExamDetailsPage = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="p-6">
-          <h3 className="font-semibold mb-2">Exam Information</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Status:</span>
-              <Badge className={getStatusColor(exam.visibility)}>
-                {exam.visibility}
-              </Badge>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Academic Year:</span>
-              <span>{exam.academic_year}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Semester:</span>
-              <span>{exam.semester}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Duration:</span>
-              <span>{exam.duration_minutes} minutes</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Exam Type:</span>
-              <Badge variant="outline">{exam.exam_type}</Badge>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Selection Mode:</span>
-              <Badge variant="outline">{exam.selection_mode}</Badge>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Randomize:</span>
-              <span>{exam.randomize ? "Yes" : "No"}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Created:</span>
-              <span>{new Date(exam.created_at).toLocaleDateString()}</span>
-            </div>
-          </div>
-        </Card>
-
-        <Card className="p-6">
-          <h3 className="font-semibold mb-2">Instructions</h3>
-          <p className="text-sm text-muted-foreground">
-            {exam.instructions || "No instructions provided"}
-          </p>
-        </Card>
-
-        <Card className="p-6">
-          <h3 className="font-semibold mb-2">Question Configuration</h3>
-          <div className="space-y-2 text-sm">
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Objective Questions:</span>
-              <span>{exam.objective_count}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Theory Questions:</span>
-              <span>{exam.theory_count}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">Total Questions:</span>
-              <span className="font-semibold">{exam.objective_count + exam.theory_count}</span>
-            </div>
-            {exam.start_at && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Start Time:</span>
-                <span>{new Date(exam.start_at).toLocaleString()}</span>
+      <div className="mb-6">
+        <div 
+          className="flex items-center cursor-pointer p-3 rounded-lg hover:bg-muted/50 transition-all duration-200 ease-in-out"
+          onClick={() => setIsExamDetailsExpanded(!isExamDetailsExpanded)}
+        >
+          <h2 className="font-semibold text-base text-foreground">Exam Details</h2>
+          <ChevronDown 
+            className={`h-4 w-4 ml-2 text-muted-foreground transition-transform duration-300 ease-in-out ${
+              isExamDetailsExpanded ? 'rotate-180' : 'rotate-0'
+            }`}
+          />
+        </div>
+        
+        <div 
+          className={`overflow-hidden transition-all duration-500 ease-in-out ${
+            isExamDetailsExpanded 
+              ? 'max-h-[1000px] opacity-100 mt-4' 
+              : 'max-h-0 opacity-0 mt-0'
+          }`}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 transform transition-transform duration-300 ease-in-out">
+            <Card className="p-4 shadow-sm border border-border/50 hover:shadow-md transition-shadow duration-200">
+              <h3 className="font-medium mb-3 text-sm">Exam Information</h3>
+              <div className="space-y-1.5 text-xs">
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Status:</span>
+                  <Badge  className="text-xs h-5">
+                    {exam.visibility}
+                  </Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Academic Year:</span>
+                  <span>{exam.academic_year}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Semester:</span>
+                  <span>{exam.semester}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Duration:</span>
+                  <span>{exam.duration_minutes} minutes</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Exam Type:</span>
+                  <Badge variant="outline" className="text-xs h-5">{exam.exam_type}</Badge>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-muted-foreground">Selection Mode:</span>
+                  <Badge variant="outline" className="text-xs h-5">{exam.selection_mode}</Badge>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Randomize:</span>
+                  <span>{exam.randomize ? "Yes" : "No"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Created:</span>
+                  <span>{new Date(exam.created_at).toLocaleDateString()}</span>
+                </div>
               </div>
-            )}
-            {exam.end_at && (
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">End Time:</span>
-                <span>{new Date(exam.end_at).toLocaleString()}</span>
+            </Card>
+
+            <Card className="p-4 shadow-sm border border-border/50 hover:shadow-md transition-shadow duration-200">
+              <h3 className="font-medium mb-3 text-sm">Instructions</h3>
+              <p className="text-xs text-muted-foreground leading-relaxed">
+                {exam.instructions || "No instructions provided"}
+              </p>
+            </Card>
+
+            <Card className="p-4 shadow-sm border border-border/50 hover:shadow-md transition-shadow duration-200">
+              <h3 className="font-medium mb-3 text-sm">Question Configuration</h3>
+              <div className="space-y-1.5 text-xs">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Objective Questions:</span>
+                  <span>{exam.objective_count}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Theory Questions:</span>
+                  <span>{exam.theory_count}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Total Questions:</span>
+                  <span className="font-medium">{exam.objective_count + exam.theory_count}</span>
+                </div>
+                {exam.start_at && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Start Time:</span>
+                    <span>{new Date(exam.start_at).toLocaleString()}</span>
+                  </div>
+                )}
+                {exam.end_at && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">End Time:</span>
+                    <span>{new Date(exam.end_at).toLocaleString()}</span>
+                  </div>
+                )}
               </div>
-            )}
+            </Card>
           </div>
-        </Card>
+        </div>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="questions">
-            <Eye className="h-4 w-4 mr-2" />
-            Questions
-          </TabsTrigger>
+        <TabsList className="grid w-full grid-cols-2">
           <TabsTrigger value="attempts">
             <Users className="h-4 w-4 mr-2" />
             Student Attempts
@@ -395,103 +444,83 @@ const AdminExamDetailsPage = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="questions" className="mt-6">
-          <Card className="p-0 overflow-hidden">
-            <div className="p-6 border-b">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold">Questions</h3>
-                <Button size="sm" onClick={() => toast.info("Add question feature coming soon!")}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Question
-                </Button>
-              </div>
-            </div>
-            
-            {exam.questions && exam.questions.length > 0 ? (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead className="w-[50px]">#</TableHead>
-                    <TableHead>Question</TableHead>
-                    <TableHead>Type</TableHead>
-                    <TableHead>Points</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {exam.questions.map((question, index) => (
-                    <TableRow key={question.id}>
-                      <TableCell className="text-muted-foreground">{index + 1}</TableCell>
-                      <TableCell className="font-medium">
-                        <div className="max-w-md truncate">
-                          {question.question_text}
-                        </div>
-                      </TableCell>
-                      <TableCell>
-                        <Badge variant="outline">
-                          {question.question_type}
-                        </Badge>
-                      </TableCell>
-                      <TableCell>{question.points}</TableCell>
-                      <TableCell className="text-right">
-                        <div className="flex justify-end gap-2">
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => toast.info("Question preview coming soon!")}
-                          >
-                            <Eye className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => toast.info("Question editing coming soon!")}
-                          >
-                            <Edit className="h-4 w-4" />
-                          </Button>
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={() => toast.info("Question deletion coming soon!")}
-                          >
-                            <Trash2 className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            ) : (
-              <div className="p-8 text-center text-muted-foreground">
-                <p>No questions added to this exam yet.</p>
-                <Button variant="outline" className="mt-4" onClick={() => toast.info("Add question feature coming soon!")}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add First Question
-                </Button>
-              </div>
-            )}
-          </Card>
-        </TabsContent>
-
         <TabsContent value="attempts" className="mt-6">
           <Card className="p-0 overflow-hidden">
             <div className="p-6 border-b">
-              <h3 className="text-lg font-semibold">Student Attempts</h3>
-              <p className="text-sm text-muted-foreground">View and grade student exam attempts</p>
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-lg font-semibold flex items-center gap-2">
+                    Student Attempts
+                    {searchQuery && !attemptsLoading && (
+                      <Badge variant="secondary" className="text-xs">
+                        {pagination.total} {pagination.total === 1 ? 'result' : 'results'}
+                      </Badge>
+                    )}
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    {searchQuery 
+                      ? `Search results for "${searchQuery}"`
+                      : "View and grade student exam attempts"
+                    }
+                  </p>
+                </div>
+              </div>
+              
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  placeholder="Search by student name or matric number..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 pr-10"
+                />
+                {searchQuery && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setSearchQuery("")}
+                    className="absolute right-1 top-1/2 transform -translate-y-1/2 h-8 w-8 p-0 hover:bg-muted"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                )}
+              </div>
             </div>
             
             {attemptsLoading ? (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin mr-2" />
-                <span>Loading attempts...</span>
+                <span>{searchQuery ? "Searching..." : "Loading attempts..."}</span>
               </div>
             ) : attempts.length > 0 ? (
-              <Table>
+              <>
+                {searchQuery && (
+                  <div className="px-6 py-3 bg-muted/30 border-b">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm">
+                        <Search className="h-4 w-4" />
+                        <span>Search results for: <strong>"{searchQuery}"</strong></span>
+                        <Badge variant="secondary" className="text-xs">
+                          {pagination.total} {pagination.total === 1 ? 'result' : 'results'}
+                        </Badge>
+                      </div>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setSearchQuery("")}
+                        className="text-xs"
+                      >
+                        Clear search
+                      </Button>
+                    </div>
+                  </div>
+                )}
+                <Table>
                 <TableHeader>
                   <TableRow>
                     <TableHead>Student</TableHead>
-                    <TableHead>Status</TableHead>
+                    <TableHead>Attempt No.</TableHead>
                     <TableHead>Score</TableHead>
                     <TableHead>Submitted At</TableHead>
                     <TableHead className="text-right">Actions</TableHead>
@@ -502,23 +531,25 @@ const AdminExamDetailsPage = () => {
                     <TableRow key={attempt.id}>
                       <TableCell>
                         <div>
-                          <p className="font-medium">{attempt.student_name || "Unknown Student"}</p>
-                          {attempt.student_email && (
-                            <p className="text-sm text-muted-foreground">{attempt.student_email}</p>
+                          <p className="font-medium">
+                            {attempt.student ? `${attempt.student.fname} ${attempt.student.lname}` : "Unknown Student"}
+                          </p>
+                          {attempt.student?.matric_number && (
+                            <p className="text-sm text-muted-foreground">{attempt.student.matric_number}</p>
                           )}
                         </div>
                       </TableCell>
                       <TableCell>
-                        <Badge className={getAttemptStatusColor(attempt.status)}>
-                          {attempt.status}
+                        <Badge variant="outline" className="text-xs">
+                          #{attempt.attempt_no}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        {attempt.score !== undefined && attempt.max_score !== undefined ? (
+                        {attempt.total_score !== null && attempt.max_score !== null && attempt.total_score !== undefined && attempt.max_score !== undefined ? (
                           <span className="font-medium">
-                            {attempt.score} / {attempt.max_score}
+                            {attempt.total_score} / {attempt.max_score}
                             <span className="text-sm text-muted-foreground ml-2">
-                              ({Math.round((attempt.score / attempt.max_score) * 100)}%)
+                              ({Math.round((parseFloat(attempt.total_score) / parseFloat(attempt.max_score)) * 100)}%)
                             </span>
                           </span>
                         ) : (
@@ -542,10 +573,79 @@ const AdminExamDetailsPage = () => {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table>
+                </Table>
+              </>
             ) : (
               <div className="p-8 text-center text-muted-foreground">
-                <p>No student attempts found for this exam.</p>
+                {searchQuery ? (
+                  <div>
+                    <Search className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium mb-2">No attempts found</p>
+                    <p className="text-sm">
+                      No student attempts match your search for "{searchQuery}".
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setSearchQuery("")}
+                      className="mt-4"
+                    >
+                      Clear search
+                    </Button>
+                  </div>
+                ) : (
+                  <div>
+                    <Users className="h-12 w-12 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg font-medium mb-2">No attempts yet</p>
+                    <p className="text-sm">No student attempts found for this exam.</p>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* Pagination Controls */}
+            {attempts.length > 0 && pagination.totalPages > 1 && (
+              <div className="flex items-center justify-between px-6 py-4 border-t">
+                <div className="text-sm text-muted-foreground">
+                  Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} 
+                  {searchQuery ? ` results for "${searchQuery}"` : " attempts"}
+                </div>
+                <div className="flex items-center gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => loadAttempts(pagination.page - 1)}
+                    disabled={!pagination.hasPreviousPage || attemptsLoading}
+                  >
+                    Previous
+                  </Button>
+                  <div className="flex items-center gap-1">
+                    {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                      const pageNum = Math.max(1, Math.min(pagination.totalPages - 4, pagination.page - 2)) + i;
+                      if (pageNum > pagination.totalPages) return null;
+                      return (
+                        <Button
+                          key={pageNum}
+                          variant={pageNum === pagination.page ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => loadAttempts(pageNum)}
+                          disabled={attemptsLoading}
+                          className="w-8 h-8 p-0"
+                        >
+                          {pageNum}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => loadAttempts(pagination.page + 1)}
+                    disabled={!pagination.hasNextPage || attemptsLoading}
+                  >
+                    Next
+                  </Button>
+                </div>
               </div>
             )}
           </Card>
@@ -610,7 +710,7 @@ const AdminExamDetailsPage = () => {
           open={isGradingDialogOpen}
           onOpenChange={setIsGradingDialogOpen}
           attemptId={selectedAttempt}
-          studentName={selectedAttemptData?.student_name}
+          studentName={selectedAttemptData?.student ? `${selectedAttemptData.student.fname} ${selectedAttemptData.student.lname}` : undefined}
           onGraded={handleGraded}
         />
       )}

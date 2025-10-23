@@ -161,7 +161,6 @@ const Unit = () => {
   useEffect(() => {
     if (user?.id && courseId) {
       socketService.connect(user.id, () => {
-        console.log("✅ Socket connected successfully");
         toast.success("Connected to real-time updates");
 
         // Automatically join the discussion room when connected
@@ -184,7 +183,6 @@ const Unit = () => {
 
     // Cleanup on unmount
     return () => {
-      console.log("🔌 Disconnecting socket on component unmount");
       socketService.disconnect();
     };
   }, [user?.id, courseId]);

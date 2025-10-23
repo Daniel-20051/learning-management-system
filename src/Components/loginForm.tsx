@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/context/AuthContext";
 import { Api } from "@/api";
 import { Eye, EyeOff } from "lucide-react";
+import { toast } from "sonner";
 
 export function LoginForm({
   className,
@@ -15,7 +16,6 @@ export function LoginForm({
   const { setIsLoggedIn, setUser } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
@@ -34,47 +34,55 @@ export function LoginForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
-    setError("");
 
     try {
       const response = await api.LoginUser({ email, password });
     
 
       if (response && response.data) {
-        const userData = response.data;
+        const apiResponse = response.data as any;
 
         // Store the auth token if provided
-        if (userData.token) {
-          localStorage.setItem("authToken", userData.token);
+        if (apiResponse.token) {
+          localStorage.setItem("authToken", apiResponse.token);
         }
 
         const user = {
-          id: userData.data.user?.id ,
-          email: userData.data.user?.email,
-          matricNumber: userData.data.user?.matricNumber,
+          id: apiResponse.data?.user?.id ,
+          email: apiResponse.data?.user?.email,
+          matricNumber: apiResponse.data?.user?.matricNumber,
           name:
-            userData.data.user?.userType === "student"
-              ? userData.data.user?.firstName +
+            apiResponse.data?.user?.userType === "student"
+              ? apiResponse.data?.user?.firstName +
                 " " +
-                userData.data.user?.lastName
-              : userData.data.user?.fullName,
-          role: userData.data.user?.userType, // Force all users to be admin for demo purposes
+                apiResponse.data?.user?.lastName
+              : apiResponse.data?.user?.fullName,
+          role: apiResponse.data?.user?.userType, // Force all users to be admin for demo purposes
         };
 
         setIsLoggedIn(true);
         setUser(user);
         localStorage.setItem("isLoggedIn", "true");
         localStorage.setItem("user", JSON.stringify(user));
+        toast.success("Login successful!");
       } else {
-        setError("Login failed. Please check your credentials.");
+        toast.error("Login failed. Please check your credentials.");
       }
     } catch (err: any) {
       console.error("Login error:", err);
+      
+      // Extract the exact error message from the API response
+      let errorMessage = "An error occurred during login. Please try again.";
+      
       if (err.response?.data?.message) {
-        setError(err.response.data.message);
-      } else {
-        setError("An error occurred during login. Please try again.");
+        errorMessage = err.response.data.message;
+      } else if (err.response?.data?.error) {
+        errorMessage = err.response.data.error;
+      } else if (err.message) {
+        errorMessage = err.message;
       }
+      
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -142,9 +150,6 @@ export function LoginForm({
                   </button>
                 </div>
               </div>
-              {error && (
-                <div className="text-red-500 text-sm text-center">{error}</div>
-              )}
               <Button
                 type="submit"
                 className="w-full cursor-pointer"

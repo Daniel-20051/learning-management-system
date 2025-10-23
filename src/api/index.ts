@@ -23,32 +23,26 @@ export class Api {
         email: string;
         password: string;
     }) {
-        try{
-          const payload = {
-            email: data.email,
-            password: data.password,
-          }
-          const response = await axios.post(`${BASE_URL}/api/auth/login`, payload);
-          
-          // Store access token in cookie if login is successful
-          if (response.data && 
-              typeof response.data === 'object' && 
-              'success' in response.data && 
-              response.data.success && 
-              'data' in response.data && 
-              response.data.data && 
-              typeof response.data.data === 'object' && 
-              'accessToken' in response.data.data) {
-            setAccessToken(response.data.data.accessToken as string);
-          }
-          
-          
-          return response;
-
-        }catch(err: any){
-          console.error("Error during login:", err);
-          return err;
+        const payload = {
+          email: data.email,
+          password: data.password,
         }
+        const response = await axios.post(`${BASE_URL}/api/auth/login`, payload);
+        
+        // Store access token in cookie if login is successful
+        if (response.data && 
+            typeof response.data === 'object' && 
+            'success' in response.data && 
+            response.data.success && 
+            'data' in response.data && 
+            response.data.data && 
+            typeof response.data.data === 'object' && 
+            'accessToken' in response.data.data) {
+          setAccessToken(response.data.data.accessToken as string);
+        }
+        
+        
+        return response;
     }
     async GetCourses(session: string, semester: string) {
       try{
@@ -75,7 +69,6 @@ export class Api {
         
         if (err.response?.status === 401) {
           removeAccessToken();
-          console.log("Token expired or invalid, removed from cookie");
         }
         return err;
       }
@@ -107,7 +100,6 @@ export class Api {
       
       if (err.response?.status === 401) {
         removeAccessToken();
-        console.log("Token expired or invalid, removed from cookie");
       }
       return err;
     }
@@ -136,7 +128,6 @@ async GetStaffCourses(session: string) {
     
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     return err;
   }
@@ -166,7 +157,6 @@ async GetStaffCoursesbyId(id :string) {
     
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     return err;
   }
@@ -196,7 +186,6 @@ async GetCourseModules(courseId: string) {
     
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     return err;
   }
@@ -236,7 +225,6 @@ async AddModule(courseId: string, title: string, description: string) {
     
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     return err;
   }
@@ -271,7 +259,6 @@ async DeleteModule(moduleId: string) {
     
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     return err;
   }
@@ -314,7 +301,6 @@ async AddUnit(moduleId: string, data: {title: string, content: string, content_t
     
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     return err;
   }
@@ -340,7 +326,6 @@ async getUnits(moduleId: string) {
         }
     );
     
-    console.log(response);
     return response;
 
   }catch(err: any){
@@ -348,7 +333,6 @@ async getUnits(moduleId: string) {
     
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     return err;
   }
@@ -389,7 +373,6 @@ async EditUnit(unitId: string, data: {title: string, content: string, video_url?
     
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     return err;
   }
@@ -424,7 +407,6 @@ async DeleteUnit(unitId: string) {
     
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     return err;
   }
@@ -465,7 +447,6 @@ async UploadUnitVideo(moduleId: string, unitId: string, videoFile: File, onProgr
     
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     return err;
   }
@@ -488,7 +469,6 @@ async GetModuleNotes(moduleId: string) {
     console.error("Error during getting unit notes:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     return err;
   }
@@ -517,7 +497,6 @@ async CreateModuleNotes(moduleId: string, data: { note_text: string, title?: str
     console.error("Error during getting unit notes:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     return err;
   }
@@ -544,7 +523,6 @@ async EditModuleNotes(moduleId: string, noteId: string, data: { note_text: strin
     console.error("Error during getting unit notes:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     return err;
   }
@@ -568,7 +546,6 @@ async DeleteModuleNotes(moduleId: string, noteId: string) {
     console.error("Error during getting unit notes:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     return err;
   }
@@ -588,7 +565,6 @@ async CreateQuiz(data: {
       throw new Error("No access token found. Please login again.");
     }
 
-    console.log("Sending quiz data to API:", data);
     
     const response = await axios.post(`${BASE_URL}/api/quiz/create-quiz`, data, {
       headers: {
@@ -597,13 +573,11 @@ async CreateQuiz(data: {
       }
     });
     
-    console.log("Quiz API response:", response);
     return response;
   } catch (err: any) {
     console.error("Error during creating quiz:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -626,7 +600,6 @@ async GetQuiz(courseId?: number) {
     console.error("Error during getting quizzes:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -650,7 +623,6 @@ async GetQuizById(quizId: number) {
     console.error("Error during getting quiz by id:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -672,14 +644,12 @@ async AddQuizQuestions(quizId: number, questions: any[]) {
         'Content-Type': 'application/json'
       }
     });
-    console.log("Quiz questions response:", response);
    
     return response;
   } catch (err: any) {
     console.error("Error during adding quiz questions:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -702,7 +672,6 @@ async DeleteQuiz(quizId: number) {
     console.error("Error during deleting quiz:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -733,7 +702,6 @@ async UpdateQuiz(quizId: number, data: {
     console.error("Error during updating quiz:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -759,7 +727,6 @@ async UpdateQuizQuestions(quizId: number, questions: any[]) {
     console.error("Error during updating quiz questions:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -777,7 +744,6 @@ async StartQuizAttempt(quizId: number) {
         'Authorization': `Bearer ${token}`
       }
     });
-    console.log("Quiz attempt response:", response);
     return response;
   } catch (err: any) {
     console.error("Error during starting quiz attempt:", err);
@@ -804,13 +770,11 @@ async SaveQuizAnswers(attemptId: number, data: { answers: { question_id: number;
         }
       }
     );
-    console.log("Quiz answers save response:", response);
     return response;
   } catch (err: any) {
     console.error("Error during saving quiz answers:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -833,13 +797,11 @@ async SubmitQuizAttempt(attemptId: number, data: { answers: { question_id: numbe
         }
       }
     );
-    console.log("Quiz attempt submission response:", response);
     return response;
   } catch (err: any) {
     console.error("Error during submitting quiz attempt:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -860,7 +822,6 @@ async GetQuizStats(quizId?: number) {
     console.error("Error during getting quiz stats:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -884,7 +845,6 @@ async GetQuizStats(quizId?: number) {
      console.error("Error during getting latest attempt:", err);
      if (err.response?.status === 401) {
        removeAccessToken();
-       console.log("Token expired or invalid, removed from cookie");
      }
      throw err;
    }
@@ -910,7 +870,6 @@ async GetQuizStats(quizId?: number) {
     console.error("Error during getting quiz by id:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -928,13 +887,11 @@ async GetChatThreads() {
         }
       }
     );
-    console.log(response)
     return response;
   } catch (err: any) {
     console.error("Error during getting quiz by id:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -957,7 +914,6 @@ async GetStaffExams() {
     console.error("Error during getting staff exams:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -979,7 +935,6 @@ async GetExams(courseId: number) {
     console.error("Error during getting exams:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -1021,7 +976,6 @@ async CreateExam(data: {
     console.error("Error during creating exam:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -1058,7 +1012,6 @@ async UpdateExam(examId: number, data: {
     console.error("Error during updating exam:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -1080,7 +1033,6 @@ async DeleteExam(examId: number) {
     console.error("Error during deleting exam:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -1102,14 +1054,13 @@ async GetExamById(examId: number) {
     console.error("Error during getting exam by id:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
 }
 
 // Get question bank for exam creation
-async GetBankQuestions(courseId: number, questionType?: string, limit?: number) {
+async GetBankQuestions(courseId: number, questionType?: string, limit?: number, page?: number) {
   try {
     const token = getAccessToken();
     if (!token) {
@@ -1123,6 +1074,9 @@ async GetBankQuestions(courseId: number, questionType?: string, limit?: number) 
     if (limit) {
       url += `&limit=${limit}`;
     }
+    if (page) {
+      url += `&page=${page}`;
+    }
     
     const response = await axios.get(url, {
       headers: {
@@ -1134,24 +1088,98 @@ async GetBankQuestions(courseId: number, questionType?: string, limit?: number) 
     console.error("Error during getting bank questions:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
 }
 
-// Get all attempts for an exam (for grading)
-async GetExamAttempts(examId: number, status?: string) {
+// Add objective question to question bank
+async AddObjectiveQuestion(data: {
+  course_id: number;
+  question_text: string;
+  options: Array<{ id: string; text: string }>;
+  correct_option: string;
+  marks: number;
+}) {
   try {
     const token = getAccessToken();
     if (!token) {
       throw new Error("No access token found. Please login again.");
     }
     
-    let url = `${BASE_URL}/api/exams/${examId}/attempts`;
-    if (status) {
-      url += `?status=${status}`;
+    const response = await axios.post(
+      `${BASE_URL}/api/exams/bank/questions/objective`,
+      data,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    return response;
+  } catch (err: any) {
+    console.error("Error adding objective question:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
     }
+    throw err;
+  }
+}
+
+// Add theory question to question bank
+async AddTheoryQuestion(data: {
+  course_id: number;
+  question_text: string;
+  max_marks: number;
+  difficulty?: string;
+  topic?: string;
+}) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    
+    const response = await axios.post(
+      `${BASE_URL}/api/exams/bank/questions/theory`,
+      data,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+    return response;
+  } catch (err: any) {
+    console.error("Error adding theory question:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+    }
+    throw err;
+  }
+}
+
+// Get all attempts for an exam (for grading)
+async GetExamAttempts(examId: number, status?: string, page: number = 1, limit: number = 20, search?: string) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    
+    const params = new URLSearchParams();
+    if (status) {
+      params.append('status', status);
+    }
+    if (search && search.trim()) {
+      params.append('search', search.trim());
+    }
+    params.append('page', page.toString());
+    params.append('limit', limit.toString());
+    
+    const url = `${BASE_URL}/api/exams/${examId}/attempts?${params.toString()}`;
     
     const response = await axios.get(url, {
       headers: {
@@ -1163,7 +1191,6 @@ async GetExamAttempts(examId: number, status?: string) {
     console.error("Error during getting exam attempts:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -1177,17 +1204,23 @@ async GetAttemptForGrading(attemptId: number) {
       throw new Error("No access token found. Please login again.");
     }
     
-    const response = await axios.get(`${BASE_URL}/api/exams/attempts/${attemptId}/grade`, {
+    const url = `${BASE_URL}/api/exams/attempts/${attemptId}/grade`;
+    
+    const response = await axios.get(url, {
       headers: {
         'Authorization': `Bearer ${token}`
       }
     });
+    
+  
+    
     return response;
   } catch (err: any) {
     console.error("Error during getting attempt for grading:", err);
+    console.log("Error response data:", err.response?.data);
+    console.log("Error response status:", err.response?.status);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -1216,14 +1249,13 @@ async GradeTheoryAnswer(answerId: number, score: number, feedback?: string) {
     console.error("Error during grading theory answer:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
 }
 
 // Bulk grade theory answers
-async BulkGradeTheoryAnswers(attemptId: number, grades: { answer_id: number; score: number; feedback?: string }[]) {
+async BulkGradeTheoryAnswers(attemptId: number, grades: { answer_id: number; awarded_score: number; feedback?: string }[]) {
   try {
     const token = getAccessToken();
     if (!token) {
@@ -1245,7 +1277,6 @@ async BulkGradeTheoryAnswers(attemptId: number, grades: { answer_id: number; sco
     console.error("Error during bulk grading:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }
@@ -1269,7 +1300,6 @@ async GetExamStatistics(examId: number) {
     console.error("Error during getting exam statistics:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
-      console.log("Token expired or invalid, removed from cookie");
     }
     throw err;
   }

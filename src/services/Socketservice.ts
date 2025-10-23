@@ -229,7 +229,6 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
     }
     this.socket.off('dm:newMessage');
     this.socket.on('dm:newMessage', (message: any) => {
-      console.log('📥 dm:newMessage:', message);
       try {
         // Immediately mark as delivered
         const id = (message && (message.id || message._id)) as string | number | undefined;
@@ -367,7 +366,6 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
     }
     this.socket.off('dm:online');
     this.socket.on('dm:online', (data: any) => {
-      console.log('📡 dm:online:', data);
       callback(data);
     });
   }

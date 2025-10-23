@@ -44,7 +44,6 @@ const QuestionBankDialog = ({
         const response = await api.GetBankQuestions(courseId, questionType, 50);
         
         const data = (response as any)?.data?.data ?? (response as any)?.data ?? [];
-        console.log("Bank questions:", data);
         
         // Filter based on exam type
         let filteredQuestions = data;

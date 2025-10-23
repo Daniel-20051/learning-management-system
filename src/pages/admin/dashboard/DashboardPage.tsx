@@ -132,7 +132,6 @@ const DashboardPage = () => {
           const studentsList = Array.isArray(studentsData) ? studentsData : [];
           setStudents(studentsList);
         } catch (studentsError) {
-          console.log("Students data not available:", studentsError);
           setStudents([]);
         } finally {
           setIsStudentsLoading(false);

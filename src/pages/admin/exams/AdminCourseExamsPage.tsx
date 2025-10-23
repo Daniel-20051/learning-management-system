@@ -58,14 +58,20 @@ const AdminCourseExamsPage = () => {
   const [deleteLoading, setDeleteLoading] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
   
+  // Academic sessions state
+  const [sessions, setSessions] = useState<any[]>([]);
+  const [academicYears, setAcademicYears] = useState<string[]>([]);
+  const [availableSemesters, setAvailableSemesters] = useState<string[]>([]);
+  const [sessionsLoading, setSessionsLoading] = useState(true);
+  
   // Form states
   const [formData, setFormData] = useState({
     title: "",
     instructions: "",
     duration_minutes: 60,
     status: "draft" as "draft" | "published" | "archived",
-    academic_year: "2024/2025",
-    semester: "1ST",
+    academic_year: "",
+    semester: "",
     start_at: "",
     end_at: "",
     visibility: "draft" as "draft" | "published" | "archived",
@@ -77,6 +83,53 @@ const AdminCourseExamsPage = () => {
   });
 
   const session = searchParams.get("session") || "";
+
+  // Load academic sessions
+  useEffect(() => {
+    const loadSessions = async () => {
+      setSessionsLoading(true);
+      try {
+        const response = await api.Getsessions();
+        const items = response?.data?.data ?? response?.data ?? [];
+        
+        if (Array.isArray(items) && items.length > 0) {
+          setSessions(items);
+          
+          // Build unique academic year list
+          const uniqueYears = Array.from(
+            new Set(items.map((it: any) => it.academic_year))
+          );
+          setAcademicYears(uniqueYears as string[]);
+          
+          // Find active session or default to first
+          const active = items.find((it: any) => it.status === "Active");
+          const defaultYear = active?.academic_year || uniqueYears[0];
+          const defaultSemester = active?.semester || items[0]?.semester;
+          
+          if (defaultYear) {
+            setFormData(prev => ({
+              ...prev,
+              academic_year: defaultYear,
+              semester: defaultSemester || ""
+            }));
+            
+            // Set available semesters for default year
+            const semestersForYear = items
+              .filter((it: any) => it.academic_year === defaultYear)
+              .map((it: any) => it.semester);
+            setAvailableSemesters(Array.from(new Set(semestersForYear)));
+          }
+        }
+      } catch (err: any) {
+        console.error("Error loading sessions:", err);
+        toast.error("Failed to load academic sessions");
+      } finally {
+        setSessionsLoading(false);
+      }
+    };
+    
+    loadSessions();
+  }, [api]);
 
   // Load course info
   useEffect(() => {
@@ -104,12 +157,7 @@ const AdminCourseExamsPage = () => {
       try {
         // This would be the new exam API endpoint
         const response = await api.GetExams(parseInt(courseId));
-        
-        // Log the response from getting exams for debugging
-        console.log("GetExams response:", response);
-        
         const data = (response as any)?.data?.data ?? (response as any)?.data ?? [];
-        console.log("Processed exams data:", data);
         
         setExams(Array.isArray(data) ? data : []);
       } catch (err) {
@@ -128,6 +176,16 @@ const AdminCourseExamsPage = () => {
     
     if (!formData.title.trim()) {
       toast.error("Please enter an exam title");
+      return;
+    }
+    
+    if (!formData.academic_year) {
+      toast.error("Please select an academic year");
+      return;
+    }
+    
+    if (!formData.semester) {
+      toast.error("Please select a semester");
       return;
     }
     
@@ -160,9 +218,6 @@ const AdminCourseExamsPage = () => {
         examData.end_at = formData.end_at;
       }
 
-      // Log the payload being sent for debugging
-      console.log("Creating exam with payload:", examData);
-
       const response = await api.CreateExam(examData);
       
       if ((response as any)?.data?.success || (response as any)?.status === 200 || (response as any)?.status === 201) {
@@ -170,19 +225,21 @@ const AdminCourseExamsPage = () => {
         
         // Reload exams
         const examsResponse = await api.GetExams(parseInt(courseId));
-        console.log("GetExams response after create:", examsResponse);
         const data = (examsResponse as any)?.data?.data ?? (examsResponse as any)?.data ?? [];
-        console.log("Processed exams data after create:", data);
         setExams(Array.isArray(data) ? data : []);
         
         // Reset form and close dialog
+        const active = sessions.find((it: any) => it.status === "Active");
+        const defaultYear = active?.academic_year || academicYears[0] || "";
+        const defaultSemester = active?.semester || "";
+        
         setFormData({
           title: "",
           instructions: "",
           duration_minutes: 60,
           status: "draft",
-          academic_year: "2024/2025",
-          semester: "1ST",
+          academic_year: defaultYear,
+          semester: defaultSemester,
           start_at: "",
           end_at: "",
           visibility: "draft",
@@ -246,9 +303,7 @@ const AdminCourseExamsPage = () => {
         
         // Reload exams
         const examsResponse = await api.GetExams(parseInt(courseId!));
-        console.log("GetExams response after edit:", examsResponse);
         const data = (examsResponse as any)?.data?.data ?? (examsResponse as any)?.data ?? [];
-        console.log("Processed exams data after edit:", data);
         setExams(Array.isArray(data) ? data : []);
         
         // Reset form and close dialog
@@ -299,9 +354,7 @@ const AdminCourseExamsPage = () => {
         
         // Reload exams
         const examsResponse = await api.GetExams(parseInt(courseId!));
-        console.log("GetExams response after delete:", examsResponse);
         const data = (examsResponse as any)?.data?.data ?? (examsResponse as any)?.data ?? [];
-        console.log("Processed exams data after delete:", data);
         setExams(Array.isArray(data) ? data : []);
       } else {
         toast.error("Failed to delete exam. Please try again.");
@@ -421,23 +474,47 @@ const AdminCourseExamsPage = () => {
 
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="academic_year">Academic Year</Label>
-                    <Input
-                      id="academic_year"
-                      value={formData.academic_year}
-                      onChange={(e) => setFormData({ ...formData, academic_year: e.target.value })}
-                      placeholder="2024/2025"
-                    />
-                  </div>
-                  <div>
-                    <Label htmlFor="semester">Semester</Label>
-                    <Select value={formData.semester} onValueChange={(value) => setFormData({ ...formData, semester: value })}>
+                    <Label htmlFor="academic_year">Academic Year *</Label>
+                    <Select 
+                      value={formData.academic_year} 
+                      onValueChange={(value) => {
+                        setFormData({ ...formData, academic_year: value, semester: "" });
+                        // Update available semesters for selected year
+                        const semestersForYear = sessions
+                          .filter((it: any) => it.academic_year === value)
+                          .map((it: any) => it.semester);
+                        setAvailableSemesters(Array.from(new Set(semestersForYear)));
+                      }}
+                      disabled={sessionsLoading}
+                    >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder={sessionsLoading ? "Loading..." : "Select academic year"} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="1ST">1ST</SelectItem>
-                        <SelectItem value="2ND">2ND</SelectItem>
+                        {academicYears.map((year) => (
+                          <SelectItem key={year} value={year}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="semester">Semester *</Label>
+                    <Select 
+                      value={formData.semester} 
+                      onValueChange={(value) => setFormData({ ...formData, semester: value })}
+                      disabled={!formData.academic_year || availableSemesters.length === 0}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={!formData.academic_year ? "Select year first" : "Select semester"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {availableSemesters.map((sem) => (
+                          <SelectItem key={sem} value={sem}>
+                            {sem}
+                          </SelectItem>
+                        ))}
                       </SelectContent>
                     </Select>
                   </div>

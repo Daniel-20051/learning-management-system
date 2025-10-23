@@ -355,7 +355,6 @@ const ChatDialog = () => {
       if (cached) {
         const receiverType = getPeerUserType(cached, directory, chat);
         socketService.joinDirectMessage(cached, receiverType, (joinResponse) => {
-          console.log("Auto-join to refresh mapping before send:", { activeChatId, cached, receiverType, joinResponse });
           if (joinResponse?.ok) {
             setChatPeerIds(prev => ({ ...prev, [activeChatId]: cached }));
           }
@@ -634,7 +633,6 @@ const ChatDialog = () => {
   // Listen for online status updates
   React.useEffect(() => {
     const handleOnlineStatus = (data: { userId: string | number; isOnline: boolean }) => {
-      console.log('📡 User online status update:', data);
       updateUserStatus(data.userId, data.isOnline);
     };
 
@@ -818,7 +816,6 @@ const ChatDialog = () => {
           socketService.connect(String(user.id), () => {
             const peerUserType = getPeerUserType(peerId, directory, chat);
             socketService.joinDirectMessage(peerId, peerUserType, (response) => {
-              console.log("joinDirectMessage response (connected via connect):", { chatId, peerId, peerUserType, response });
               if (response?.ok) {
                 // Process and store the received messages - use the chatId parameter instead of activeChatId
                 processServerMessages(response?.messages || [], chatId);
@@ -832,7 +829,6 @@ const ChatDialog = () => {
         // Join the chat via socket
         const peerUserType = getPeerUserType(peerId, directory, chat);
         socketService.joinDirectMessage(peerId, peerUserType, (response) => {
-          console.log("joinDirectMessage response:", { chatId, peerId, peerUserType, response });
           if (response?.ok) {
             // Process and store the received messages - use the chatId parameter instead of activeChatId
             processServerMessages(response?.messages || [], chatId);
@@ -861,7 +857,6 @@ const ChatDialog = () => {
                 socketService.connect(String(user.id), () => {
                   const peerUserType = getPeerUserType(retryPeer.id, users, chat);
                   socketService.joinDirectMessage(retryPeer.id, peerUserType, (response) => {
-                    console.log("joinDirectMessage response (retry via connect):", { chatId, peerId: retryPeer.id, peerUserType, response });
                     if (response?.ok) {
                       // Process and store the received messages - use the chatId parameter instead of activeChatId
                       processServerMessages(response?.messages || [], chatId);
@@ -874,7 +869,6 @@ const ChatDialog = () => {
             } else {
               const peerUserType = getPeerUserType(retryPeer.id, users, chat);
               socketService.joinDirectMessage(retryPeer.id, peerUserType, (response) => {
-                console.log("joinDirectMessage response (retry):", { chatId, peerId: retryPeer.id, peerUserType, response });
                 if (response?.ok) {
                   // Process and store the received messages - use the chatId parameter instead of activeChatId
                   processServerMessages(response?.messages || [], chatId);

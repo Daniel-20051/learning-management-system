@@ -19,18 +19,117 @@ interface GradingDialogProps {
   onGraded?: () => void;
 }
 
-interface Answer {
+interface ObjectiveAnswer {
   id: number;
-  question_id: number;
-  question_text: string;
-  question_type: string;
-  points: number;
-  student_answer?: string;
-  selected_options?: any[];
-  correct_answer?: string;
-  is_correct?: boolean;
-  score?: number;
-  feedback?: string;
+  attempt_id: number;
+  exam_item_id: number;
+  selected_option: string;
+  is_correct: boolean;
+  awarded_score: string;
+  answered_at: string;
+  examItem: {
+    id: number;
+    exam_id: number;
+    attempt_id: number;
+    question_bank_id: number;
+    order: number;
+    marks_override: string | null;
+    question: {
+      id: number;
+      course_id: number;
+      created_by: number;
+      question_type: string;
+      difficulty: string;
+      topic: string | null;
+      tags: any[];
+      status: string;
+      source_type: string;
+      source_id: number | null;
+      created_at: string;
+      updated_at: string;
+      objective: {
+        id: number;
+        question_bank_id: number;
+        question_text: string;
+        options: Array<{
+          id: string;
+          text: string;
+        }>;
+        correct_option: string;
+        marks: string;
+        image_url: string | null;
+        video_url: string | null;
+      };
+    };
+  };
+}
+
+interface TheoryAnswer {
+  id: number;
+  attempt_id: number;
+  exam_item_id: number;
+  answer_text: string;
+  file_url: string | null;
+  awarded_score: string;
+  graded_by: number;
+  graded_at: string;
+  feedback: string;
+  answered_at: string;
+  examItem: {
+    id: number;
+    exam_id: number;
+    attempt_id: number;
+    question_bank_id: number;
+    order: number;
+    marks_override: string | null;
+    question: {
+      id: number;
+      course_id: number;
+      created_by: number;
+      question_type: string;
+      difficulty: string;
+      topic: string | null;
+      tags: any[];
+      status: string;
+      source_type: string;
+      source_id: number | null;
+      created_at: string;
+      updated_at: string;
+      theory: {
+        id: number;
+        question_bank_id: number;
+        question_text: string;
+        max_marks: string;
+        rubric_json: any | null;
+        image_url: string | null;
+        video_url: string | null;
+      };
+    };
+  };
+}
+
+interface AttemptData {
+  id: number;
+  exam_id: number;
+  student_id: number;
+  attempt_no: number;
+  started_at: string;
+  submitted_at: string;
+  status: string;
+  total_score: string;
+  max_score: string;
+  graded_at: string;
+  graded_by: number;
+  exam: any;
+  objectiveAnswers: ObjectiveAnswer[];
+  theoryAnswers: TheoryAnswer[];
+  student: {
+    id: number;
+    fname: string;
+    lname: string;
+    matric_number: string;
+    email: string;
+  };
 }
 
 const GradingDialog = ({
@@ -43,7 +142,7 @@ const GradingDialog = ({
   const api = useMemo(() => new Api(), []);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [answers, setAnswers] = useState<Answer[]>([]);
+  const [attemptData, setAttemptData] = useState<AttemptData | null>(null);
   const [grades, setGrades] = useState<Record<number, { score: number; feedback: string }>>({});
 
   // Load attempt details
@@ -56,21 +155,18 @@ const GradingDialog = ({
         const response = await api.GetAttemptForGrading(attemptId);
         const data = (response as any)?.data?.data ?? (response as any)?.data ?? {};
         
-        console.log("Attempt for grading:", data);
+        setAttemptData(data);
         
-        const attemptAnswers = data.answers || [];
-        setAnswers(attemptAnswers);
-        
-        // Initialize grades state with existing scores/feedback
+        // Initialize grades state with existing scores/feedback for theory questions
         const initialGrades: Record<number, { score: number; feedback: string }> = {};
-        attemptAnswers.forEach((answer: Answer) => {
-          if (answer.question_type === "essay" || answer.question_type === "short_answer") {
+        if (data.theoryAnswers) {
+          data.theoryAnswers.forEach((answer: TheoryAnswer) => {
             initialGrades[answer.id] = {
-              score: answer.score || 0,
+              score: parseFloat(answer.awarded_score) || 0,
               feedback: answer.feedback || ""
             };
-          }
-        });
+          });
+        }
         setGrades(initialGrades);
       } catch (err) {
         console.error("Error loading attempt:", err);
@@ -94,16 +190,16 @@ const GradingDialog = ({
   };
 
   const handleSubmitGrades = async () => {
+    if (!attemptData) return;
+    
     setSaving(true);
     try {
       // Prepare grades array for theory questions only
-      const theoryGrades = answers
-        .filter(a => a.question_type === "essay" || a.question_type === "short_answer")
-        .map(a => ({
-          answer_id: a.id,
-          score: grades[a.id]?.score || 0,
-          feedback: grades[a.id]?.feedback || ""
-        }));
+      const theoryGrades = attemptData.theoryAnswers.map(answer => ({
+        answer_id: answer.id,
+        awarded_score: grades[answer.id]?.score ?? 0,
+        feedback: grades[answer.id]?.feedback || ""
+      }));
 
       if (theoryGrades.length === 0) {
         toast.info("No theory questions to grade");
@@ -151,20 +247,22 @@ const GradingDialog = ({
     }
   };
 
-  // Separate answers by type
-  const objectiveAnswers = answers.filter(
-    a => a.question_type === "multiple_choice" || a.question_type === "true_false"
-  );
-  const theoryAnswers = answers.filter(
-    a => a.question_type === "essay" || a.question_type === "short_answer"
-  );
+  // Get answers from attempt data
+  const objectiveAnswers = attemptData?.objectiveAnswers || [];
+  const theoryAnswers = attemptData?.theoryAnswers || [];
 
-  const totalScore = answers.reduce((sum, a) => sum + (a.score || 0), 0);
-  const maxScore = answers.reduce((sum, a) => sum + a.points, 0);
+  // Calculate scores
+  const objectiveScore = objectiveAnswers.reduce((sum, a) => sum + parseFloat(a.awarded_score), 0);
+  const theoryScore = theoryAnswers.reduce((sum, a) => sum + (grades[a.id]?.score ?? parseFloat(a.awarded_score) ?? 0), 0);
+  const totalScore = objectiveScore + theoryScore;
+  
+  const objectiveMaxScore = objectiveAnswers.reduce((sum, a) => sum + parseFloat(a.examItem.question.objective.marks), 0);
+  const theoryMaxScore = theoryAnswers.reduce((sum, a) => sum + parseFloat(a.examItem.question.theory.max_marks), 0);
+  const maxScore = objectiveMaxScore + theoryMaxScore;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl max-h-[85vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl max-h-[85vh] mt-7 overflow-hidden flex flex-col">
         <DialogHeader>
           <DialogTitle>
             Grade Exam Attempt{studentName ? ` - ${studentName}` : ""}
@@ -206,20 +304,20 @@ const GradingDialog = ({
                     <Badge variant="outline">Auto-graded</Badge>
                   </h3>
                   <div className="space-y-3">
-                    {objectiveAnswers.map((answer, idx) => (
+                    {objectiveAnswers.map((answer) => (
                       <Card key={answer.id} className="p-4">
                         <div className="space-y-2">
                           <div className="flex items-start justify-between gap-2">
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-1">
                                 <span className="text-sm font-medium text-muted-foreground">
-                                  Q{idx + 1}
+                                  Q{answer.examItem.order}
                                 </span>
-                                <Badge className={getQuestionTypeBadgeColor(answer.question_type)}>
-                                  {getQuestionTypeLabel(answer.question_type)}
+                                <Badge className={getQuestionTypeBadgeColor(answer.examItem.question.question_type)}>
+                                  {getQuestionTypeLabel(answer.examItem.question.question_type)}
                                 </Badge>
                               </div>
-                              <p className="font-medium">{answer.question_text}</p>
+                              <p className="font-medium">{answer.examItem.question.objective.question_text}</p>
                             </div>
                             <div className="flex items-center gap-2">
                               {answer.is_correct ? (
@@ -228,19 +326,25 @@ const GradingDialog = ({
                                 <XCircle className="h-5 w-5 text-red-500" />
                               )}
                               <Badge variant={answer.is_correct ? "default" : "destructive"}>
-                                {answer.score || 0} / {answer.points}
+                                {answer.awarded_score} / {answer.examItem.question.objective.marks}
                               </Badge>
                             </div>
                           </div>
                           
-                          {answer.selected_options && answer.selected_options.length > 0 && (
-                            <div className="text-sm">
+                          <div className="text-sm space-y-2">
+                            <div>
                               <p className="text-muted-foreground">Student Answer:</p>
                               <p className="font-medium">
-                                {answer.selected_options.map((opt: any) => opt.option_text).join(", ")}
+                                {answer.examItem.question.objective.options.find(opt => opt.id === answer.selected_option)?.text || answer.selected_option}
                               </p>
                             </div>
-                          )}
+                            <div>
+                              <p className="text-muted-foreground">Correct Answer:</p>
+                              <p className="font-medium text-green-600">
+                                {answer.examItem.question.objective.options.find(opt => opt.id === answer.examItem.question.objective.correct_option)?.text || answer.examItem.question.objective.correct_option}
+                              </p>
+                            </div>
+                          </div>
                         </div>
                       </Card>
                     ))}
@@ -260,87 +364,94 @@ const GradingDialog = ({
                     <Badge variant="outline">Manual Grading Required</Badge>
                   </h3>
                   <div className="space-y-4">
-                    {theoryAnswers.map((answer, idx) => (
-                      <Card key={answer.id} className="p-4">
-                        <div className="space-y-3">
-                          <div className="flex items-start justify-between gap-2">
-                            <div className="flex-1">
-                              <div className="flex items-center gap-2 mb-1">
-                                <span className="text-sm font-medium text-muted-foreground">
-                                  Q{objectiveAnswers.length + idx + 1}
-                                </span>
-                                <Badge className={getQuestionTypeBadgeColor(answer.question_type)}>
-                                  {getQuestionTypeLabel(answer.question_type)}
-                                </Badge>
-                                <span className="text-sm text-muted-foreground">
-                                  (Max: {answer.points} points)
-                                </span>
+                    {theoryAnswers.map((answer) => {
+                      const maxMarks = parseFloat(answer.examItem.question.theory.max_marks);
+                      const currentScore = grades[answer.id]?.score ?? parseFloat(answer.awarded_score) ?? 0;
+                      
+                      return (
+                        <Card key={answer.id} className="p-4">
+                          <div className="space-y-3">
+                            <div className="flex items-start justify-between gap-2">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-sm font-medium text-muted-foreground">
+                                    Q{answer.examItem.order}
+                                  </span>
+                                  <Badge className={getQuestionTypeBadgeColor(answer.examItem.question.question_type)}>
+                                    {getQuestionTypeLabel(answer.examItem.question.question_type)}
+                                  </Badge>
+                                  <span className="text-sm text-muted-foreground">
+                                    (Max: {maxMarks} points)
+                                  </span>
+                                </div>
+                                <p className="font-medium">{answer.examItem.question.theory.question_text}</p>
                               </div>
-                              <p className="font-medium">{answer.question_text}</p>
                             </div>
-                          </div>
-                          
-                          <div>
-                            <Label className="text-sm text-muted-foreground">Student Answer:</Label>
-                            <div className="mt-1 p-3 bg-muted rounded-md">
-                              <p className="text-sm whitespace-pre-wrap">
-                                {answer.student_answer || "(No answer provided)"}
-                              </p>
-                            </div>
-                          </div>
-
-                          <div className="grid grid-cols-2 gap-3">
+                            
                             <div>
-                              <Label htmlFor={`score-${answer.id}`}>Score</Label>
-                              <Input
-                                id={`score-${answer.id}`}
-                                type="number"
-                                min="0"
-                                max={answer.points}
-                                value={grades[answer.id]?.score || 0}
+                              <Label className="text-sm text-muted-foreground">Student Answer:</Label>
+                              <div className="mt-1 p-3 bg-muted rounded-md">
+                                <p className="text-sm whitespace-pre-wrap">
+                                  {answer.answer_text || "(No answer provided)"}
+                                </p>
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-3">
+                              <div>
+                                <Label htmlFor={`score-${answer.id}`}>Score</Label>
+                                <Input
+                                  id={`score-${answer.id}`}
+                                  type="number"
+                                  min="0"
+                                  max={maxMarks}
+                                  step="0.5"
+                                  value={grades[answer.id]?.score ?? parseFloat(answer.awarded_score) ?? 0}
+                                  onChange={(e) => {
+                                    const numValue = parseFloat(e.target.value) || 0;
+                                    handleGradeChange(answer.id, "score", numValue);
+                                  }}
+                                />
+                              </div>
+                              <div>
+                                <Label>Status</Label>
+                                <div className="h-10 flex items-center">
+                                  <Badge
+                                    variant={
+                                      currentScore === maxMarks
+                                        ? "default"
+                                        : currentScore > 0
+                                        ? "secondary"
+                                        : "destructive"
+                                    }
+                                  >
+                                    {currentScore} / {maxMarks}
+                                  </Badge>
+                                </div>
+                              </div>
+                            </div>
+
+                            <div>
+                              <Label htmlFor={`feedback-${answer.id}`}>Feedback (Optional)</Label>
+                              <Textarea
+                                id={`feedback-${answer.id}`}
+                                placeholder="Provide feedback to the student..."
+                                rows={2}
+                                value={grades[answer.id]?.feedback || answer.feedback || ""}
                                 onChange={(e) =>
-                                  handleGradeChange(answer.id, "score", parseFloat(e.target.value) || 0)
+                                  handleGradeChange(answer.id, "feedback", e.target.value)
                                 }
                               />
                             </div>
-                            <div>
-                              <Label>Status</Label>
-                              <div className="h-10 flex items-center">
-                                <Badge
-                                  variant={
-                                    grades[answer.id]?.score === answer.points
-                                      ? "default"
-                                      : grades[answer.id]?.score > 0
-                                      ? "secondary"
-                                      : "destructive"
-                                  }
-                                >
-                                  {grades[answer.id]?.score || 0} / {answer.points}
-                                </Badge>
-                              </div>
-                            </div>
                           </div>
-
-                          <div>
-                            <Label htmlFor={`feedback-${answer.id}`}>Feedback (Optional)</Label>
-                            <Textarea
-                              id={`feedback-${answer.id}`}
-                              placeholder="Provide feedback to the student..."
-                              rows={2}
-                              value={grades[answer.id]?.feedback || ""}
-                              onChange={(e) =>
-                                handleGradeChange(answer.id, "feedback", e.target.value)
-                              }
-                            />
-                          </div>
-                        </div>
-                      </Card>
-                    ))}
+                        </Card>
+                      );
+                    })}
                   </div>
                 </div>
               )}
 
-              {answers.length === 0 && (
+              {(!attemptData || (objectiveAnswers.length === 0 && theoryAnswers.length === 0)) && (
                 <div className="text-center py-8 text-muted-foreground">
                   <p>No answers found for this attempt.</p>
                 </div>

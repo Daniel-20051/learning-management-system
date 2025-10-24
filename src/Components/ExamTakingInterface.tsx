@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/Components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/Components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Badge } from "@/Components/ui/badge";
 // Using native HTML radio inputs instead of custom radio-group component
 import { Label } from "@/Components/ui/label";
 import { Textarea } from "@/Components/ui/textarea";
 import { Clock, ChevronLeft, ChevronRight, FileText, CheckCircle } from "lucide-react";
-import type { ExamQuestion, ExamStartResponse } from "@/types/admin";
+import type { ExamStartResponse } from "@/types/admin";
+import { Api } from "@/api/index";
+import { toast } from "sonner";
 
 interface ExamTakingInterfaceProps {
   examData: ExamStartResponse['data'];
@@ -17,9 +19,13 @@ const ExamTakingInterface = ({ examData, onBack }: ExamTakingInterfaceProps) => 
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Record<number, string>>({});
   const [timeRemaining, setTimeRemaining] = useState(examData.duration_minutes * 60); // Convert to seconds
+  const [submittingAnswer, setSubmittingAnswer] = useState(false);
+  const [theoryAnswerTimeout, setTheoryAnswerTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [submittingExam, setSubmittingExam] = useState(false);
   
   const currentQuestion = examData.questions[currentQuestionIndex];
   const totalQuestions = examData.questions.length;
+  const api = new Api();
 
   // Timer effect
   useEffect(() => {
@@ -37,6 +43,15 @@ const ExamTakingInterface = ({ examData, onBack }: ExamTakingInterfaceProps) => 
     return () => clearInterval(timer);
   }, []);
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (theoryAnswerTimeout) {
+        clearTimeout(theoryAnswerTimeout);
+      }
+    };
+  }, [theoryAnswerTimeout]);
+
   const formatTime = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
     const minutes = Math.floor((seconds % 3600) / 60);
@@ -48,11 +63,56 @@ const ExamTakingInterface = ({ examData, onBack }: ExamTakingInterfaceProps) => 
     return `${minutes}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const submitAnswer = async (questionId: number, answerType: "objective" | "theory", value: string) => {
+    if (submittingAnswer) return;
+    
+    setSubmittingAnswer(true);
+    try {
+      const payload = answerType === "objective" 
+        ? {
+            exam_item_id: questionId,
+            answer_type: "objective" as const,
+            selected_option: value
+          }
+        : {
+            exam_item_id: questionId,
+            answer_type: "theory" as const,
+            answer_text: value
+          };
+
+      await api.SubmitExamAnswer(examData.attempt_id, payload);
+      // Don't show success toast for every answer to avoid spam
+    } catch (err: any) {
+      console.error("Error submitting answer:", err);
+      toast.error("Failed to save answer. Please try again.");
+    } finally {
+      setSubmittingAnswer(false);
+    }
+  };
+
   const handleAnswerChange = (value: string) => {
     setAnswers(prev => ({
       ...prev,
       [currentQuestion.exam_item_id]: value
     }));
+
+    if (currentQuestion.question_type === "objective") {
+      // Submit objective answers immediately when selected
+      submitAnswer(currentQuestion.exam_item_id, currentQuestion.question_type, value);
+    } else if (currentQuestion.question_type === "theory") {
+      // Debounce theory answers to avoid too many API calls
+      if (theoryAnswerTimeout) {
+        clearTimeout(theoryAnswerTimeout);
+      }
+      
+      const timeout = setTimeout(() => {
+        if (value.trim()) { // Only submit if there's actual content
+          submitAnswer(currentQuestion.exam_item_id, currentQuestion.question_type, value);
+        }
+      }, 2000); // Wait 2 seconds after user stops typing
+      
+      setTheoryAnswerTimeout(timeout);
+    }
   };
 
   const handleNext = () => {
@@ -67,12 +127,35 @@ const ExamTakingInterface = ({ examData, onBack }: ExamTakingInterfaceProps) => 
     }
   };
 
-  const handleSubmitExam = () => {
-    // TODO: Implement exam submission
-    console.log("Submitting exam with answers:", answers);
+  const handleSubmitExam = async () => {
+    if (submittingExam) return;
+    
+    // Clear any pending theory answer timeout before submitting
+    if (theoryAnswerTimeout) {
+      clearTimeout(theoryAnswerTimeout);
+      setTheoryAnswerTimeout(null);
+    }
+    
+    setSubmittingExam(true);
+    try {
+      const response = await api.SubmitExam(examData.attempt_id);
+      
+      if (response.data && typeof response.data === 'object' && 'status' in response.data && response.data.status) {
+        toast.success("Exam submitted successfully!");
+        // Go back to exams list after successful submission
+        onBack();
+      } else {
+        toast.error("Failed to submit exam");
+      }
+    } catch (err: any) {
+      console.error("Error submitting exam:", err);
+      toast.error(err.response?.data?.message || "Failed to submit exam. Please try again.");
+    } finally {
+      setSubmittingExam(false);
+    }
   };
 
-  const getQuestionTypeIcon = (type: string) => {
+  const getQuestionTypeIcon = () => {
     return <FileText className="w-4 h-4" />;
   };
 
@@ -117,11 +200,11 @@ const ExamTakingInterface = ({ examData, onBack }: ExamTakingInterfaceProps) => 
         </div>
 
         {/* Question Card */}
-        <Card className="mb-6">
+        <Card className="mb-6 pt-3">
           <CardHeader>
             <CardTitle className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                {getQuestionTypeIcon(currentQuestion.question_type)}
+                {getQuestionTypeIcon()}
                 <span className="capitalize">{currentQuestion.question_type} Question</span>
               </div>
               <div className="flex items-center gap-2">
@@ -222,8 +305,12 @@ const ExamTakingInterface = ({ examData, onBack }: ExamTakingInterfaceProps) => 
           </div>
 
           {currentQuestionIndex === totalQuestions - 1 ? (
-            <Button onClick={handleSubmitExam} className="bg-green-600 hover:bg-green-700">
-              Submit Exam
+            <Button 
+              onClick={handleSubmitExam} 
+              disabled={submittingExam}
+              className="bg-green-600 hover:bg-green-700"
+            >
+              {submittingExam ? "Submitting..." : "Submit Exam"}
             </Button>
           ) : (
             <Button onClick={handleNext}>

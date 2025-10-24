@@ -35,11 +35,7 @@ const ExamsPlaceholder = () => {
     setError(null);
     
     try {
-      const response = await api.GetStudentExams(
-        courseId,
-        selectedSession || "2024/2025",
-        selectedSemester || "1ST"
-      );
+      const response = await api.GetStudentExams(courseId);
       
       if (response.data && typeof response.data === 'object' && 'status' in response.data && response.data.status && 'data' in response.data) {
         const responseData = response.data as any;

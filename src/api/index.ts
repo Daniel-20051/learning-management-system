@@ -1,1361 +1,280 @@
-import axios  from 'axios';
-import { setAccessToken, getAccessToken, removeAccessToken } from '../lib/cookies';
+// Import all API classes and functions from separate modules
+import { AuthApi } from './auth';
+import { CoursesApi, GetStaffCourses, GetStaffCoursesbyId, GetCourseModules, AddModule, DeleteModule, AddUnit, getUnits, EditUnit, DeleteUnit, UploadUnitVideo } from './courses';
+import { NotesApi, GetModuleNotes, CreateModuleNotes, EditModuleNotes, DeleteModuleNotes } from './notes';
+import { QuizApi, CreateQuiz, GetQuiz, GetQuizById, AddQuizQuestions, DeleteQuiz, UpdateQuiz, UpdateQuizQuestions, StartQuizAttempt, SaveQuizAnswers, SubmitQuizAttempt, GetQuizStats, GetMyLatestAttempt } from './quiz';
+import { ExamsApi, GetStaffExams, GetExams, CreateExam, UpdateExam, DeleteExam, GetExamById, GetBankQuestions, AddObjectiveQuestion, AddTheoryQuestion, GetExamAttempts, GetAttemptForGrading, GradeTheoryAnswer, BulkGradeTheoryAnswers, GetExamStatistics, GetStudentExams, StartExam, SubmitExamAnswer, SubmitExam } from './exams';
+import { StudentsApi, GetStudents } from './students';
+import { ChatApi, GetChatThreads } from './chat';
 
-// Global interceptor: if any request returns 401, remove token and notify app
-axios.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    const status = error?.response?.status;
-    if (status === 401) {
-      try {
-        removeAccessToken();
-        // Notify AuthContext (and other listeners) to logout immediately
-        window.dispatchEvent(new Event('auth:token-removed'));
-      } catch {}
-    }
-    return Promise.reject(error);
-  }
-);
+// Re-export all API classes and functions
+export { AuthApi, CoursesApi, NotesApi, QuizApi, ExamsApi, StudentsApi, ChatApi };
+export { GetStaffCourses, GetStaffCoursesbyId, GetCourseModules, AddModule, DeleteModule, AddUnit, getUnits, EditUnit, DeleteUnit, UploadUnitVideo };
+export { GetModuleNotes, CreateModuleNotes, EditModuleNotes, DeleteModuleNotes };
+export { CreateQuiz, GetQuiz, GetQuizById, AddQuizQuestions, DeleteQuiz, UpdateQuiz, UpdateQuizQuestions, StartQuizAttempt, SaveQuizAnswers, SubmitQuizAttempt, GetQuizStats, GetMyLatestAttempt };
+export { GetStaffExams, GetExams, CreateExam, UpdateExam, DeleteExam, GetExamById, GetBankQuestions, AddObjectiveQuestion, AddTheoryQuestion, GetExamAttempts, GetAttemptForGrading, GradeTheoryAnswer, BulkGradeTheoryAnswers, GetExamStatistics, GetStudentExams, StartExam, SubmitExamAnswer, SubmitExam };
+export { GetStudents };
+export { GetChatThreads };
 
-const BASE_URL = 'https://lms-work.onrender.com';
-export class Api {
-    async LoginUser(data:{
-        email: string;
-        password: string;
-    }) {
-        const payload = {
-          email: data.email,
-          password: data.password,
-        }
-        const response = await axios.post(`${BASE_URL}/api/auth/login`, payload);
-        
-        // Store access token in cookie if login is successful
-        if (response.data && 
-            typeof response.data === 'object' && 
-            'success' in response.data && 
-            response.data.success && 
-            'data' in response.data && 
-            response.data.data && 
-            typeof response.data.data === 'object' && 
-            'accessToken' in response.data.data) {
-          setAccessToken(response.data.data.accessToken as string);
-        }
-        
-        
-        return response;
-    }
-    async GetCourses(session: string, semester: string) {
-      try{
-        
-        
-        // Always fetch the latest token at request time
-        const token = getAccessToken();
+// For backward compatibility, create a unified Api class that includes all functionality
+export class Api extends AuthApi {
+  courses = new CoursesApi();
+  notes = new NotesApi();
+  quiz = new QuizApi();
+  exams = new ExamsApi();
+  students = new StudentsApi();
+  chat = new ChatApi();
 
-        if (!token) {
-          throw new Error("No access token found. Please login again.");
-        }
-
-        const response = await axios.get(`${BASE_URL}/api/courses/student/${session}/${semester}`, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-        
-       
-        return response;
-
-      }catch(err: any){
-        console.error("Error during getting courses:", err);
-        
-        if (err.response?.status === 401) {
-          removeAccessToken();
-        }
-        return err;
-      }
+  // Re-export course methods for backward compatibility
+  async GetCourses(session: string, semester: string) {
+    return this.courses.GetCourses(session, semester);
   }
 
-  // Method to logout and clear token
-  async logout() {
-    removeAccessToken();
+  async GetStaffCourses(session: string) {
+    return this.courses.GetStaffCourses(session);
   }
-  async Getsessions() {
-    try{
-      const token = getAccessToken();
 
-      if (!token) {
-        throw new Error("No access token found. Please login again.");
-      }
-
-      const response = await axios.get(`${BASE_URL}/api/semesters/get-semesters`, {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      });
-      
-      
-      return response;
-
-    }catch(err: any){
-      console.error("Error during getting sessions:", err);
-      
-      if (err.response?.status === 401) {
-        removeAccessToken();
-      }
-      return err;
-    }
-}
-async GetStaffCourses(session: string) {
-  try{
-    
-    
-    // Always fetch the latest token at request time
-    const token = getAccessToken();
-
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-
-    const response = await axios.get(`${BASE_URL}/api/courses/staff/${session}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    return response;
-
-  }catch(err: any){
-    console.error("Error during getting courses:", err);
-    
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    return err;
+  async GetStaffCoursesbyId(id: string) {
+    return this.courses.GetStaffCoursesbyId(id);
   }
-}
-async GetStaffCoursesbyId(id :string) {
-  try{
-    
-    
-    // Always fetch the latest token at request time
-    const token = getAccessToken();
 
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-
-    const response = await axios.get(`${BASE_URL}/api/courses/single/${id}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-    
-    return response;
-
-  }catch(err: any){
-    console.error("Error during getting courses:", err);
-    
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    return err;
+  async GetCourseModules(courseId: string) {
+    return this.courses.GetCourseModules(courseId);
   }
-}
-async GetCourseModules(courseId: string) {
-  try{
-    
-    
-    // Always fetch the latest token at request time
-    const token = getAccessToken();
 
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-
-    const response = await axios.get(`${BASE_URL}/api/courses/${courseId}/modules`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-
-    return response;
-
-  }catch(err: any){
-    console.error("Error during getting course modules:", err);
-    
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    return err;
+  async AddModule(courseId: string, title: string, description: string) {
+    return this.courses.AddModule(courseId, title, description);
   }
-}
-async AddModule(courseId: string, title: string, description: string) {
-  try{
-    
-    
-    // Always fetch the latest token at request time
-    const token = getAccessToken();
 
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-
-    const payload = {
-      course_id: courseId,
-      title: title,
-      description: description,
-      status: "uncompleted"
-    } 
-
-    const response = await axios.post(`${BASE_URL}/api/courses/${courseId}/modules`,
-      payload,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-    );
-    
-  
-    return response;
-
-  }catch(err: any){
-    console.error("Error during adding course modules:", err);
-    
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    return err;
+  async DeleteModule(moduleId: string) {
+    return this.courses.DeleteModule(moduleId);
   }
-}
-async DeleteModule(moduleId: string) {
-  try{
-    
-    
-    // Always fetch the latest token at request time
-    const token = getAccessToken();
 
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-
-    
-
-    const response = await axios.delete(`${BASE_URL}/api/modules/${moduleId}`,
-      
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-    );
-    
-   
-    return response;
-
-  }catch(err: any){
-    console.error("Error during adding course modules:", err);
-    
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    return err;
+  async AddUnit(moduleId: string, data: {title: string, content: string, content_type: string, order: number, status: string}) {
+    return this.courses.AddUnit(moduleId, data);
   }
-}
-async AddUnit(moduleId: string, data: {title: string, content: string, content_type: string, order: number, status: string}) {
-  try{
-    
-    
-    // Always fetch the latest token at request time
-    const token = getAccessToken();
 
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
+  async getUnits(moduleId: string) {
+    return this.courses.getUnits(moduleId);
+  }
 
-    const payload = {
-      module_id: moduleId,
-      title: data.title,
-      content: data.content,
-      content_type: data.content_type,
-      order: data.order,
-      status: data.status,
-      
-    }
+  async EditUnit(unitId: string, data: {title: string, content: string, video_url?: string}) {
+    return this.courses.EditUnit(unitId, data);
+  }
 
-    const response = await axios.post(`${BASE_URL}/api/modules/${moduleId}/units`,
-       payload,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-    );
-    
-   
-    return response;
+  async DeleteUnit(unitId: string) {
+    return this.courses.DeleteUnit(unitId);
+  }
 
-  }catch(err: any){
-    console.error("Error during adding course units:", err);
-    
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    return err;
+  async UploadUnitVideo(moduleId: string, unitId: string, videoFile: File, onProgress?: (progress: number) => void) {
+    return this.courses.UploadUnitVideo(moduleId, unitId, videoFile, onProgress);
+  }
+
+  // Re-export notes methods for backward compatibility
+  async GetModuleNotes(moduleId: string) {
+    return this.notes.GetModuleNotes(moduleId);
+  }
+
+  async CreateModuleNotes(moduleId: string, data: { note_text: string, title?: string}) {
+    return this.notes.CreateModuleNotes(moduleId, data);
+  }
+
+  async EditModuleNotes(moduleId: string, noteId: string, data: { note_text: string, title?: string}) {
+    return this.notes.EditModuleNotes(moduleId, noteId, data);
+  }
+
+  async DeleteModuleNotes(moduleId: string, noteId: string) {
+    return this.notes.DeleteModuleNotes(moduleId, noteId);
+  }
+
+  // Re-export quiz methods for backward compatibility
+  async CreateQuiz(data: {
+    title: string;
+    module_id: number;
+    duration_minutes: number;
+    description: string;
+    status: string;
+  }) {
+    return this.quiz.CreateQuiz(data);
+  }
+
+  async GetQuiz(courseId?: number) {
+    return this.quiz.GetQuiz(courseId);
+  }
+
+  async GetQuizById(quizId: number) {
+    return this.quiz.GetQuizById(quizId);
+  }
+
+  async AddQuizQuestions(quizId: number, questions: any[]) {
+    return this.quiz.AddQuizQuestions(quizId, questions);
+  }
+
+  async DeleteQuiz(quizId: number) {
+    return this.quiz.DeleteQuiz(quizId);
+  }
+
+  async UpdateQuiz(quizId: number, data: {
+    title?: string;
+    duration_minutes?: number;
+    status?: string;
+    description?: string;
+  }) {
+    return this.quiz.UpdateQuiz(quizId, data);
+  }
+
+  async UpdateQuizQuestions(quizId: number, questions: any[]) {
+    return this.quiz.UpdateQuizQuestions(quizId, questions);
+  }
+
+  async StartQuizAttempt(quizId: number) {
+    return this.quiz.StartQuizAttempt(quizId);
+  }
+
+  async SaveQuizAnswers(attemptId: number, data: { answers: { question_id: number; selected_option_id: number }[] }) {
+    return this.quiz.SaveQuizAnswers(attemptId, data);
+  }
+
+  async SubmitQuizAttempt(attemptId: number, data: { answers: { question_id: number; selected_option_ids: number[] }[] }) {
+    return this.quiz.SubmitQuizAttempt(attemptId, data);
+  }
+
+  async GetQuizStats(quizId?: number) {
+    return this.quiz.GetQuizStats(quizId);
+  }
+
+  async GetMyLatestAttempt(quizId: number) {
+    return this.quiz.GetMyLatestAttempt(quizId);
+  }
+
+  // Re-export exam methods for backward compatibility
+  async GetStaffExams() {
+    return this.exams.GetStaffExams();
+  }
+
+  async GetExams(courseId: number) {
+    return this.exams.GetExams(courseId);
+  }
+
+  async CreateExam(data: {
+    course_id: number;
+    academic_year?: string;
+    semester?: string;
+    title: string;
+    instructions?: string;
+    start_at?: string;
+    end_at?: string;
+    duration_minutes: number;
+    visibility?: string;
+    randomize?: boolean;
+    exam_type?: string;
+    selection_mode?: string;
+    objective_count?: number;
+    theory_count?: number;
+    description?: string;
+    status: string;
+  }) {
+    return this.exams.CreateExam(data);
+  }
+
+  async UpdateExam(examId: number, data: {
+    title?: string;
+    instructions?: string;
+    start_at?: string;
+    end_at?: string;
+    duration_minutes?: number;
+    visibility?: string;
+    randomize?: boolean;
+    exam_type?: string;
+    selection_mode?: string;
+    objective_count?: number;
+    theory_count?: number;
+    description?: string;
+    status?: string;
+  }) {
+    return this.exams.UpdateExam(examId, data);
+  }
+
+  async DeleteExam(examId: number) {
+    return this.exams.DeleteExam(examId);
+  }
+
+  async GetExamById(examId: number) {
+    return this.exams.GetExamById(examId);
+  }
+
+  async GetBankQuestions(courseId: number) {
+    return this.exams.GetBankQuestions(courseId);
+  }
+
+  async AddObjectiveQuestion(data: {
+    course_id: number;
+    question_text: string;
+    options: Array<{ id: string; text: string }>;
+    correct_option: string;
+    marks: number;
+  }) {
+    return this.exams.AddObjectiveQuestion(data);
+  }
+
+  async AddTheoryQuestion(data: {
+    course_id: number;
+    question_text: string;
+    max_marks: number;
+    difficulty?: string;
+    topic?: string;
+  }) {
+    return this.exams.AddTheoryQuestion(data);
+  }
+
+  async GetExamAttempts(examId: number) {
+    return this.exams.GetExamAttempts(examId);
+  }
+
+  async GetAttemptForGrading(attemptId: number) {
+    return this.exams.GetAttemptForGrading(attemptId);
+  }
+
+  async GradeTheoryAnswer(answerId: number, score: number, feedback?: string) {
+    return this.exams.GradeTheoryAnswer(answerId, score, feedback);
+  }
+
+  async BulkGradeTheoryAnswers(attemptId: number, grades: { answer_id: number; awarded_score: number; feedback?: string }[]) {
+    return this.exams.BulkGradeTheoryAnswers(attemptId, grades);
+  }
+
+  async GetExamStatistics(examId: number) {
+    return this.exams.GetExamStatistics(examId);
+  }
+
+  async GetStudentExams(courseId: string) {
+    return this.exams.GetStudentExams(courseId);
+  }
+
+  async StartExam(examId: number) {
+    return this.exams.StartExam(examId);
+  }
+
+  async SubmitExamAnswer(attemptId: number, payload: {
+    exam_item_id: number;
+    answer_type: "objective" | "theory";
+    selected_option?: string;
+    answer_text?: string;
+  }) {
+    return this.exams.SubmitExamAnswer(attemptId, payload);
+  }
+
+  async SubmitExam(attemptId: number) {
+    return this.exams.SubmitExam(attemptId);
+  }
+
+  // Re-export student methods for backward compatibility
+  async GetStudents(search?: string) {
+    return this.students.GetStudents(search);
+  }
+
+  // Re-export chat methods for backward compatibility
+  async GetChatThreads() {
+    return this.chat.GetChatThreads();
   }
 }
-async getUnits(moduleId: string) {
-  try{
-    
-    
-    // Always fetch the latest token at request time
-    const token = getAccessToken();
-
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-
-
-    const response = await axios.get(`${BASE_URL}/api/modules/${moduleId}/units`,
-      
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-    );
-    
-    return response;
-
-  }catch(err: any){
-    console.error("Error getting  course units:", err);
-    
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    return err;
-  }
-}
-async EditUnit(unitId: string, data: {title: string, content: string, video_url?: string}) {
-  try{
-    
-    
-    // Always fetch the latest token at request time
-    const token = getAccessToken();
-
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-
-    const payload: any = {
-      title: data.title,
-      content: data.content,
-    };
-    if (data.video_url !== undefined) {
-      payload.video_url = data.video_url;
-    }
-
-    const response = await axios.patch(`${BASE_URL}/api/units/${unitId}`,
-       payload,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-    );
-    
-   
-    return response;
-
-  }catch(err: any){
-    console.error("Error during adding course units:", err);
-    
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    return err;
-  }
-}
-async DeleteUnit(unitId: string) {
-  try{
-    
-    
-    // Always fetch the latest token at request time
-    const token = getAccessToken();
-
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-
-   
-
-    const response = await axios.delete(`${BASE_URL}/api/units/${unitId}`,
-       
-        {
-          headers: {
-            Authorization: `Bearer ${token}`
-          }
-        }
-    );
-    
-   
-    return response;
-
-  }catch(err: any){
-    console.error("Error during deleting course units:", err);
-    
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    return err;
-  }
-}
-async UploadUnitVideo(moduleId: string, unitId: string, videoFile: File, onProgress?: (progress: number) => void) {
-  try{
-    
-    const formData = new FormData();
-     formData.append('video', videoFile);
-     
-    // Always fetch the latest token at request time
-    const token = getAccessToken();
-
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-
-    const response = await axios.post(`${BASE_URL}/api/modules/${moduleId}/units/${unitId}/video`,
-        formData,
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            'Content-Type': 'multipart/form-data',
-          },
-          onUploadProgress: (progressEvent: any) => {
-            if (progressEvent.total && onProgress) {
-              const progress = Math.round((progressEvent.loaded * 100) / progressEvent.total);
-              onProgress(progress);
-            }
-          }
-        } as any
-    );
-    
-    return response;
-
-  }catch(err: any){
-    console.error("Error during uploading course units video:", err);
-    
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    return err;
-  }
-}
-
-
-async GetModuleNotes(moduleId: string) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const response = await axios.get(`${BASE_URL}/api/modules/${moduleId}/note`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during getting unit notes:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    return err;
-  }
-}
-async CreateModuleNotes(moduleId: string, data: { note_text: string, title?: string}) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const payload: any = {
-      note_text: data.note_text
-    };
-    if (data.title) {
-      payload.title = data.title;
-    }
-    const response = await axios.put(`${BASE_URL}/api/modules/${moduleId}/note`,
-      payload, {
-      
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during getting unit notes:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    return err;
-  }
-}
-async EditModuleNotes(moduleId: string, noteId: string, data: { note_text: string, title?: string}) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const payload = {
-      note_text: data.note_text,
-      title: data.title
-    }
-    const response = await axios.patch(`${BASE_URL}/api/modules/${moduleId}/notes/${noteId}`,
-      payload, {
-      
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during getting unit notes:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    return err;
-  }
-}
-async DeleteModuleNotes(moduleId: string, noteId: string) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    
-    const response = await axios.delete(`${BASE_URL}/api/modules/${moduleId}/notes/${noteId}`,
-       {
-      
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during getting unit notes:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    return err;
-  }
-}
-
-// Quiz creation API method
-async CreateQuiz(data: {
-  title: string;
-  module_id: number;
-  duration_minutes: number;
-  description: string;
-  status: string;
-}) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-
-    
-    const response = await axios.post(`${BASE_URL}/api/quiz/create-quiz`, data, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    return response;
-  } catch (err: any) {
-    console.error("Error during creating quiz:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-
-async GetQuiz(courseId?: number) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const response = await axios.get(`${BASE_URL}/api/quiz?course_id=${courseId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during getting quizzes:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-async GetQuizById(quizId: number) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const response = await axios.get(`${BASE_URL}/api/quiz/${quizId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    );
-    return response;
-  } catch (err: any) {
-    console.error("Error during getting quiz by id:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-// Add questions to a quiz
-async AddQuizQuestions(quizId: number, questions: any[]) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-
-    const response = await axios.post(`${BASE_URL}/api/quiz/${quizId}/questions-batch`, {
-      questions: questions
-    }, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-   
-    return response;
-  } catch (err: any) {
-    console.error("Error during adding quiz questions:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-// Delete a quiz by ID
-async DeleteQuiz(quizId: number) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const response = await axios.delete(`${BASE_URL}/api/quiz/${quizId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during deleting quiz:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-// Update a quiz by ID
-async UpdateQuiz(quizId: number, data: {
-  title?: string;
-  duration_minutes?: number;
-  status?: string;
-  description?: string;
-}) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const response = await axios.patch(`${BASE_URL}/api/quiz/${quizId}/update`, {
-      quiz: data
-    }, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during updating quiz:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-// Update quiz questions
-async UpdateQuizQuestions(quizId: number, questions: any[]) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const response = await axios.patch(`${BASE_URL}/api/quiz/${quizId}/update`, {
-      questions: questions
-    }, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during updating quiz questions:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-// Start a quiz attempt
-async StartQuizAttempt(quizId: number) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const response = await axios.post(`${BASE_URL}/api/quiz/${quizId}/attempts`, {}, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during starting quiz attempt:", err);
-    
-    throw err;
-  }
-}
-
-
-// Save quiz answers as user answers questions
-async SaveQuizAnswers(attemptId: number, data: { answers: { question_id: number; selected_option_id: number }[] }) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const response = await axios.post(
-      `${BASE_URL}/api/quiz/attempts/${attemptId}/answers`,
-      data,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    return response;
-  } catch (err: any) {
-    console.error("Error during saving quiz answers:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-// Submit an in-progress quiz attempt
-async SubmitQuizAttempt(attemptId: number, data: { answers: { question_id: number; selected_option_ids: number[] }[] }) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const response = await axios.post(
-      `${BASE_URL}/api/quiz/attempts/${attemptId}/submit`,
-      data,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    return response;
-  } catch (err: any) {
-    console.error("Error during submitting quiz attempt:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-async GetQuizStats(quizId?: number) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const response = await axios.get(`${BASE_URL}/api/quiz/${quizId}/stats`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during getting quiz stats:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
- // Get the student's latest attempt details for a quiz
- async GetMyLatestAttempt(quizId: number) {
-   try {
-     const token = getAccessToken();
-     if (!token) {
-       throw new Error("No access token found. Please login again.");
-     }
-     const response = await axios.get(`${BASE_URL}/api/quiz/${quizId}/my-latest`, {
-       headers: {
-         'Authorization': `Bearer ${token}`
-       }
-     });
-     
-     return response;
-   } catch (err: any) {
-     console.error("Error during getting latest attempt:", err);
-     if (err.response?.status === 401) {
-       removeAccessToken();
-     }
-     throw err;
-   }
- }
- async GetStudents(search?: string) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const url = search && search.trim().length > 0
-      ? `${BASE_URL}/api/students/?search=${encodeURIComponent(search.trim())}`
-      : `${BASE_URL}/api/students/`;
-    const response = await axios.get(url,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    );
-    return response;
-  } catch (err: any) {
-    console.error("Error during getting quiz by id:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-async GetChatThreads() {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const response = await axios.get(`${BASE_URL}/api/chat/dm/threads`,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`
-        }
-      }
-    );
-    return response;
-  } catch (err: any) {
-    console.error("Error during getting quiz by id:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-// Exam management API methods
-async GetStaffExams() {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const response = await axios.get(`${BASE_URL}/api/exams`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during getting staff exams:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-async GetExams(courseId: number) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const response = await axios.get(`${BASE_URL}/api/exams?course_id=${courseId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during getting exams:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-async CreateExam(data: {
-  course_id: number;
-  academic_year?: string;
-  semester?: string;
-  title: string;
-  instructions?: string;
-  start_at?: string;
-  end_at?: string;
-  duration_minutes: number;
-  visibility?: string;
-  randomize?: boolean;
-  exam_type?: string;
-  selection_mode?: string;
-  objective_count?: number;
-  theory_count?: number;
-  description?: string;
-  status: string;
-}) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-
-    const response = await axios.post(`${BASE_URL}/api/exams`, data, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    return response;
-  } catch (err: any) {
-    console.error("Error during creating exam:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-async UpdateExam(examId: number, data: {
-  title?: string;
-  instructions?: string;
-  start_at?: string;
-  end_at?: string;
-  duration_minutes?: number;
-  visibility?: string;
-  randomize?: boolean;
-  exam_type?: string;
-  selection_mode?: string;
-  objective_count?: number;
-  theory_count?: number;
-  description?: string;
-  status?: string;
-}) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const response = await axios.put(`${BASE_URL}/api/exams/${examId}`, data, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during updating exam:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-async DeleteExam(examId: number) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const response = await axios.delete(`${BASE_URL}/api/exams/${examId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during deleting exam:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-async GetExamById(examId: number) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    const response = await axios.get(`${BASE_URL}/api/exams/${examId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during getting exam by id:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-// Get question bank for exam creation
-async GetBankQuestions(courseId: number, questionType?: string, limit?: number, page?: number) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    
-    let url = `${BASE_URL}/api/exams/bank/questions?course_id=${courseId}`;
-    if (questionType) {
-      url += `&question_type=${questionType}`;
-    }
-    if (limit) {
-      url += `&limit=${limit}`;
-    }
-    if (page) {
-      url += `&page=${page}`;
-    }
-    
-    const response = await axios.get(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during getting bank questions:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-// Add objective question to question bank
-async AddObjectiveQuestion(data: {
-  course_id: number;
-  question_text: string;
-  options: Array<{ id: string; text: string }>;
-  correct_option: string;
-  marks: number;
-}) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    
-    const response = await axios.post(
-      `${BASE_URL}/api/exams/bank/questions/objective`,
-      data,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    return response;
-  } catch (err: any) {
-    console.error("Error adding objective question:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-// Add theory question to question bank
-async AddTheoryQuestion(data: {
-  course_id: number;
-  question_text: string;
-  max_marks: number;
-  difficulty?: string;
-  topic?: string;
-}) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    
-    const response = await axios.post(
-      `${BASE_URL}/api/exams/bank/questions/theory`,
-      data,
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    return response;
-  } catch (err: any) {
-    console.error("Error adding theory question:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-// Get all attempts for an exam (for grading)
-async GetExamAttempts(examId: number, status?: string, page: number = 1, limit: number = 20, search?: string) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    
-    const params = new URLSearchParams();
-    if (status) {
-      params.append('status', status);
-    }
-    if (search && search.trim()) {
-      params.append('search', search.trim());
-    }
-    params.append('page', page.toString());
-    params.append('limit', limit.toString());
-    
-    const url = `${BASE_URL}/api/exams/${examId}/attempts?${params.toString()}`;
-    
-    const response = await axios.get(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during getting exam attempts:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-// Get specific attempt for grading
-async GetAttemptForGrading(attemptId: number) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    
-    const url = `${BASE_URL}/api/exams/attempts/${attemptId}/grade`;
-    
-    const response = await axios.get(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    
-  
-    console.log(response)
-    return response;
-  } catch (err: any) {
-    console.error("Error during getting attempt for grading:", err);
-    console.log("Error response data:", err.response?.data);
-    console.log("Error response status:", err.response?.status);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-// Grade a single theory answer
-async GradeTheoryAnswer(answerId: number, score: number, feedback?: string) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    
-    const response = await axios.post(
-      `${BASE_URL}/api/exams/answers/theory/${answerId}/grade`,
-      { score, feedback },
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    return response;
-  } catch (err: any) {
-    console.error("Error during grading theory answer:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-// Bulk grade theory answers
-async BulkGradeTheoryAnswers(attemptId: number, grades: { answer_id: number; awarded_score: number; feedback?: string }[]) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    
-    const response = await axios.post(
-      `${BASE_URL}/api/exams/attempts/${attemptId}/grade-bulk`,
-      { grades },
-      {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-    return response;
-  } catch (err: any) {
-    console.error("Error during bulk grading:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-// Get exam statistics
-async GetExamStatistics(examId: number) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    
-    const response = await axios.get(`${BASE_URL}/api/exams/${examId}/statistics`, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during getting exam statistics:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-// Get student exams for a course
-async GetStudentExams(courseId: string, academicYear?: string, semester?: string, page: number = 1, limit: number = 20) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    
-    let url = `${BASE_URL}/api/exams/student/exams?course_id=${courseId}&page=${page}&limit=${limit}`;
-    if (academicYear) url += `&academic_year=${academicYear}`;
-    if (semester) url += `&semester=${semester}`;
-    
-    const response = await axios.get(url, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during getting student exams:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-// Start an exam
-async StartExam(examId: number) {
-  try {
-    const token = getAccessToken();
-    if (!token) {
-      throw new Error("No access token found. Please login again.");
-    }
-    
-    const response = await axios.post(`${BASE_URL}/api/exams/student/exams/${examId}/start`, {}, {
-      headers: {
-        'Authorization': `Bearer ${token}`
-      }
-    });
-    return response;
-  } catch (err: any) {
-    console.error("Error during starting exam:", err);
-    if (err.response?.status === 401) {
-      removeAccessToken();
-    }
-    throw err;
-  }
-}
-
-
-
-}
-

@@ -131,7 +131,7 @@ const AdminExamDetailsPage = () => {
     if (debouncedSearchQuery !== searchQuery) return;
     setPagination(prev => ({ ...prev, page: 1 }));
     if (examId && activeTab === "attempts") {
-      loadAttempts(1);
+      loadAttempts();
     }
   }, [debouncedSearchQuery]);
 
@@ -176,18 +176,12 @@ const AdminExamDetailsPage = () => {
   }, [api, examId]);
 
   // Load exam attempts
-  const loadAttempts = async (page: number = 1) => {
+  const loadAttempts = async () => {
     if (!examId || activeTab !== "attempts") return;
     
     setAttemptsLoading(true);
     try {
-      const response = await api.GetExamAttempts(
-        parseInt(examId), 
-        undefined, 
-        page, 
-        pagination.limit, 
-        debouncedSearchQuery
-      );
+      const response = await api.GetExamAttempts(parseInt(examId));
       const responseData = (response as any)?.data;
       
       if (responseData?.status && responseData?.data && responseData?.pagination) {
@@ -207,7 +201,7 @@ const AdminExamDetailsPage = () => {
   };
 
   useEffect(() => {
-    loadAttempts(pagination.page);
+    loadAttempts();
   }, [api, examId, activeTab]);
 
   // Load exam statistics
@@ -259,7 +253,7 @@ const AdminExamDetailsPage = () => {
   const handleGraded = () => {
     // Reload attempts after grading
     if (examId && activeTab === "attempts") {
-      loadAttempts(pagination.page);
+      loadAttempts();
     }
   };
 
@@ -625,7 +619,7 @@ const AdminExamDetailsPage = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => loadAttempts(pagination.page - 1)}
+                    onClick={() => loadAttempts()}
                     disabled={!pagination.hasPreviousPage || attemptsLoading}
                   >
                     Previous
@@ -639,7 +633,7 @@ const AdminExamDetailsPage = () => {
                           key={pageNum}
                           variant={pageNum === pagination.page ? "default" : "outline"}
                           size="sm"
-                          onClick={() => loadAttempts(pageNum)}
+                          onClick={() => loadAttempts()}
                           disabled={attemptsLoading}
                           className="w-8 h-8 p-0"
                         >
@@ -651,7 +645,7 @@ const AdminExamDetailsPage = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => loadAttempts(pagination.page + 1)}
+                    onClick={() => loadAttempts()}
                     disabled={!pagination.hasNextPage || attemptsLoading}
                   >
                     Next

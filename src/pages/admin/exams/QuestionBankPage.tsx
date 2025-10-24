@@ -44,7 +44,7 @@ const QuestionBankPage = () => {
     const loadQuestions = async () => {
       setLoading(true);
       try {
-        const response = await api.GetBankQuestions(Number(courseId), undefined, 20, currentPage);
+        const response = await api.GetBankQuestions(Number(courseId));
         
         const responseData = (response as any)?.data;
         const questionsData = responseData?.data ?? responseData ?? [];

@@ -40,7 +40,6 @@ const QuestionBankDialog = ({
     const loadQuestions = async () => {
       setLoading(true);
       try {
-        const questionType = filterType === "all" ? undefined : filterType;
         const response = await api.GetBankQuestions(courseId);
         
         const data = (response as any)?.data?.data ?? (response as any)?.data ?? [];

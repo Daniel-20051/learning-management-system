@@ -40,6 +40,8 @@ type SidebarSelectionContextType = {
   setSelectedQuiz: (quiz: any | null) => void;
   quizzes: any[];
   setQuizzes: (quizzes: any[]) => void;
+  selectedExams: boolean;
+  setSelectedExams: (exams: boolean) => void;
 };
 
 const SidebarSelectionContext = createContext<
@@ -56,6 +58,7 @@ export const SidebarSelectionProvider: React.FC<{
   const [isLoading, setIsLoading] = useState(false);
   const [selectedQuiz, setSelectedQuiz] = useState<any | null>(null);
   const [quizzes, setQuizzes] = useState<any[]>([]);
+  const [selectedExams, setSelectedExams] = useState(false);
 
   return (
     <SidebarSelectionContext.Provider
@@ -74,6 +77,8 @@ export const SidebarSelectionProvider: React.FC<{
         setSelectedQuiz,
         quizzes,
         setQuizzes,
+        selectedExams,
+        setSelectedExams,
       }}
     >
       {children}

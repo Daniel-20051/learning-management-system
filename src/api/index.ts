@@ -1213,7 +1213,7 @@ async GetAttemptForGrading(attemptId: number) {
     });
     
   
-    
+    console.log(response)
     return response;
   } catch (err: any) {
     console.error("Error during getting attempt for grading:", err);
@@ -1298,6 +1298,56 @@ async GetExamStatistics(examId: number) {
     return response;
   } catch (err: any) {
     console.error("Error during getting exam statistics:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+    }
+    throw err;
+  }
+}
+
+// Get student exams for a course
+async GetStudentExams(courseId: string, academicYear?: string, semester?: string, page: number = 1, limit: number = 20) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    
+    let url = `${BASE_URL}/api/exams/student/exams?course_id=${courseId}&page=${page}&limit=${limit}`;
+    if (academicYear) url += `&academic_year=${academicYear}`;
+    if (semester) url += `&semester=${semester}`;
+    
+    const response = await axios.get(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during getting student exams:", err);
+    if (err.response?.status === 401) {
+      removeAccessToken();
+    }
+    throw err;
+  }
+}
+
+// Start an exam
+async StartExam(examId: number) {
+  try {
+    const token = getAccessToken();
+    if (!token) {
+      throw new Error("No access token found. Please login again.");
+    }
+    
+    const response = await axios.post(`${BASE_URL}/api/exams/student/exams/${examId}/start`, {}, {
+      headers: {
+        'Authorization': `Bearer ${token}`
+      }
+    });
+    return response;
+  } catch (err: any) {
+    console.error("Error during starting exam:", err);
     if (err.response?.status === 401) {
       removeAccessToken();
     }

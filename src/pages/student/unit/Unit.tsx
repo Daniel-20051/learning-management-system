@@ -28,6 +28,7 @@ import LatestAttemptSummary from "./components/LatestAttemptSummary";
 import Discussion from "./components/Discussion";
 import socketService from "@/services/Socketservice";
 import { useSession } from "@/context/SessionContext";
+import ExamsPlaceholder from "@/Components/ExamsPlaceholder";
 
 const Unit = () => {
   const navigate = useNavigate();
@@ -56,6 +57,7 @@ const Unit = () => {
     setSelectedQuiz,
     quizzes,
     setQuizzes,
+    selectedExams,
   } = useSidebarSelection();
 
   // Add quiz loading state
@@ -526,15 +528,21 @@ const Unit = () => {
                 </Button>
                 <Breadcrumb className="hidden md:block">
                   <BreadcrumbList>
-                    <BreadcrumbItem className="hidden md:block">
-                      <BreadcrumbLink href="#">
-                        Module {module + 1}
-                      </BreadcrumbLink>
-                    </BreadcrumbItem>
-                    <BreadcrumbSeparator className="hidden md:block" />
+                    {!selectedExams && (
+                      <>
+                        <BreadcrumbItem className="hidden md:block">
+                          <BreadcrumbLink href="#">
+                            Module {module + 1}
+                          </BreadcrumbLink>
+                        </BreadcrumbItem>
+                        <BreadcrumbSeparator className="hidden md:block" />
+                      </>
+                    )}
                     <BreadcrumbItem>
                       <BreadcrumbPage>
-                        {selectedQuiz
+                        {selectedExams
+                          ? "Exams"
+                          : selectedQuiz
                           ? `Quiz: ${selectedQuiz.title}`
                           : `Unit ${unitNumber}: ${
                               currentUnit?.title || "Unknown Unit"
@@ -552,6 +560,8 @@ const Unit = () => {
           </header>
           <div className="flex flex-1 flex-col gap-1 md:gap-2  p-3">
             <div className="flex flex-col gap-1 md:gap-3">
+              {/* Exams outlet: when exams is selected, show exams placeholder */}
+              {selectedExams && <ExamsPlaceholder />}
               {/* Quiz outlet: when a quiz is selected, hide unit UI */}
               {selectedQuiz && (
                 <div className="w-full flex justify-center items-center py-6">
@@ -611,7 +621,7 @@ const Unit = () => {
                   </div>
                 </div>
               )}
-              {!selectedQuiz && (
+              {!selectedQuiz && !selectedExams && (
                 <div className="md:flex items-center justify-between sticky top-16 z-30 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-b py-2">
                   <p className=" text-xl  md:text-3xl text-sidebar-foreground font-bold">
                     {`${currentUnit?.title || "Unknown Unit"}`}
@@ -639,7 +649,7 @@ const Unit = () => {
                   </div>
                 </div>
               )}
-              {!selectedQuiz && (
+              {!selectedQuiz && !selectedExams && (
                 <div className="flex flex-col gap-4">
                   {currentUnit?.video_url && currentUnit.video_url !== "" && (
                     <VideoControl
@@ -651,7 +661,7 @@ const Unit = () => {
                   )}
                 </div>
               )}
-              {!selectedQuiz &&
+              {!selectedQuiz && !selectedExams &&
                 (currentUnit ? (
                   <Tabs
                     value={activeTab}

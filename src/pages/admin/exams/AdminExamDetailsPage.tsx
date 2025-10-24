@@ -557,17 +557,28 @@ const AdminExamDetailsPage = () => {
                         )}
                       </TableCell>
                       <TableCell>
-                        {attempt.submitted_at
-                          ? new Date(attempt.submitted_at).toLocaleString()
-                          : "Not submitted"}
+                        {attempt.status === "in_progress" ? (
+                          <Badge variant="secondary" className="text-xs">
+                            In Progress
+                          </Badge>
+                        ) : attempt.submitted_at ? (
+                          new Date(attempt.submitted_at).toLocaleString()
+                        ) : (
+                          "Not submitted"
+                        )}
                       </TableCell>
                       <TableCell className="text-right">
                         <Button
                           variant="outline"
                           size="sm"
                           onClick={() => handleGradeAttempt(attempt.id)}
+                          disabled={attempt.status === "in_progress"}
                         >
-                          {attempt.status === "graded" ? "View" : "Grade"}
+                          {attempt.status === "graded" 
+                            ? "View" 
+                            : attempt.status === "in_progress" 
+                            ? "In Progress" 
+                            : "Grade"}
                         </Button>
                       </TableCell>
                     </TableRow>

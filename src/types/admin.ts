@@ -99,22 +99,91 @@ export interface Exam {
   updated_at?: string;
   total_questions?: number;
   attempts_count?: number;
-  questions?: ExamQuestion[];
+  questions?: AdminExamQuestion[];
+  max_attempts?: number;
+  created_by?: number;
+}
+
+export interface StudentExam {
+  id: number;
+  course_id: number;
+  academic_year: string;
+  semester: string;
+  title: string;
+  instructions: string;
+  start_at: string;
+  end_at: string;
+  duration_minutes: number;
+  visibility: "published" | "draft" | "archived";
+  randomize: boolean;
+  exam_type: "objective" | "theory" | "mixed";
+  objective_count: number;
+  theory_count: number;
+  selection_mode: "all" | "random";
+  max_attempts: number;
+  created_by: number;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface StudentExamsResponse {
+  status: boolean;
+  code: number;
+  message: string;
+  data: StudentExam[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
 }
 
 export interface ExamQuestion {
+  exam_item_id: number;
+  order: number;
+  question_type: "theory" | "objective";
+  question_text?: string;
+  options?: ExamQuestionOption[] | null;
+  max_marks: string;
+  image_url?: string | null;
+  video_url?: string | null;
+}
+
+export interface ExamQuestionOption {
+  id: string;
+  text: string;
+}
+
+export interface ExamStartResponse {
+  status: boolean;
+  code: number;
+  message: string;
+  data: {
+    attempt_id: number;
+    exam_id: number;
+    started_at: string;
+    duration_minutes: number;
+    remaining_attempts: number;
+    questions: ExamQuestion[];
+  };
+}
+
+export interface AdminExamQuestion {
   id: number;
   exam_id: number;
   question_text: string;
   question_type: "multiple_choice" | "true_false" | "essay" | "short_answer";
   points: number;
   order: number;
-  options?: ExamQuestionOption[];
+  options?: AdminExamQuestionOption[];
   correct_answer?: string;
   created_at: string;
 }
 
-export interface ExamQuestionOption {
+export interface AdminExamQuestionOption {
   id: number;
   question_id: number;
   option_text: string;

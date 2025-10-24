@@ -25,6 +25,7 @@ import {
   ChevronDown,
   ChevronRight,
   ListChecks,
+  ClipboardList,
 } from "lucide-react";
 
 // Array of unit contents
@@ -40,6 +41,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
     selectedQuiz,
     setSelectedQuiz,
     quizzes,
+    selectedExams,
+    setSelectedExams,
   } = useSidebarSelection();
 
   // State to track which module is expanded (only one at a time)
@@ -80,7 +83,7 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                 const units = moduleItem?.units
                   ? [...moduleItem.units].sort((a, b) => a.order - b.order)
                   : [];
-                const isActiveModule = module === moduleIndex;
+                const isActiveModule = module === moduleIndex && !selectedExams;
                 const isExpanded = expandedModule === moduleIndex;
 
                 return (
@@ -92,6 +95,8 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                         }`}
                         onClick={(e) => {
                           e.preventDefault();
+                          // Clear exams selection when selecting a module
+                          setSelectedExams(false);
                           // If clicking on a different module, switch to it and expand
                           if (!isActiveModule) {
                             setModule(moduleIndex);
@@ -132,12 +137,14 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                 isActive={
                                   isActiveModule &&
                                   selectedIndex === unitIndex &&
-                                  !selectedQuiz
+                                  !selectedQuiz &&
+                                  !selectedExams
                                 }
                                 onClick={() => {
                                   setModule(moduleIndex);
                                   setSelectedIndex(unitIndex);
                                   setSelectedQuiz(null);
+                                  setSelectedExams(false);
                                   // Ensure the parent module is expanded when selecting a unit
                                   setExpandedModule(moduleIndex);
                                 }}
@@ -186,10 +193,11 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                                     <SidebarMenuSubButton
                                       className="h-auto cursor-pointer py-3 px-2"
                                       isActive={Boolean(
-                                        selectedQuiz?.id === quiz.id
+                                        selectedQuiz?.id === quiz.id && !selectedExams
                                       )}
                                       onClick={() => {
                                         setSelectedQuiz(quiz);
+                                        setSelectedExams(false);
                                         setExpandedModule(moduleIndex);
                                       }}
                                     >
@@ -216,8 +224,25 @@ export function AppSidebar({ ...props }: React.ComponentProps<typeof Sidebar>) {
                       </div>
                     </div>
                   </SidebarMenuItem>
+                  
                 );
               })}
+              <SidebarMenuItem>
+                <SidebarMenuButton
+                  className={`cursor-pointer ${selectedExams ? "bg-accent text-accent-foreground" : ""}`}
+                  onClick={() => {
+                    setSelectedExams(true);
+                    setSelectedQuiz(null);
+                    setModule(0);
+                    setSelectedIndex(0);
+                  }}
+                >
+                  <div className="flex gap-2 items-center">
+                  <ClipboardList className="w-4 h-4" />
+                    <p className="font-bold">Exams</p>
+                  </div>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
             </SidebarMenu>
           </SidebarGroup>
         </SidebarContent>

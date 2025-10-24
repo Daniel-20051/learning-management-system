@@ -256,9 +256,8 @@ const GradingDialog = ({
   const theoryScore = theoryAnswers.reduce((sum, a) => sum + (grades[a.id]?.score ?? parseFloat(a.awarded_score) ?? 0), 0);
   const totalScore = objectiveScore + theoryScore;
   
-  const objectiveMaxScore = objectiveAnswers.reduce((sum, a) => sum + parseFloat(a.examItem.question.objective.marks), 0);
-  const theoryMaxScore = theoryAnswers.reduce((sum, a) => sum + parseFloat(a.examItem.question.theory.max_marks), 0);
-  const maxScore = objectiveMaxScore + theoryMaxScore;
+  // Use max_score from attempt data instead of calculating manually
+  const maxScore = attemptData?.max_score ? parseFloat(attemptData.max_score) : 0;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>

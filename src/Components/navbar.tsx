@@ -9,7 +9,7 @@ const Navbar = ({ sidebar }: NavbarProps) => {
   const navigate = useNavigate();
   return (
     <div
-      className={`flex justify-between items-center h-auto  border-b border-sidebar-border py-2 px-2 md:px-7`}
+      className={`sticky top-0 z-50 bg-white flex justify-between items-center h-auto border-b border-sidebar-border py-2 px-2 md:px-7`}
     >
       <img
         src="/assets/logo.png"

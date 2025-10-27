@@ -39,12 +39,31 @@ const DashboardPage = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isStudentsLoading, setIsStudentsLoading] = useState<boolean>(false);
 
-  // Get user's first name
+  // Get user's first name from localStorage user data
   const userFirstName = useMemo(() => {
-    const fullName = user?.name?.trim() || "";
+    if (!user) return "Admin";
+    
+    const fullName = user?.name?.trim();
     if (!fullName) return "Admin";
-    return fullName.split(" ")[0];
-  }, [user?.name]);
+    
+    // Handle names with titles (Mr, Mrs, Dr, etc.)
+    const nameParts = fullName.split(" ");
+    
+    // Common titles to skip
+    const titles = ["mr", "mrs", "ms", "dr", "prof", "professor"];
+    
+    // Find the first non-title word
+    for (const part of nameParts) {
+      const lowerPart = part.toLowerCase().replace(/[.,]/g, ""); // Remove punctuation
+      if (!titles.includes(lowerPart) && part.length > 1) {
+        return part.charAt(0).toUpperCase() + part.slice(1).toLowerCase();
+      }
+    }
+    
+    // If all parts are titles or single characters, use the last part
+    const lastPart = nameParts[nameParts.length - 1];
+    return lastPart.charAt(0).toUpperCase() + lastPart.slice(1).toLowerCase();
+  }, [user]);
 
   // Calculate stats from actual data
   const stats = useMemo(() => {
@@ -70,6 +89,7 @@ const DashboardPage = () => {
       courseLevels,
     };
   }, [courses, students]);
+
 
   // Quick actions for easy navigation
   const quickActions: QuickAction[] = [

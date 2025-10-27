@@ -33,6 +33,30 @@ export class AuthApi {
     removeAccessToken();
   }
 
+  // Method to get user profile
+  async getUserProfile() {
+    try {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error("No access token found. Please login again.");
+      }
+
+      const response = await axios.get(`${BASE_URL}/api/auth/profile`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      return response;
+    } catch (err: any) {
+      console.error("Error getting user profile:", err);
+      if (err.response?.status === 401) {
+        removeAccessToken();
+      }
+      throw err;
+    }
+  }
+
   async Getsessions() {
     try {
       const token = getAccessToken();

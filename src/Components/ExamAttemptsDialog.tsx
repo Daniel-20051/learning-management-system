@@ -85,16 +85,6 @@ export const ExamAttemptsDialog: React.FC<ExamAttemptsDialogProps> = ({
     }
   }, [isOpen, examId]);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  };
-
   const calculateTimeTaken = (startedAt: string, submittedAt?: string) => {
     if (!submittedAt) return "In Progress";
     

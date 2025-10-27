@@ -152,8 +152,8 @@ export class Api extends AuthApi {
     return this.exams.GetStaffExams();
   }
 
-  async GetExams(courseId: number) {
-    return this.exams.GetExams(courseId);
+  async GetExams(courseId: number, page: number = 1, limit: number = 20) {
+    return this.exams.GetExams(courseId, page, limit);
   }
 
   async CreateExam(data: {
@@ -276,5 +276,10 @@ export class Api extends AuthApi {
   // Re-export chat methods for backward compatibility
   async GetChatThreads() {
     return this.chat.GetChatThreads();
+  }
+
+  // Add user profile method
+  async getUserProfile() {
+    return super.getUserProfile();
   }
 }

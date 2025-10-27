@@ -42,20 +42,6 @@ interface Exam {
   questions?: any[];
 }
 
-interface ExamResponse {
-  status: boolean;
-  code: number;
-  message: string;
-  data: Exam[];
-  pagination: {
-    total: number;
-    page: number;
-    limit: number;
-    totalPages: number;
-    hasNextPage: boolean;
-    hasPreviousPage: boolean;
-  };
-}
 
 const AdminCourseExamsPage = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -182,7 +168,8 @@ const AdminCourseExamsPage = () => {
       setLoading(true);
       try {
         // This would be the new exam API endpoint
-        const response = await api.GetExams(parseInt(courseId), currentPage, 20);
+        const courseIdNum = parseInt(courseId);
+        const response = await api.GetExams(courseIdNum, currentPage, 20);
         const responseData = (response as any)?.data;
         
         if (responseData?.status && responseData?.data) {
@@ -268,7 +255,8 @@ const AdminCourseExamsPage = () => {
         toast.success("Exam created successfully!");
         
         // Reload exams
-        const examsResponse = await api.GetExams(parseInt(courseId), currentPage, 20);
+        const courseIdNum = parseInt(courseId);
+        const examsResponse = await api.GetExams(courseIdNum, currentPage, 20);
         const responseData = (examsResponse as any)?.data;
         
         if (responseData?.status && responseData?.data) {
@@ -355,7 +343,8 @@ const AdminCourseExamsPage = () => {
         toast.success("Exam updated successfully!");
         
         // Reload exams
-        const examsResponse = await api.GetExams(parseInt(courseId!), currentPage, 20);
+        const courseIdNum = parseInt(courseId!);
+        const examsResponse = await api.GetExams(courseIdNum, currentPage, 20);
         const responseData = (examsResponse as any)?.data;
         
         if (responseData?.status && responseData?.data) {
@@ -415,7 +404,8 @@ const AdminCourseExamsPage = () => {
         toast.success("Exam deleted successfully!");
         
         // Reload exams
-        const examsResponse = await api.GetExams(parseInt(courseId!), currentPage, 20);
+        const courseIdNum = parseInt(courseId!);
+        const examsResponse = await api.GetExams(courseIdNum, currentPage, 20);
         const responseData = (examsResponse as any)?.data;
         
         if (responseData?.status && responseData?.data) {

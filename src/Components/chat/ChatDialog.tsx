@@ -371,6 +371,10 @@ const ChatDialog = () => {
       return;
     }
 
+    // Get chat to determine peer user type
+    const chat = chats.find((c) => c.id === chatId) || filteredChats.find((c) => c.id === chatId);
+    const peerUserType = getPeerUserType(peerId, directory, chat);
+
     // Get current pagination state
     const currentPagination = chatPagination[chatId];
     if (currentPagination?.loading || !currentPagination?.hasMore) {
@@ -389,6 +393,7 @@ const ChatDialog = () => {
     // Load more messages via socket
     socketService.loadMoreMessages(
       peerId,
+      peerUserType,
       currentPagination?.oldestMessageId || null,
       50,
       (response) => {
@@ -637,17 +642,21 @@ const ChatDialog = () => {
     if (!activeChatId) return;
     const peerId = chatPeerIds[activeChatId];
     if (peerId) {
-      socketService.sendTypingStatus(peerId, true);
+      const chat = chats.find((c) => c.id === activeChatId) || filteredChats.find((c) => c.id === activeChatId);
+      const peerUserType = getPeerUserType(peerId, directory, chat);
+      socketService.sendTypingStatus(peerId, peerUserType, true);
     }
-  }, [activeChatId, chatPeerIds]);
+  }, [activeChatId, chatPeerIds, chats, filteredChats, directory]);
 
   const handleStopTyping = React.useCallback(() => {
     if (!activeChatId) return;
     const peerId = chatPeerIds[activeChatId];
     if (peerId) {
-      socketService.sendTypingStatus(peerId, false);
+      const chat = chats.find((c) => c.id === activeChatId) || filteredChats.find((c) => c.id === activeChatId);
+      const peerUserType = getPeerUserType(peerId, directory, chat);
+      socketService.sendTypingStatus(peerId, peerUserType, false);
     }
-  }, [activeChatId, chatPeerIds]);
+  }, [activeChatId, chatPeerIds, chats, filteredChats, directory]);
 
   // Mark message as read when user views it
   const markAsRead = React.useCallback((messageId: string) => {

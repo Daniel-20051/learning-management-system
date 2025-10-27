@@ -684,6 +684,27 @@ const ChatDialog = () => {
     return () => socketService.offUserOnlineStatus();
   }, [updateUserStatus]);
 
+  // Check online status when a chat is selected
+  React.useEffect(() => {
+    if (!activeChatId) return;
+    
+    const peerId = chatPeerIds[activeChatId];
+    if (!peerId) return;
+    
+    // Check if we already have the online status for this peer
+    if (userOnlineStatus[peerId] === undefined) {
+      // Request online status from server
+      socketService.checkOnlineStatus([peerId], (response) => {
+        if (response?.ok && response?.onlineStatus) {
+          // Update status for all returned users
+          Object.entries(response.onlineStatus).forEach(([userId, isOnline]) => {
+            updateUserStatus(userId, isOnline as boolean);
+          });
+        }
+      });
+    }
+  }, [activeChatId, chatPeerIds, userOnlineStatus, updateUserStatus]);
+
   // Clear unread count when a chat becomes active
   React.useEffect(() => {
     if (!activeChatId) return;

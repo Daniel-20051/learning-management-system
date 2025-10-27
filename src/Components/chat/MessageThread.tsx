@@ -167,7 +167,7 @@ const MessageThread: React.FC<MessageThreadProps> = ({
             )}
           </div>
           <div className="text-xs text-muted-foreground">
-            {isOnline !== undefined 
+            {peerId 
               ? (isOnline ? 'Online' : 'Offline')
               : (chat.lastMessage || "No messages yet")
             }

@@ -684,26 +684,55 @@ const ChatDialog = () => {
     return () => socketService.offUserOnlineStatus();
   }, [updateUserStatus]);
 
-  // Check online status when a chat is selected
+  // Check online status when the chat dialog opens
   React.useEffect(() => {
-    if (!activeChatId) return;
+    if (!open || !user?.id) return;
     
-    const peerId = chatPeerIds[activeChatId];
-    if (!peerId) return;
+    // Get all peer IDs from filtered chats and chatPeerIds
+    const peerIds = new Set<string>();
     
-    // Check if we already have the online status for this peer
-    if (userOnlineStatus[peerId] === undefined) {
-      // Request online status from server
-      socketService.checkOnlineStatus([peerId], (response) => {
-        if (response?.ok && response?.onlineStatus) {
-          // Update status for all returned users
-          Object.entries(response.onlineStatus).forEach(([userId, isOnline]) => {
-            updateUserStatus(userId, isOnline as boolean);
-          });
+    // Add peer IDs from server threads
+    filteredChats.forEach(chat => {
+      const peerId = (chat as any).peerId || chatPeerIds[chat.id];
+      if (peerId) {
+        peerIds.add(String(peerId));
+      }
+    });
+    
+    // Add peer IDs from chatPeerIds map
+    Object.values(chatPeerIds).forEach(peerId => {
+      if (peerId) peerIds.add(String(peerId));
+    });
+    
+    // If no peer IDs found, nothing to check
+    if (peerIds.size === 0) return;
+    
+    const peerIdsArray = Array.from(peerIds);
+    
+    // Ensure socket is connected before checking online status
+    const checkStatus = () => {
+      socketService.checkOnlineStatus(peerIdsArray, (response) => {
+        if (response?.ok && response?.status) {
+          // Response.status is an array like [{ userId: 1, isOnline: true }, ...]
+          if (Array.isArray(response.status)) {
+            response.status.forEach((userStatus: any) => {
+              updateUserStatus(userStatus.userId, userStatus.isOnline);
+            });
+          }
         }
       });
+    };
+    
+    // Check if socket is already connected
+    if (socketService.isSocketConnected()) {
+      checkStatus();
+    } else {
+      // Connect socket first, then check status
+      socketService.connect(String(user.id), () => {
+        checkStatus();
+      });
     }
-  }, [activeChatId, chatPeerIds, userOnlineStatus, updateUserStatus]);
+  }, [open, user?.id, filteredChats, chatPeerIds, updateUserStatus]);
 
   // Clear unread count when a chat becomes active
   React.useEffect(() => {

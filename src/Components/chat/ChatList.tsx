@@ -59,9 +59,12 @@ const ChatList: React.FC<ChatListProps> = ({ chats, activeChatId, onSelect, onNe
                       <AvatarFallback>{initialsFromTitle(c.title)}</AvatarFallback>
                     </Avatar>
                     {(() => {
-                      const peerId = chatPeerIds[c.id];
-                      const isOnline = peerId ? userOnlineStatus[peerId] : undefined;
-                      return isOnline !== undefined && (
+                      // Get peerId from chatPeerIds or from the chat object itself (server threads)
+                      const peerId = chatPeerIds[c.id] || (c as any).peerId;
+                      if (!peerId) return null;
+                      
+                      const isOnline = userOnlineStatus[peerId] || false;
+                      return (
                         <div 
                           className={`online-indicator ${isOnline ? 'online' : 'offline'}`}
                           data-user-id={peerId}
@@ -73,7 +76,8 @@ const ChatList: React.FC<ChatListProps> = ({ chats, activeChatId, onSelect, onNe
                     <div className="flex items-center gap-2">
                       <span className="truncate text-sm font-medium">{c.title}</span>
                       {(() => {
-                        const peerId = chatPeerIds[c.id];
+                        // Get peerId from chatPeerIds or from the chat object itself (server threads)
+                        const peerId = chatPeerIds[c.id] || (c as any).peerId;
                         const isOnline = peerId ? userOnlineStatus[peerId] : undefined;
                         return isOnline === true && (
                           <div className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0" />

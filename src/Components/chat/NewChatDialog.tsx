@@ -98,9 +98,6 @@ const NewChatDialog: React.FC<NewChatDialogProps> = ({ open, onOpenChange, users
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2">
                           <div className="truncate text-sm font-medium">{u.name}</div>
-                          {u.isOnline && (
-                            <div className="h-2 w-2 rounded-full bg-green-500" />
-                          )}
                         </div>
                         <div className="text-xs text-muted-foreground">
                           {u.role} {u.isOnline !== undefined && (u.isOnline ? '• Online' : '• Offline')}

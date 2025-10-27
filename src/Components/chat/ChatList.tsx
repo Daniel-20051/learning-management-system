@@ -75,14 +75,6 @@ const ChatList: React.FC<ChatListProps> = ({ chats, activeChatId, onSelect, onNe
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <span className="truncate text-sm font-medium">{c.title}</span>
-                      {(() => {
-                        // Get peerId from chatPeerIds or from the chat object itself (server threads)
-                        const peerId = chatPeerIds[c.id] || (c as any).peerId;
-                        const isOnline = peerId ? userOnlineStatus[peerId] : undefined;
-                        return isOnline === true && (
-                          <div className="h-2 w-2 rounded-full bg-green-500 flex-shrink-0" />
-                        );
-                      })()}
                       {c.peerRole === 'staff' && (
                         <span className="inline-flex items-center rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 flex-shrink-0">
                           STAFF

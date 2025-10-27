@@ -1044,7 +1044,7 @@ const ChatDialog = () => {
           <MessageSquare className="mr-2 size-4" /> Chat
         </Button>
       </SheetTrigger>
-      <SheetContent side="right" className="p-0 w-full max-w-full sm:max-w-md md:max-w-lg lg:max-w-xl h-screen flex flex-col">
+      <SheetContent side="right" className="p-0 w-full max-w-full sm:max-w-lg md:max-w-xl lg:max-w-2xl h-screen flex flex-col">
         <SheetHeader className="border-b p-2 sm:p-4 flex-shrink-0">
           <div className="flex items-center gap-2">
             <SheetTitle>Messages</SheetTitle>
@@ -1056,7 +1056,7 @@ const ChatDialog = () => {
           </div>
         </SheetHeader>
         <div className="flex h-full min-h-0 w-full flex-1 overflow-hidden">
-          <aside className="hidden w-60 shrink-0 border-r sm:block">
+          <aside className="hidden w-72 shrink-0 border-r sm:block">
             <ChatList
               chats={filteredChats}
               activeChatId={activeChatId}

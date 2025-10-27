@@ -231,4 +231,38 @@ export interface ExamStats {
   }>;
 }
 
+export interface StudentExamAttempt {
+  id: number;
+  exam_id: number;
+  attempt_no: number;
+  status: "in_progress" | "submitted" | "graded";
+  started_at: string;
+  submitted_at?: string;
+  total_score?: string;
+  max_score?: string;
+  graded_at?: string;
+  exam: {
+    id: number;
+    title: string;
+    course_id: number;
+    duration_minutes: number;
+    exam_type: "objective" | "theory" | "mixed";
+  };
+}
+
+export interface StudentExamAttemptsResponse {
+  status: boolean;
+  code: number;
+  message: string;
+  data: StudentExamAttempt[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
+}
+
 export type MenuItem = "dashboard" | "courses" | "results" | "discussions" | "exams"; 

@@ -319,6 +319,18 @@ export class ExamsApi {
       return handleApiError(err, "submitting exam");
     }
   }
+
+  // Get student's exam attempt history
+  async GetStudentExamAttempts(page: number = 1, limit: number = 20) {
+    try {
+      const response = await axios.get(`${BASE_URL}/api/exams/student/attempts?page=${page}&limit=${limit}`, {
+        headers: getAuthHeaders()
+      });
+      return response;
+    } catch (err: any) {
+      return handleApiError(err, "getting student exam attempts");
+    }
+  }
 }
 
 // Export standalone functions for backward compatibility
@@ -458,4 +470,9 @@ export async function SubmitExamAnswer(attemptId: number, payload: {
 export async function SubmitExam(attemptId: number) {
   const api = new ExamsApi();
   return api.SubmitExam(attemptId);
+}
+
+export async function GetStudentExamAttempts(page: number = 1, limit: number = 20) {
+  const api = new ExamsApi();
+  return api.GetStudentExamAttempts(page, limit);
 }

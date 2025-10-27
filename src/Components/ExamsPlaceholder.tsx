@@ -1,4 +1,4 @@
-import { ClipboardList, Info, RefreshCw, Calendar, Clock, Play, ChevronLeft, ChevronRight } from "lucide-react";
+import { ClipboardList, Info, RefreshCw, Calendar, Clock, Play, ChevronLeft, ChevronRight, History } from "lucide-react";
 import { Button } from "@/Components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/Components/ui/table";
@@ -9,6 +9,7 @@ import { useSidebarSelection } from "@/context/SidebarSelectionContext";
 import { useSession } from "@/context/SessionContext";
 import { toast } from "sonner";
 import ExamTakingInterface from "./ExamTakingInterface";
+import { ExamAttemptsDialog } from "./ExamAttemptsDialog";
 
 const ExamsPlaceholder = () => {
   const [exams, setExams] = useState<StudentExam[]>([]);
@@ -24,6 +25,8 @@ const ExamsPlaceholder = () => {
   });
   const [currentExam, setCurrentExam] = useState<ExamStartResponse['data'] | null>(null);
   const [startingExam, setStartingExam] = useState(false);
+  const [attemptsDialogOpen, setAttemptsDialogOpen] = useState(false);
+  const [selectedExamForAttempts, setSelectedExamForAttempts] = useState<{ id: number; title: string } | null>(null);
   const { courseId } = useSidebarSelection();
   const { selectedSession, selectedSemester } = useSession();
   const api = new Api();
@@ -110,6 +113,16 @@ const ExamsPlaceholder = () => {
 
   const handleBackToExams = () => {
     setCurrentExam(null);
+  };
+
+  const handleViewAttempts = (examId: number, examTitle: string) => {
+    setSelectedExamForAttempts({ id: examId, title: examTitle });
+    setAttemptsDialogOpen(true);
+  };
+
+  const handleCloseAttemptsDialog = () => {
+    setAttemptsDialogOpen(false);
+    setSelectedExamForAttempts(null);
   };
 
   // Show exam taking interface if an exam is started
@@ -220,15 +233,26 @@ const ExamsPlaceholder = () => {
                                 </div>
                               </TableCell>
                               <TableCell>
-                                <Button 
-                                  size="sm" 
-                                  disabled={examStatus.status !== "active" || startingExam}
-                                  className="flex items-center gap-1"
-                                  onClick={() => examStatus.status === "active" && handleStartExam(exam.id)}
-                                >
-                                  <Play className="w-3 h-3" />
-                                  {startingExam ? "Starting..." : examStatus.status === "active" ? "Start" : "View"}
-                                </Button>
+                                <div className="flex items-center gap-2">
+                                  <Button 
+                                    size="sm" 
+                                    disabled={examStatus.status !== "active" || startingExam}
+                                    className="flex items-center gap-1"
+                                    onClick={() => examStatus.status === "active" && handleStartExam(exam.id)}
+                                  >
+                                    <Play className="w-3 h-3" />
+                                    {startingExam ? "Starting..." : examStatus.status === "active" ? "Start" : "View"}
+                                  </Button>
+                                  <Button 
+                                    size="sm" 
+                                    variant="outline"
+                                    className="flex items-center gap-1"
+                                    onClick={() => handleViewAttempts(exam.id, exam.title)}
+                                  >
+                                    <History className="w-3 h-3" />
+                                    Attempts
+                                  </Button>
+                                </div>
                               </TableCell>
                             </TableRow>
                           );
@@ -314,6 +338,14 @@ const ExamsPlaceholder = () => {
           </div>
         </div>
       </div>
+
+      {/* Exam Attempts Dialog */}
+      <ExamAttemptsDialog
+        isOpen={attemptsDialogOpen}
+        onClose={handleCloseAttemptsDialog}
+        examId={selectedExamForAttempts?.id}
+        examTitle={selectedExamForAttempts?.title}
+      />
     </div>
   );
 };

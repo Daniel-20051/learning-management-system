@@ -131,7 +131,8 @@ async function fetchDirectoryUsers(search?: string): Promise<DirectoryUser[]> {
     // const staff = processStaffData(staffRes);
     
     return [...students];
-  } catch {
+  } catch (error) {
+    console.error('Error fetching directory users:', error);
     return [];
   }
 }
@@ -176,17 +177,8 @@ const ChatDialog = () => {
   // Helper function to update user online status
   const updateUserStatus = React.useCallback((userId: string | number, isOnline: boolean) => {
     const userIdStr = String(userId);
-    setUserOnlineStatus(prev => ({
-      ...prev,
-      [userIdStr]: isOnline
-    }));
-    
-    // Also update the directory users to reflect online status
-    setDirectory(prev => prev.map(user => 
-      user.id === userIdStr 
-        ? { ...user, isOnline }
-        : user
-    ));
+    setUserOnlineStatus(prev => ({ ...prev, [userIdStr]: isOnline }));
+    setDirectory(prev => prev.map(user => user.id === userIdStr ? { ...user, isOnline } : user));
   }, []);
 
   React.useEffect(() => {
@@ -481,28 +473,69 @@ const ChatDialog = () => {
       const created = message?.created_at ? new Date(message.created_at).toISOString() : new Date().toISOString();
       // Identify thread by sender name if it exists locally
       // Fallback: use active chat if open
-      let targetChatId: string | null = activeChatId;
+      let targetChatId: string | null = null;
       const senderId = String(message?.sender_id ?? "");
-      const matchInDir = directory.find((u) => String(u.id) === senderId);
-      if (matchInDir) {
-        const existing = chats.find((c) => c.title === matchInDir.name);
-        if (existing) targetChatId = existing.id;
-        else {
-          const id = crypto.randomUUID();
-          const newChat: ChatSummary = { 
-            id, 
-            title: matchInDir.name, 
-            lastMessage: text, 
-            updatedAt: Date.now(),
-            // New chat from incoming message should have unread count of 1
-            unreadCount: 1
-          };
-          setStore({ chats: [newChat, ...chats], messages });
-          setEphemeralChatIds((prev) => Array.from(new Set([...prev, id])));
-          targetChatId = id;
+      
+      // First, check if this message belongs to the active chat
+      if (activeChatId) {
+        const activePeerId = chatPeerIds[activeChatId];
+        if (activePeerId && String(activePeerId) === senderId) {
+          // Message is from the peer of the currently active chat
+          targetChatId = activeChatId;
         }
       }
-      if (!targetChatId) return;
+      
+      // If not in active chat, find the chat by sender ID
+      if (!targetChatId) {
+        // Check if we have a chat with this peer already
+        const existingChatEntry = Object.entries(chatPeerIds).find(
+          ([ peerId]) => String(peerId) === senderId
+        );
+        
+        if (existingChatEntry) {
+          targetChatId = existingChatEntry[0];
+        } else {
+          // No existing chat found, try to create one if we can identify the sender
+          const matchInDir = directory.find((u) => String(u.id) === senderId);
+          if (matchInDir) {
+            const existing = chats.find((c) => c.title === matchInDir.name);
+            if (existing) {
+              targetChatId = existing.id;
+              // Store the peer ID mapping for this chat
+              setChatPeerIds(prev => ({ ...prev, [existing.id]: senderId }));
+              setTitleToPeerId(prev => ({ ...prev, [normalizeTitle(matchInDir.name)]: senderId }));
+            } else {
+              const id = crypto.randomUUID();
+              const newChat: ChatSummary = { 
+                id, 
+                title: matchInDir.name, 
+                lastMessage: text, 
+                updatedAt: Date.now(),
+                // New chat from incoming message should have unread count of 1
+                unreadCount: 1
+              };
+              setStore({ chats: [newChat, ...chats], messages });
+              setEphemeralChatIds((prev) => Array.from(new Set([...prev, id])));
+              // Store the peer ID mapping for this new chat
+              setChatPeerIds(prev => ({ ...prev, [id]: senderId }));
+              setTitleToPeerId(prev => ({ ...prev, [normalizeTitle(matchInDir.name)]: senderId }));
+              targetChatId = id;
+            }
+          }
+        }
+      }
+      
+       // Only process message if we found a valid target chat
+       if (!targetChatId) {
+         return;
+       }
+       
+       // Verify that the sender matches the expected peer for this chat
+       const expectedPeerId = chatPeerIds[targetChatId];
+       if (expectedPeerId && String(expectedPeerId) !== senderId) {
+         return;
+       }
+      
       const serverMessage: ChatMessage = {
         id: String(message?.id ?? crypto.randomUUID()),
         chatId: targetChatId,
@@ -513,6 +546,7 @@ const ChatDialog = () => {
         delivered_at: message?.delivered_at ?? null,
         read_at: message?.read_at ?? null,
       };
+      
       setStore({
         chats: chats.map((c) => {
           if (c.id === targetChatId) {
@@ -543,7 +577,7 @@ const ChatDialog = () => {
     return () => {
       socketService.offDirectMessage(handler);
     };
-  }, [chats, messages, directory, activeChatId, user?.id]);
+  }, [chats, messages, directory, activeChatId, user?.id, chatPeerIds, titleToPeerId]);
 
   // Handle typing indicators
   React.useEffect(() => {
@@ -582,15 +616,11 @@ const ChatDialog = () => {
 
   // Handle message status updates
   React.useEffect(() => {
-    // Listen for delivery confirmation
     const handleDelivered = (data: { messageId: string; delivered_at: string }) => {
-      // data = { messageId, delivered_at }
       updateMessageStatus(data.messageId, "delivered", data.delivered_at);
     };
 
-    // Listen for read confirmation
     const handleRead = (data: { messageId: string; read_at: string }) => {
-      // data = { messageId, read_at }
       updateMessageStatus(data.messageId, "read", data.read_at);
     };
 
@@ -621,18 +651,13 @@ const ChatDialog = () => {
 
   // Mark message as read when user views it
   const markAsRead = React.useCallback((messageId: string) => {
-    socketService.markMessageAsRead(messageId, (response) => {
-      if (response?.ok) {
-        console.log("Message marked as read");
-      }
-    });
+    socketService.markMessageAsRead(messageId);
   }, []);
 
   // Mark messages as read when viewing a chat
   React.useEffect(() => {
     if (!activeChatId) return;
     
-    // Mark unread messages as read
     const unreadMessages = activeMessages.filter(m => 
       !isMessageFromUser(m, user?.id) && !m.read_at
     );
@@ -642,16 +667,12 @@ const ChatDialog = () => {
     });
   }, [activeChatId, activeMessages, user?.id, markAsRead]);
 
-  // Listen for online status updates
+  // Listen for online status updates from socket
   React.useEffect(() => {
-    const handleOnlineStatus = (data: { userId: string | number; isOnline: boolean }) => {
+    socketService.onUserOnlineStatus((data) => {
       updateUserStatus(data.userId, data.isOnline);
-    };
-
-    socketService.onUserOnlineStatus(handleOnlineStatus);
-    return () => {
-      socketService.offUserOnlineStatus(handleOnlineStatus);
-    };
+    });
+    return () => socketService.offUserOnlineStatus();
   }, [updateUserStatus]);
 
   // Clear unread count when a chat becomes active

@@ -32,12 +32,29 @@ interface Exam {
   selection_mode?: "manual" | "random";
   objective_count?: number;
   theory_count?: number;
+  max_attempts?: number;
+  created_by?: number;
   status: "draft" | "published" | "archived";
   created_at: string;
   updated_at?: string;
   total_questions?: number;
   attempts_count?: number;
   questions?: any[];
+}
+
+interface ExamResponse {
+  status: boolean;
+  code: number;
+  message: string;
+  data: Exam[];
+  pagination: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+    hasNextPage: boolean;
+    hasPreviousPage: boolean;
+  };
 }
 
 const AdminCourseExamsPage = () => {
@@ -48,6 +65,15 @@ const AdminCourseExamsPage = () => {
   
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    limit: 20,
+    totalPages: 1,
+    hasNextPage: false,
+    hasPreviousPage: false
+  });
+  const [currentPage, setCurrentPage] = useState(1);
   const [createLoading, setCreateLoading] = useState<boolean>(false);
   const [courseInfo, setCourseInfo] = useState<any>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -156,20 +182,38 @@ const AdminCourseExamsPage = () => {
       setLoading(true);
       try {
         // This would be the new exam API endpoint
-        const response = await api.GetExams(parseInt(courseId));
-        const data = (response as any)?.data?.data ?? (response as any)?.data ?? [];
+        const response = await api.GetExams(parseInt(courseId), currentPage, 20);
+        const responseData = (response as any)?.data;
         
-        setExams(Array.isArray(data) ? data : []);
+        if (responseData?.status && responseData?.data) {
+          // Handle new response format
+          setExams(Array.isArray(responseData.data) ? responseData.data : []);
+          if (responseData.pagination) {
+            setPagination(responseData.pagination);
+          }
+        } else {
+          // Fallback for old format
+          const data = responseData?.data ?? responseData ?? [];
+          setExams(Array.isArray(data) ? data : []);
+        }
       } catch (err) {
         console.error("Error loading exams:", err);
         setExams([]);
+        setPagination({
+          total: 0,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+          hasNextPage: false,
+          hasPreviousPage: false
+        });
       } finally {
         setLoading(false);
       }
     };
     
     loadExams();
-  }, [api, courseId]);
+  }, [api, courseId, currentPage]);
 
   const handleCreateExam = async () => {
     if (!courseId) return;
@@ -224,9 +268,18 @@ const AdminCourseExamsPage = () => {
         toast.success("Exam created successfully!");
         
         // Reload exams
-        const examsResponse = await api.GetExams(parseInt(courseId));
-        const data = (examsResponse as any)?.data?.data ?? (examsResponse as any)?.data ?? [];
-        setExams(Array.isArray(data) ? data : []);
+        const examsResponse = await api.GetExams(parseInt(courseId), currentPage, 20);
+        const responseData = (examsResponse as any)?.data;
+        
+        if (responseData?.status && responseData?.data) {
+          setExams(Array.isArray(responseData.data) ? responseData.data : []);
+          if (responseData.pagination) {
+            setPagination(responseData.pagination);
+          }
+        } else {
+          const data = responseData?.data ?? responseData ?? [];
+          setExams(Array.isArray(data) ? data : []);
+        }
         
         // Reset form and close dialog
         const active = sessions.find((it: any) => it.status === "Active");
@@ -302,9 +355,18 @@ const AdminCourseExamsPage = () => {
         toast.success("Exam updated successfully!");
         
         // Reload exams
-        const examsResponse = await api.GetExams(parseInt(courseId!));
-        const data = (examsResponse as any)?.data?.data ?? (examsResponse as any)?.data ?? [];
-        setExams(Array.isArray(data) ? data : []);
+        const examsResponse = await api.GetExams(parseInt(courseId!), currentPage, 20);
+        const responseData = (examsResponse as any)?.data;
+        
+        if (responseData?.status && responseData?.data) {
+          setExams(Array.isArray(responseData.data) ? responseData.data : []);
+          if (responseData.pagination) {
+            setPagination(responseData.pagination);
+          }
+        } else {
+          const data = responseData?.data ?? responseData ?? [];
+          setExams(Array.isArray(data) ? data : []);
+        }
         
         // Reset form and close dialog
         setEditingExam(null);
@@ -353,9 +415,18 @@ const AdminCourseExamsPage = () => {
         toast.success("Exam deleted successfully!");
         
         // Reload exams
-        const examsResponse = await api.GetExams(parseInt(courseId!));
-        const data = (examsResponse as any)?.data?.data ?? (examsResponse as any)?.data ?? [];
-        setExams(Array.isArray(data) ? data : []);
+        const examsResponse = await api.GetExams(parseInt(courseId!), currentPage, 20);
+        const responseData = (examsResponse as any)?.data;
+        
+        if (responseData?.status && responseData?.data) {
+          setExams(Array.isArray(responseData.data) ? responseData.data : []);
+          if (responseData.pagination) {
+            setPagination(responseData.pagination);
+          }
+        } else {
+          const data = responseData?.data ?? responseData ?? [];
+          setExams(Array.isArray(data) ? data : []);
+        }
       } else {
         toast.error("Failed to delete exam. Please try again.");
       }
@@ -644,9 +715,13 @@ const AdminCourseExamsPage = () => {
           <TableHeader>
             <TableRow>
               <TableHead>Title</TableHead>
+              <TableHead>Academic Year</TableHead>
+              <TableHead>Semester</TableHead>
               <TableHead>Duration</TableHead>
+              <TableHead>Type</TableHead>
               <TableHead>Status</TableHead>
               <TableHead>Questions</TableHead>
+              <TableHead>Max Attempts</TableHead>
               <TableHead>Created</TableHead>
               <TableHead className="text-right">Actions</TableHead>
             </TableRow>
@@ -654,7 +729,7 @@ const AdminCourseExamsPage = () => {
           <TableBody>
             {loading && (
               <TableRow>
-                <TableCell colSpan={6} className="text-sm text-muted-foreground">
+                <TableCell colSpan={10} className="text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
                     <Loader2 className="h-4 w-4 animate-spin" />
                     Loading exams…
@@ -664,7 +739,7 @@ const AdminCourseExamsPage = () => {
             )}
             {!loading && exams.length === 0 && (
               <TableRow>
-                <TableCell colSpan={6} className="text-sm text-muted-foreground">
+                <TableCell colSpan={10} className="text-sm text-muted-foreground">
                   No exams found for this course.
                 </TableCell>
               </TableRow>
@@ -672,13 +747,28 @@ const AdminCourseExamsPage = () => {
             {!loading && exams.map((exam) => (
               <TableRow key={exam.id}>
                 <TableCell className="font-medium">{exam.title}</TableCell>
+                <TableCell>{exam.academic_year || '-'}</TableCell>
+                <TableCell>{exam.semester || '-'}</TableCell>
                 <TableCell>{exam.duration_minutes} min</TableCell>
                 <TableCell>
-                  <Badge className={getStatusColor(exam.status)}>
-                    {exam.status}
+                  <Badge variant="outline" className="text-xs">
+                    {exam.exam_type === 'mixed' ? 'Mixed' : 
+                     exam.exam_type === 'objective-only' ? 'Objective' : 
+                     exam.exam_type === 'theory-only' ? 'Theory' : 'Mixed'}
                   </Badge>
                 </TableCell>
-                <TableCell>{exam.total_questions || 0}</TableCell>
+                <TableCell>
+                  <Badge className={getStatusColor(exam.visibility || exam.status)}>
+                    {exam.visibility || exam.status}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  <div className="text-sm">
+                    <div>Obj: {exam.objective_count || 0}</div>
+                    <div>Theory: {exam.theory_count || 0}</div>
+                  </div>
+                </TableCell>
+                <TableCell>{exam.max_attempts || 'Unlimited'}</TableCell>
                 <TableCell>{new Date(exam.created_at).toLocaleDateString()}</TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
@@ -710,6 +800,49 @@ const AdminCourseExamsPage = () => {
           </TableBody>
         </Table>
       </Card>
+
+      {/* Pagination Controls */}
+      {pagination.totalPages > 1 && (
+        <div className="flex items-center justify-between">
+          <div className="text-sm text-muted-foreground">
+            Showing {((pagination.page - 1) * pagination.limit) + 1} to {Math.min(pagination.page * pagination.limit, pagination.total)} of {pagination.total} exams
+          </div>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage - 1)}
+              disabled={!pagination.hasPreviousPage || loading}
+            >
+              Previous
+            </Button>
+            <div className="flex items-center gap-1">
+              {Array.from({ length: Math.min(5, pagination.totalPages) }, (_, i) => {
+                const pageNum = i + 1;
+                return (
+                  <Button
+                    key={pageNum}
+                    variant={pageNum === pagination.page ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(pageNum)}
+                    disabled={loading}
+                  >
+                    {pageNum}
+                  </Button>
+                );
+              })}
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setCurrentPage(currentPage + 1)}
+              disabled={!pagination.hasNextPage || loading}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      )}
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>

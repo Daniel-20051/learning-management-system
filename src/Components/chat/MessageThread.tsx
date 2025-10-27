@@ -162,14 +162,14 @@ const MessageThread: React.FC<MessageThreadProps> = ({
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <div className="truncate font-medium">{chat.title}</div>
-            {isOnline && (
+            {isOnline === true && (
               <div className="h-2 w-2 rounded-full bg-green-500" />
             )}
           </div>
           <div className="text-xs text-muted-foreground">
             {isOnline !== undefined 
               ? (isOnline ? 'Online' : 'Offline')
-              : (chat.lastMessage ? "Active" : "No messages yet")
+              : (chat.lastMessage ? "Offline" : "No messages yet")
             }
           </div>
         </div>

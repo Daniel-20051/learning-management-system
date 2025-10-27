@@ -565,28 +565,33 @@ const ChatDialog = () => {
     };
   }, [chatPeerIds]);
 
+  // Update message status helper function
+  const updateMessageStatus = React.useCallback((messageId: string, status: "delivered" | "read", timestamp: string) => {
+    setStore(prev => ({
+      chats: prev.chats,
+      messages: prev.messages.map(m => 
+        m.id === messageId 
+          ? { 
+              ...m, 
+              [status === "delivered" ? "delivered_at" : "read_at"]: timestamp 
+            }
+          : m
+      )
+    }));
+  }, [setStore]);
+
   // Handle message status updates
   React.useEffect(() => {
+    // Listen for delivery confirmation
     const handleDelivered = (data: { messageId: string; delivered_at: string }) => {
-      setStore(prev => ({
-        chats: prev.chats,
-        messages: prev.messages.map(m => 
-          m.id === data.messageId 
-            ? { ...m, delivered_at: data.delivered_at }
-            : m
-        )
-      }));
+      // data = { messageId, delivered_at }
+      updateMessageStatus(data.messageId, "delivered", data.delivered_at);
     };
 
+    // Listen for read confirmation
     const handleRead = (data: { messageId: string; read_at: string }) => {
-      setStore(prev => ({
-        chats: prev.chats,
-        messages: prev.messages.map(m => 
-          m.id === data.messageId 
-            ? { ...m, read_at: data.read_at }
-            : m
-        )
-      }));
+      // data = { messageId, read_at }
+      updateMessageStatus(data.messageId, "read", data.read_at);
     };
 
     socketService.onMessageDelivered(handleDelivered);
@@ -595,7 +600,7 @@ const ChatDialog = () => {
     return () => {
       socketService.offMessageStatus();
     };
-  }, [setStore]);
+  }, [updateMessageStatus]);
 
   // Typing handlers
   const handleTyping = React.useCallback(() => {
@@ -614,6 +619,15 @@ const ChatDialog = () => {
     }
   }, [activeChatId, chatPeerIds]);
 
+  // Mark message as read when user views it
+  const markAsRead = React.useCallback((messageId: string) => {
+    socketService.markMessageAsRead(messageId, (response) => {
+      if (response?.ok) {
+        console.log("Message marked as read");
+      }
+    });
+  }, []);
+
   // Mark messages as read when viewing a chat
   React.useEffect(() => {
     if (!activeChatId) return;
@@ -624,11 +638,9 @@ const ChatDialog = () => {
     );
     
     unreadMessages.forEach(message => {
-      socketService.markMessageAsRead(message.id, () => {
-        // Message marked as read
-      });
+      markAsRead(message.id);
     });
-  }, [activeChatId, activeMessages, user?.id]);
+  }, [activeChatId, activeMessages, user?.id, markAsRead]);
 
   // Listen for online status updates
   React.useEffect(() => {

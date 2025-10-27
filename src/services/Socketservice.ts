@@ -273,41 +273,44 @@ connect(userId: string, onConnect?: () => void, serverUrl: string = "https://lms
     else this.socket.off('dm:typing');
   }
 
-  // Message status (delivered/read)
+  // Message status (delivered/read) - Updated to match new socket structure
   markMessageAsRead(messageId: string, callback?: (response: any) => void): void {
     if (!this.isConnected || !this.socket) {
       console.error('Socket not connected');
       callback?.({ ok: false, error: 'Socket not connected' });
       return;
     }
-    const payload = { messageId };
     
-    this.socket.emit('dm:read', payload, (response: any) => {
-      
+    this.socket.emit('dm:read', { messageId }, (response: any) => {
+      if (response?.ok) {
+        console.log('Message marked as read');
+      }
       callback?.(response);
     });
   }
 
+  // Listen for delivery confirmation
   onMessageDelivered(callback: (data: { messageId: string; delivered_at: string }) => void): void {
     if (!this.socket) {
-      
+      console.error('Socket not connected');
       return;
     }
     this.socket.off('dm:delivered');
     this.socket.on('dm:delivered', (data: any) => {
-      
+      // data = { messageId, delivered_at }
       callback(data);
     });
   }
 
+  // Listen for read confirmation  
   onMessageRead(callback: (data: { messageId: string; read_at: string }) => void): void {
     if (!this.socket) {
-      
+      console.error('Socket not connected');
       return;
     }
     this.socket.off('dm:read');
     this.socket.on('dm:read', (data: any) => {
-      
+      // data = { messageId, read_at }
       callback(data);
     });
   }

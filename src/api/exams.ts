@@ -14,9 +14,9 @@ export class ExamsApi {
     }
   }
 
-  async GetExams(courseId: number) {
+  async GetExams(courseId: number, page: number = 1, limit: number = 20) {
     try {
-      const response = await axios.get(`${BASE_URL}/api/exams/${courseId}`, {
+      const response = await axios.get(`${BASE_URL}/api/exams?course_id=${courseId}&page=${page}&limit=${limit}`, {
         headers: getAuthHeaders()
       });
       console.log(response)
@@ -339,9 +339,9 @@ export async function GetStaffExams() {
   return api.GetStaffExams();
 }
 
-export async function GetExams(courseId: number) {
+export async function GetExams(courseId: number, page: number = 1, limit: number = 20) {
   const api = new ExamsApi();
-  return api.GetExams(courseId);
+  return api.GetExams(courseId, page, limit);
 }
 
 export async function CreateExam(data: {

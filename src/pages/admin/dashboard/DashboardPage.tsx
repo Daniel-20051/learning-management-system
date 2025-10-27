@@ -15,7 +15,6 @@ import {
   Award,
   ArrowRight,
   Activity,
-  AlertCircle,
   GraduationCap,
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -261,16 +260,16 @@ const DashboardPage = () => {
         />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="flex">
         {/* Quick Actions */}
-        <Card>
+        <Card className="pt-3">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Activity className="h-5 w-5" />
               Quick Actions
             </CardTitle>
           </CardHeader>
-          <CardContent className="space-y-3">
+          <CardContent className="grid grid-cols-2 gap-3">
             {quickActions.map((action) => (
               <Button
                 key={action.id}
@@ -398,22 +397,7 @@ const DashboardPage = () => {
         </Card>
       )}
 
-      {/* Empty State */}
-      {!selectedSession && !isLoading && (
-        <Card className="text-center py-12">
-          <CardContent>
-            <AlertCircle className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <h3 className="text-lg font-semibold mb-2">Select Academic Session</h3>
-            <p className="text-muted-foreground mb-4">
-              Choose an academic session to view your dashboard data and manage your courses.
-            </p>
-            <SessionSemesterDialog
-              onSelectionChange={handleSessionChange}
-              isStaff={true}
-            />
-          </CardContent>
-        </Card>
-      )}
+      
     </div>
   );
 };

@@ -91,6 +91,83 @@ export const hasValidToken = (): boolean => {
   return isCookieValid(TOKEN_COOKIE_NAME);
 };
 
+// User data specific functions
+export const USER_COOKIE_NAME = 'user_data';
+export const LOGIN_STATE_COOKIE_NAME = 'is_logged_in';
+
+/**
+ * Store user data in cookie
+ * @param user - User object to store
+ */
+export const setUserData = (user: any): void => {
+  const userData = JSON.stringify(user);
+  setCookie(USER_COOKIE_NAME, userData, 4);
+};
+
+/**
+ * Get user data from cookie
+ * @returns User object or null if not found/expired
+ */
+export const getUserData = (): any | null => {
+  const userData = getCookie(USER_COOKIE_NAME);
+  if (!userData) return null;
+  
+  try {
+    return JSON.parse(userData);
+  } catch (error) {
+    console.error('Error parsing user data from cookie:', error);
+    return null;
+  }
+};
+
+/**
+ * Remove user data from cookie
+ */
+export const removeUserData = (): void => {
+  deleteCookie(USER_COOKIE_NAME);
+};
+
+/**
+ * Store login state in cookie
+ * @param isLoggedIn - Login state boolean
+ */
+export const setLoginState = (isLoggedIn: boolean): void => {
+  setCookie(LOGIN_STATE_COOKIE_NAME, isLoggedIn.toString(), 4);
+};
+
+/**
+ * Get login state from cookie
+ * @returns boolean indicating login state
+ */
+export const getLoginState = (): boolean => {
+  const loginState = getCookie(LOGIN_STATE_COOKIE_NAME);
+  return loginState === 'true';
+};
+
+/**
+ * Remove login state from cookie
+ */
+export const removeLoginState = (): void => {
+  deleteCookie(LOGIN_STATE_COOKIE_NAME);
+};
+
+/**
+ * Check if user has valid session (both token and user data exist)
+ * @returns boolean indicating if user has complete valid session
+ */
+export const hasValidSession = (): boolean => {
+  return hasValidToken() && getUserData() !== null && getLoginState();
+};
+
+/**
+ * Complete logout - removes all auth-related cookies
+ */
+export const clearAllAuthCookies = (): void => {
+  removeAccessToken();
+  removeUserData();
+  removeLoginState();
+};
+
 /**
  * Debug function to check all cookies
  * @returns string of all cookies for debugging

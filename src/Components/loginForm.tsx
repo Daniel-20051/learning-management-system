@@ -8,6 +8,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Api } from "@/api";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
+import { getUserData, getLoginState, setUserData, setLoginState } from "@/lib/cookies";
 
 export function LoginForm({
   className,
@@ -22,12 +23,12 @@ export function LoginForm({
   const api = new Api();
 
   useEffect(() => {
-    const savedUser = localStorage.getItem("user");
-    const isLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+    const savedUser = getUserData();
+    const isLoggedIn = getLoginState();
 
     if (isLoggedIn && savedUser) {
       setIsLoggedIn(true);
-      setUser(JSON.parse(savedUser));
+      setUser(savedUser);
     }
   }, [setIsLoggedIn, setUser]);
 
@@ -42,10 +43,7 @@ export function LoginForm({
       if (response && response.data) {
         const apiResponse = response.data as any;
 
-        // Store the auth token if provided
-        if (apiResponse.token) {
-          localStorage.setItem("authToken", apiResponse.token);
-        }
+        // Note: Auth token is now handled by the API layer and stored in cookies automatically
 
         const user = {
           id: apiResponse.data?.user?.id ,
@@ -57,13 +55,13 @@ export function LoginForm({
                 " " +
                 apiResponse.data?.user?.lastName
               : apiResponse.data?.user?.fullName,
-          role: apiResponse.data?.user?.userType, // Force all users to be admin for demo purposes
+          role: apiResponse.data?.user?.userType,
         };
 
         setIsLoggedIn(true);
         setUser(user);
-        localStorage.setItem("isLoggedIn", "true");
-        localStorage.setItem("user", JSON.stringify(user));
+        setLoginState(true);
+        setUserData(user);
         toast.success("Login successful!");
       } else {
         toast.error("Login failed. Please check your credentials.");

@@ -1,6 +1,15 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { hasValidToken, removeAccessToken } from "../lib/cookies";
+import { 
+  hasValidToken, 
+  removeAccessToken, 
+  getUserData, 
+  setUserData, 
+  getLoginState, 
+  setLoginState, 
+  clearAllAuthCookies,
+  hasValidSession 
+} from "../lib/cookies";
 
 interface User {
   id: string;
@@ -29,29 +38,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const isAdmin = user?.role === "staff";
 
   const logout = () => {
-    removeAccessToken();
+    clearAllAuthCookies();
     setIsLoggedIn(false);
     setUser(null);
-    localStorage.removeItem("user");
-    localStorage.removeItem("isLoggedIn");
+    
+    // Dispatch custom event for cross-tab logout synchronization
+    window.dispatchEvent(new CustomEvent("auth:token-removed"));
   };
 
   useEffect(() => {
     try {
-      const savedUser = localStorage.getItem("user");
-      const savedIsLoggedIn = localStorage.getItem("isLoggedIn") === "true";
+      const savedUser = getUserData();
+      const savedIsLoggedIn = getLoginState();
       const hasToken = hasValidToken();
 
       // Check if user is logged in and has a valid token
       if (savedIsLoggedIn && savedUser && hasToken) {
         setIsLoggedIn(true);
-        setUser(JSON.parse(savedUser));
+        setUser(savedUser);
       } else if (savedIsLoggedIn && !hasToken) {
         // Token expired, logout user
         logout();
       }
     } catch (error) {
-      // Ignore storage errors and start unauthenticated
+      // Ignore cookie errors and start unauthenticated
       logout();
     } finally {
       setIsInitializing(false);
@@ -74,20 +84,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
       }
     };
 
-    const handleStorage = (e: StorageEvent) => {
-      if (e.key === "isLoggedIn" && e.newValue === "false") {
-        handleAuthTokenRemoved();
-      }
-      if (e.key === "user" && e.newValue === null) {
-        handleAuthTokenRemoved();
-      }
-    };
-
+    // Listen for explicit logout signals from API layer or other tabs
     window.addEventListener(
       "auth:token-removed",
       handleAuthTokenRemoved as EventListener
     );
-    window.addEventListener("storage", handleStorage);
 
     return () => {
       window.clearInterval(intervalId);
@@ -95,7 +96,6 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         "auth:token-removed",
         handleAuthTokenRemoved as EventListener
       );
-      window.removeEventListener("storage", handleStorage);
     };
   }, [isLoggedIn]);
 

@@ -6,15 +6,17 @@ import { QuizApi, CreateQuiz, GetQuiz, GetQuizById, AddQuizQuestions, DeleteQuiz
 import { ExamsApi, GetStaffExams, GetExams, CreateExam, UpdateExam, DeleteExam, GetExamById, GetBankQuestions, AddObjectiveQuestion, AddTheoryQuestion, GetExamAttempts, GetAttemptForGrading, GradeTheoryAnswer, BulkGradeTheoryAnswers, GetExamStatistics, GetStudentExams, StartExam, SubmitExamAnswer, SubmitExam } from './exams';
 import { StudentsApi, GetStudents } from './students';
 import { ChatApi, GetChatThreads } from './chat';
+import { VideoApi, CreateVideoCall } from './video';
 
 // Re-export all API classes and functions
-export { AuthApi, CoursesApi, NotesApi, QuizApi, ExamsApi, StudentsApi, ChatApi };
+export { AuthApi, CoursesApi, NotesApi, QuizApi, ExamsApi, StudentsApi, ChatApi, VideoApi };
 export { GetStaffCourses, GetStaffCoursesbyId, GetCourseModules, AddModule, DeleteModule, AddUnit, getUnits, EditUnit, DeleteUnit, UploadUnitVideo };
 export { GetModuleNotes, CreateModuleNotes, EditModuleNotes, DeleteModuleNotes };
 export { CreateQuiz, GetQuiz, GetQuizById, AddQuizQuestions, DeleteQuiz, UpdateQuiz, UpdateQuizQuestions, StartQuizAttempt, SaveQuizAnswers, SubmitQuizAttempt, GetQuizStats, GetMyLatestAttempt };
 export { GetStaffExams, GetExams, CreateExam, UpdateExam, DeleteExam, GetExamById, GetBankQuestions, AddObjectiveQuestion, AddTheoryQuestion, GetExamAttempts, GetAttemptForGrading, GradeTheoryAnswer, BulkGradeTheoryAnswers, GetExamStatistics, GetStudentExams, StartExam, SubmitExamAnswer, SubmitExam };
 export { GetStudents };
 export { GetChatThreads };
+export { CreateVideoCall };
 
 // For backward compatibility, create a unified Api class that includes all functionality
 export class Api extends AuthApi {
@@ -24,6 +26,7 @@ export class Api extends AuthApi {
   exams = new ExamsApi();
   students = new StudentsApi();
   chat = new ChatApi();
+  video = new VideoApi();
 
   // Re-export course methods for backward compatibility
   async GetCourses(session: string, semester: string) {
@@ -276,6 +279,11 @@ export class Api extends AuthApi {
   // Re-export chat methods for backward compatibility
   async GetChatThreads() {
     return this.chat.GetChatThreads();
+  }
+
+  // Re-export video methods for backward compatibility
+  async CreateVideoCall(payload: any) {
+    return this.video.createVideoCall(payload);
   }
 
   // Add user profile method

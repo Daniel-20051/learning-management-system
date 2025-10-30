@@ -7,9 +7,10 @@ import {
 } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
 import { Badge } from "@/Components/ui/badge";
-import { BookOpen, Calendar, ArrowRight } from "lucide-react";
+import { BookOpen, Calendar, ArrowRight, Video } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import React, { useState } from "react";
+import { CreateVideoCallDialog } from "./CreateVideoCallDialog";
 
 type Props = {
   courses?: any[];
@@ -24,8 +25,26 @@ const CourseList = ({
   const [courses, setCourses] = useState<any[]>(externalCourses || []);
   const [isLoading] = useState<boolean>(false);
   const [isSessionLoading] = useState<boolean>(false);
+  const [isVideoCallDialogOpen, setIsVideoCallDialogOpen] = useState(false);
+  const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
   const handleViewCourse = (courseId: string) => {
     navigate(`/admin/courses/${courseId}`);
+  };
+
+  const handleCreateOnlineClass = (courseId: string) => {
+    setSelectedCourseId(parseInt(courseId));
+    setIsVideoCallDialogOpen(true);
+  };
+
+  const handleVideoCallSuccess = (callData: any) => {
+    console.log('Video call created successfully:', callData);
+    // Navigate to meeting page with the callId as parameter
+    const callId = callData?.callId || callData?.streamCallId;
+    if (callId) {
+      navigate(`/meeting/${callId}`);
+    } else {
+      console.error('No callId or streamCallId found in response:', callData);
+    }
   };
 
   // Keep local state in sync when parent provides courses
@@ -132,11 +151,20 @@ const CourseList = ({
 
                   <Button
                     onClick={() => handleViewCourse(String(course.id))}
-                    className="w-full hover:bg-primary hover:text-primary-foreground"
+                    className="w-full "
                     variant="outline"
                   >
                     View Details
                     <ArrowRight className="ml-2 h-4 w-4" />
+                  </Button>
+                  
+                  <Button
+                    onClick={() => handleCreateOnlineClass(String(course.id))}
+                    className="w-full bg-primary text-white"
+                    variant="default"
+                  >
+                    <Video className="mr-2 h-4 w-4" />
+                    Create Online Class
                   </Button>
                 </div>
               </CardContent>
@@ -144,6 +172,13 @@ const CourseList = ({
           ))}
         </div>
       )}
+      
+      <CreateVideoCallDialog
+        isOpen={isVideoCallDialogOpen}
+        onClose={() => setIsVideoCallDialogOpen(false)}
+        courseId={selectedCourseId || undefined}
+        onSuccess={handleVideoCallSuccess}
+      />
     </div>
   );
 };

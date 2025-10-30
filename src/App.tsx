@@ -12,6 +12,7 @@ import ResultsPage from "./pages/admin/result/ResultsPage";
 import CourseQuizzesPage from "./pages/admin/quiz/CourseQuizzesPage";
 import AdminDiscussionsListPage from "./pages/admin/discussions/AdminDiscussionsListPage";
 import AdminCourseDiscussionPage from "./pages/admin/discussions/AdminCourseDiscussionPage";
+import VideoLecture from "./pages/admin/video-lecture/VideoLecture";
 import AdminExamsListPage from "./pages/admin/exams/AdminExamsListPage";
 import AdminCourseExamsPage from "./pages/admin/exams/AdminCourseExamsPage";
 import AdminExamDetailsPage from "./pages/admin/exams/AdminExamDetailsPage";
@@ -90,6 +91,7 @@ function App() {
                   <Route path="exams" element={<AdminExamsListPage />} />
                   <Route path="exams/question-bank" element={<QuestionBankPage />} />
                   <Route path="exams/:courseId" element={<AdminCourseExamsPage />} />
+                  
                   <Route path="exams/:courseId/:examId" element={<AdminExamDetailsPage />} />
                 </Route>
                 <Route
@@ -112,7 +114,9 @@ function App() {
                     )
                   }
                 />
+                <Route path="meeting/:callId" element={<VideoLecture/>}/>
                 <Route path="*" element={<NotFoundPage />} />
+
               </Routes>
             </BrowserRouter>
           )}

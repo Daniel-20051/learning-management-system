@@ -101,11 +101,64 @@ const ExamsPlaceholder = () => {
         setCurrentExam(responseData.data);
         toast.success("Exam started successfully!");
       } else {
-        toast.error("Failed to start exam");
+        // Handle non-success response with detailed error information
+        const responseData = response.data as any;
+        const errorMessage = responseData?.message || responseData?.error || "Failed to start exam - invalid response";
+        console.error("Failed to start exam - Response:", response);
+        toast.error(`Failed to start exam: ${errorMessage}`);
       }
     } catch (err: any) {
       console.error("Error starting exam:", err);
-      toast.error(err.response?.data?.message || "Failed to start exam");
+      
+      // Extract detailed error information
+      const status = err.response?.status;
+      const statusText = err.response?.statusText;
+      const errorData = err.response?.data;
+      const errorMessage = errorData?.message || errorData?.error || err.message;
+      
+      // Log full error details for debugging
+      console.error("Full error details:", {
+        status,
+        statusText,
+        errorData,
+        fullError: err
+      });
+      
+      // Create comprehensive error message
+      let displayMessage = "Failed to start exam";
+      
+      if (status) {
+        displayMessage += ` (${status}`;
+        if (statusText) {
+          displayMessage += ` ${statusText}`;
+        }
+        displayMessage += ")";
+      }
+      
+      if (errorMessage) {
+        displayMessage += `: ${errorMessage}`;
+      }
+      
+      // Handle specific error cases
+      if (status === 400) {
+        if (errorMessage?.includes("already started") || errorMessage?.includes("attempt exists")) {
+          displayMessage = `Exam cannot be started: ${errorMessage}`;
+        } else if (errorMessage?.includes("not available") || errorMessage?.includes("not active")) {
+          displayMessage = `Exam is not available: ${errorMessage}`;
+        } else if (errorMessage?.includes("time") || errorMessage?.includes("expired")) {
+          displayMessage = `Exam timing issue: ${errorMessage}`;
+        }
+      } else if (status === 403) {
+        displayMessage = `Access denied: ${errorMessage || "You don't have permission to start this exam"}`;
+      } else if (status === 404) {
+        displayMessage = `Exam not found: ${errorMessage || "The exam may have been deleted or moved"}`;
+      } else if (status === 429) {
+        displayMessage = `Too many attempts: ${errorMessage || "Please wait before trying again"}`;
+      } else if (status >= 500) {
+        displayMessage = `Server error (${status}): ${errorMessage || "Please try again later or contact support"}`;
+      }
+      
+      toast.error(displayMessage);
     } finally {
       setStartingExam(false);
     }

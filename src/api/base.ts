@@ -32,9 +32,24 @@ export const getAuthHeaders = () => {
 
 // Helper function to handle API errors
 export const handleApiError = (err: any, context: string) => {
-  console.error(`Error during ${context}:`, err);
+  // Enhanced error logging with full context
+  console.error(`Error during ${context}:`, {
+    status: err.response?.status,
+    statusText: err.response?.statusText,
+    data: err.response?.data,
+    message: err.message,
+    config: {
+      url: err.config?.url,
+      method: err.config?.method,
+      headers: err.config?.headers
+    },
+    fullError: err
+  });
+  
   if (err.response?.status === 401) {
     removeAccessToken();
   }
+  
+  // Preserve the original error structure for better error handling upstream
   return err;
 };

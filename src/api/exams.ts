@@ -282,7 +282,20 @@ export class ExamsApi {
       });
       return response;
     } catch (err: any) {
-      return handleApiError(err, "starting exam");
+      // Enhanced error handling for exam start
+      const enhancedError = handleApiError(err, `starting exam ${examId}`);
+      
+      // Add specific context for exam start errors
+      if (err.response?.data) {
+        console.error("Exam start error details:", {
+          examId,
+          errorData: err.response.data,
+          timestamp: new Date().toISOString()
+        });
+      }
+      
+      // Re-throw the error to maintain the existing error handling flow
+      throw enhancedError;
     }
   }
 

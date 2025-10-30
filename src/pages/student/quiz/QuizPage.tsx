@@ -85,14 +85,28 @@ export default function QuizPage() {
       setTaking(true);
       setShowConfirm(false);
     } catch (e: any) {
+      console.error("Error starting quiz attempt:", e);
+      
+      // Extract detailed error information
+      const status = e?.response?.status;
+      const statusText = e?.response?.statusText;
+      const errorData = e?.response?.data;
+      const errorMessage = errorData?.message || errorData?.error || e.message;
+      
+      // Log full error details for debugging
+      console.error("Full quiz start error details:", {
+        quizId: quiz?.id,
+        status,
+        statusText,
+        errorData,
+        fullError: e
+      });
+      
       // Check if the error is about time limit exceeded for existing attempt
       if (
-        e?.response?.status === 400 &&
-        e?.response?.data?.message?.includes(
-          "Time limit exceeded for existing attempt"
-        )
+        status === 400 &&
+        errorMessage?.includes("Time limit exceeded for existing attempt")
       ) {
-        const errorData = e?.response?.data;
         const attemptId = errorData?.attempt_id || null;
 
         setExistingAttemptId(attemptId);
@@ -101,8 +115,41 @@ export default function QuizPage() {
         return;
       }
 
-      const message = e?.response?.data?.message || "Failed to start attempt";
-      toast.error(message);
+      // Create comprehensive error message
+      let displayMessage = "Failed to start quiz attempt";
+      
+      if (status) {
+        displayMessage += ` (${status}`;
+        if (statusText) {
+          displayMessage += ` ${statusText}`;
+        }
+        displayMessage += ")";
+      }
+      
+      if (errorMessage) {
+        displayMessage += `: ${errorMessage}`;
+      }
+      
+      // Handle specific error cases
+      if (status === 400) {
+        if (errorMessage?.includes("already started") || errorMessage?.includes("attempt exists")) {
+          displayMessage = `Quiz cannot be started: ${errorMessage}`;
+        } else if (errorMessage?.includes("not available") || errorMessage?.includes("not active")) {
+          displayMessage = `Quiz is not available: ${errorMessage}`;
+        } else if (errorMessage?.includes("time") || errorMessage?.includes("expired")) {
+          displayMessage = `Quiz timing issue: ${errorMessage}`;
+        }
+      } else if (status === 403) {
+        displayMessage = `Access denied: ${errorMessage || "You don't have permission to start this quiz"}`;
+      } else if (status === 404) {
+        displayMessage = `Quiz not found: ${errorMessage || "The quiz may have been deleted or moved"}`;
+      } else if (status === 429) {
+        displayMessage = `Too many attempts: ${errorMessage || "Please wait before trying again"}`;
+      } else if (status >= 500) {
+        displayMessage = `Server error (${status}): ${errorMessage || "Please try again later or contact support"}`;
+      }
+      
+      toast.error(displayMessage);
     } finally {
       setIsStarting(false);
     }

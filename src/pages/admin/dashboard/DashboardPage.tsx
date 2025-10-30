@@ -39,7 +39,7 @@ const DashboardPage = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isStudentsLoading, setIsStudentsLoading] = useState<boolean>(false);
 
-  // Get user's first name from localStorage user data
+  // Get user's first name from auth context
   const userFirstName = useMemo(() => {
     if (!user) return "Admin";
     

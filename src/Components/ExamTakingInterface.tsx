@@ -5,6 +5,7 @@ import { Badge } from "@/Components/ui/badge";
 // Using native HTML radio inputs instead of custom radio-group component
 import { Label } from "@/Components/ui/label";
 import { Textarea } from "@/Components/ui/textarea";
+import { SecureTextarea } from "@/Components/ui/secure-textarea";
 import { Clock, ChevronLeft, ChevronRight, FileText, CheckCircle } from "lucide-react";
 import type { ExamStartResponse } from "@/types/admin";
 import { Api } from "@/api/index";
@@ -26,6 +27,69 @@ const ExamTakingInterface = ({ examData, onBack }: ExamTakingInterfaceProps) => 
   const currentQuestion = examData.questions[currentQuestionIndex];
   const totalQuestions = examData.questions.length;
   const api = new Api();
+
+  // Security measures for exam integrity
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Disable F12 (Developer Tools)
+      if (e.key === 'F12') {
+        e.preventDefault();
+        toast.error("Developer tools are disabled during the exam.");
+        return false;
+      }
+      
+      // Disable Ctrl+Shift+I (Developer Tools)
+      if (e.ctrlKey && e.shiftKey && e.key === 'I') {
+        e.preventDefault();
+        toast.error("Developer tools are disabled during the exam.");
+        return false;
+      }
+      
+      // Disable Ctrl+Shift+J (Console)
+      if (e.ctrlKey && e.shiftKey && e.key === 'J') {
+        e.preventDefault();
+        toast.error("Developer tools are disabled during the exam.");
+        return false;
+      }
+      
+      // Disable Ctrl+U (View Source)
+      if (e.ctrlKey && e.key === 'u') {
+        e.preventDefault();
+        toast.error("View source is disabled during the exam.");
+        return false;
+      }
+      
+      // Disable Ctrl+S (Save Page)
+      if (e.ctrlKey && e.key === 's') {
+        e.preventDefault();
+        toast.error("Saving page is disabled during the exam.");
+        return false;
+      }
+      
+      // Disable Ctrl+P (Print)
+      if (e.ctrlKey && e.key === 'p') {
+        e.preventDefault();
+        toast.error("Printing is disabled during the exam.");
+        return false;
+      }
+    };
+
+    const handleContextMenu = (e: MouseEvent) => {
+      e.preventDefault();
+      toast.error("Right-click is disabled during the exam.");
+      return false;
+    };
+
+    // Add event listeners
+    document.addEventListener('keydown', handleKeyDown);
+    document.addEventListener('contextmenu', handleContextMenu);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener('keydown', handleKeyDown);
+      document.removeEventListener('contextmenu', handleContextMenu);
+    };
+  }, []);
 
   // Timer effect
   useEffect(() => {
@@ -220,7 +284,27 @@ const ExamTakingInterface = ({ examData, onBack }: ExamTakingInterfaceProps) => 
           <CardContent className="space-y-6">
             {/* Question Text */}
             {currentQuestion.question_text && (
-              <div className="text-lg font-medium">
+              <div 
+                className="text-lg font-medium select-none"
+                style={{
+                  userSelect: 'none',
+                  WebkitUserSelect: 'none',
+                  MozUserSelect: 'none',
+                  msUserSelect: 'none'
+                }}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  return false;
+                }}
+                onCopy={(e) => {
+                  e.preventDefault();
+                  return false;
+                }}
+                onDragStart={(e) => {
+                  e.preventDefault();
+                  return false;
+                }}
+              >
                 {currentQuestion.question_text}
               </div>
             )}
@@ -272,14 +356,21 @@ const ExamTakingInterface = ({ examData, onBack }: ExamTakingInterfaceProps) => 
             ) : currentQuestion.question_type === "theory" ? (
               <div className="space-y-2">
                 <Label htmlFor="theory-answer">Your Answer:</Label>
-                <Textarea
+                <SecureTextarea
                   id="theory-answer"
                   placeholder="Type your answer here..."
                   value={answers[currentQuestion.exam_item_id] || ""}
                   onChange={(e) => handleAnswerChange(e.target.value)}
                   rows={6}
                   className="resize-none"
+                  disableCopyPaste={true}
                 />
+                <div className="text-xs text-muted-foreground flex items-center gap-1">
+                  <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                  </svg>
+                  Copy and paste are disabled during the exam for security purposes.
+                </div>
               </div>
             ) : (
               <div className="text-muted-foreground italic">

@@ -1,5 +1,6 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "@stream-io/video-react-sdk/dist/css/styles.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -231,5 +232,15 @@ body {
   --sidebar-accent-foreground: oklch(0.8074 0.0142 93.0137);
   --sidebar-border: oklch(0.9401 0 0);
   --sidebar-ring: oklch(0.7731 0 0);
+  }
+  .str-video{
+    background-color: #272a30;
+    color: #ffffff;
+    height: 100dvh;
+    width: 100vw;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+    max-width: 100%;
   }
 }

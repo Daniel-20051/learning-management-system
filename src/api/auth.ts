@@ -24,7 +24,7 @@ export class AuthApi {
         'accessToken' in response.data.data) {
       setAccessToken(response.data.data.accessToken as string);
     }
-    
+    console.log(response)
     return response;
   }
 

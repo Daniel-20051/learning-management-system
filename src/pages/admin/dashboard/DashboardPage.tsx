@@ -33,7 +33,6 @@ const DashboardPage = () => {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { selectedSession, selectedSemester } = useSession();
-
   const [courses, setCourses] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);

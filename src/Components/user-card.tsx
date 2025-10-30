@@ -27,7 +27,7 @@ const UserCard = ({ sidebar }: UserCardProps) => {
     <div className="flex items-center gap-3">
       <DropdownMenu open={isOpen} onOpenChange={setIsOpen}>
         <DropdownMenuTrigger asChild>
-          <div className=" hidden md:flex items-center gap-3 cursor-pointer">
+          <div className="flex items-center gap-3 cursor-pointer">
             {sidebar && (
               <img
                 className="w-13 bg-primary h-13 rounded-full"
@@ -35,15 +35,24 @@ const UserCard = ({ sidebar }: UserCardProps) => {
                 alt=""
               />
             )}
-            <div>
+            <div className="hidden sm:block">
               <p className="text-sm font-bold">{user?.name || "User"}</p>
               {!sidebar && (
                 <p className="text-sm">{user?.email || "user@example.com"}</p>
               )}
             </div>
+            {/* Mobile: Show only avatar */}
+            <div className="sm:hidden">
+              <img
+                className="w-10 h-10 bg-primary rounded-full"
+                src="/assets/avatar.png"
+                alt="User Avatar"
+              />
+            </div>
+            {/* Desktop: Show avatar when not in sidebar */}
             {!sidebar && (
               <img
-                className="w-13 bg-primary h-13 rounded-full"
+                className="hidden sm:block w-13 bg-primary h-13 rounded-full"
                 src="/assets/avatar.png"
                 alt=""
               />

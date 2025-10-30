@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import {StreamCall, StreamVideo, StreamVideoClient, type User } from '@stream-io/video-react-sdk';
 import VideoCallUI from './componenets/VideoCallUI';
 import { Button } from '@/Components/ui/button';
-import { Video } from 'lucide-react';
+import { Video, AlertCircle, ArrowLeft, RefreshCw } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 
@@ -11,17 +11,21 @@ const apiKey = '9pg75epyxrar';
 
 const VideoLecture = () => {
   const { callId } = useParams<{ callId: string }>();
-  const { user: authUser } = useAuth();
+  const { user: authUser, isAdmin } = useAuth();
+  const navigate = useNavigate();
   const [isJoined, setIsJoined] = useState(false);
   const [isJoining, setIsJoining] = useState(false);
   const [client, setClient] = useState<StreamVideoClient | null>(null);
   const [call, setCall] = useState<any>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [errorType, setErrorType] = useState<'general' | 'call-not-found' | null>(null);
 
   const handleJoinMeeting = async () => {
     setIsJoining(true);
+    setError(null);
+    setErrorType(null);
+    
     try {
-      
-      
       if (!authUser) {
         throw new Error('User data not available. Please log in again.');
       }
@@ -42,18 +46,38 @@ const VideoLecture = () => {
       const videoClient = new StreamVideoClient({ apiKey, user: streamUser,  });
       const videoCall = videoClient.call('default', callId);
       
-      // Join the call
-      await videoCall.join({ create: true });
+      // Join the call - students can't create, only staff/admins can
+      await videoCall.join({ create: isAdmin });
       
       setClient(videoClient);
       setCall(videoCall);
       setIsJoined(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Failed to join meeting:', error);
-      alert(`Failed to join meeting: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      // Check if it's a "call not found" error
+      if (error?.message?.includes("Can't find call") || 
+          error?.message?.includes("JoinCall failed") ||
+          error?.code === 16) {
+        setErrorType('call-not-found');
+        setError('Meeting not found. Please check the meeting ID and try again.');
+      } else {
+        setErrorType('general');
+        setError(error instanceof Error ? error.message : 'Failed to join meeting. Please try again.');
+      }
     } finally {
       setIsJoining(false);
     }
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    setErrorType(null);
+    handleJoinMeeting();
+  };
+
+  const handleGoBack = () => {
+    navigate(-1);
   };
 
  
@@ -73,6 +97,100 @@ const VideoLecture = () => {
             <p className="text-gray-600 dark:text-gray-300">
               Please create a video call first or use a valid meeting link.
             </p>
+          </div>
+          <Button 
+            onClick={handleGoBack}
+            variant="outline"
+            className="w-full flex items-center justify-center gap-2"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Go Back
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error UI for call not found
+  if (errorType === 'call-not-found') {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 text-center">
+          <div className="mb-6">
+            <div className="w-20 h-20 bg-orange-100 dark:bg-orange-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-10 h-10 text-orange-600 dark:text-orange-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Meeting Not Found
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+              The meeting with ID <span className="font-mono text-sm bg-gray-100 dark:bg-gray-700 px-2 py-1 rounded">{callId}</span> could not be found.
+            </p>
+            <div className="text-sm text-gray-500 dark:text-gray-400 mb-6">
+              <p className="mb-2">Please check:</p>
+              <ul className="text-left space-y-1">
+                <li>• The meeting ID is correct</li>
+                <li>• The meeting has been created by an instructor</li>
+                <li>• The meeting hasn't been deleted</li>
+              </ul>
+            </div>
+          </div>
+          <div className="space-y-3">
+            <Button 
+              onClick={handleRetry}
+              disabled={isJoining}
+              className="w-full flex items-center justify-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${isJoining ? 'animate-spin' : ''}`} />
+              {isJoining ? 'Retrying...' : 'Try Again'}
+            </Button>
+            <Button 
+              onClick={handleGoBack}
+              variant="outline"
+              className="w-full flex items-center justify-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Go Back
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Show general error UI
+  if (errorType === 'general' && error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 to-red-100 dark:from-gray-900 dark:to-gray-800 flex items-center justify-center p-4">
+        <div className="max-w-md w-full bg-white dark:bg-gray-800 rounded-2xl shadow-xl p-8 text-center">
+          <div className="mb-6">
+            <div className="w-20 h-20 bg-red-100 dark:bg-red-900/30 rounded-full flex items-center justify-center mx-auto mb-4">
+              <AlertCircle className="w-10 h-10 text-red-600 dark:text-red-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+              Connection Failed
+            </h2>
+            <p className="text-gray-600 dark:text-gray-300 mb-4">
+              {error}
+            </p>
+          </div>
+          <div className="space-y-3">
+            <Button 
+              onClick={handleRetry}
+              disabled={isJoining}
+              className="w-full flex items-center justify-center gap-2"
+            >
+              <RefreshCw className={`w-4 h-4 ${isJoining ? 'animate-spin' : ''}`} />
+              {isJoining ? 'Retrying...' : 'Try Again'}
+            </Button>
+            <Button 
+              onClick={handleGoBack}
+              variant="outline"
+              className="w-full flex items-center justify-center gap-2"
+            >
+              <ArrowLeft className="w-4 h-4" />
+              Go Back
+            </Button>
           </div>
         </div>
       </div>

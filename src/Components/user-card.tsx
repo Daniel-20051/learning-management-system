@@ -6,7 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/Components/ui/dropdown-menu";
-import { LogOut, User, Award, Settings } from "lucide-react";
+import { LogOut, User, Award, Settings, Video } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 interface UserCardProps {
@@ -50,36 +50,45 @@ const UserCard = ({ sidebar }: UserCardProps) => {
             )}
           </div>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className="w-48">
+        <DropdownMenuContent align="end" className="w-56">
           {isAdmin && (
             <DropdownMenuItem
-              className="cursor-pointer"
+              className="cursor-pointer py-3"
               onClick={() => navigate("/admin")}
             >
-              <Settings className="mr-2 h-4 w-4" />
-              <span>Admin Panel</span>
+              <Settings className="mr-3 h-5 w-5" />
+              <span className="text-base">Admin Panel</span>
             </DropdownMenuItem>
           )}
           <DropdownMenuItem
-            className="cursor-pointer"
+            className="cursor-pointer py-3"
             onClick={() => navigate("/profile")}
           >
-            <User className="mr-2 h-4 w-4" />
-            <span>Profile</span>
+            <User className="mr-3 h-5 w-5" />
+            <span className="text-base">Profile</span>
           </DropdownMenuItem>
+          {!isAdmin && (
+            <DropdownMenuItem
+              className="cursor-pointer py-3"
+              onClick={() => navigate("/online-classes")}
+            >
+              <Video className="mr-3 h-5 w-5" />
+              <span className="text-base">Online Class</span>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem
-            className="cursor-pointer"
+            className="cursor-pointer py-3"
             onClick={() => navigate("/certificate")}
           >
-            <Award className="mr-2 h-4 w-4" />
-            <span>Certificates</span>
+            <Award className="mr-3 h-5 w-5" />
+            <span className="text-base">Certificates</span>
           </DropdownMenuItem>
           <DropdownMenuItem
-            className="cursor-pointer text-red-600 focus:text-red-600"
+            className="cursor-pointer py-3 text-red-600 focus:text-red-600"
             onClick={handleLogout}
           >
-            <LogOut className="mr-2 h-4 w-4" />
-            <span>Log out</span>
+            <LogOut className="mr-3 h-5 w-5" />
+            <span className="text-base">Log out</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

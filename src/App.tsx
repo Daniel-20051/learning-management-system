@@ -21,6 +21,7 @@ import Unit from "./pages/student/unit/Unit";
 import { SidebarSelectionProvider } from "@/context/SidebarSelectionContext";
 import { SessionProvider } from "@/context/SessionContext";
 import CertificatePage from "./pages/student/certificate/CertificatePage";
+import OnlineClassesPage from "./pages/student/online-classes/OnlineClassesPage";
 import NotFoundPage from "./pages/NotFoundPage";
 import QuizPage from "./pages/student/quiz/QuizPage";
 import ChatDialog from "@/Components/chat/ChatDialog";
@@ -109,6 +110,16 @@ function App() {
                   element={
                     isLoggedIn ? (
                       <CertificatePage />
+                    ) : (
+                      <Navigate to="/" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/online-classes"
+                  element={
+                    isLoggedIn ? (
+                      <OnlineClassesPage />
                     ) : (
                       <Navigate to="/" replace />
                     )

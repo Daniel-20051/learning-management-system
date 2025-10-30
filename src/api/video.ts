@@ -10,6 +10,16 @@ export interface CreateVideoCallPayload {
   startsAt: string;
 }
 
+export interface VideoCall {
+  id: string;
+  title: string;
+  streamCallId: string;
+  callType: string;
+  startsAt: string | null;
+  endedAt: string | null;
+  createdAt: string;
+}
+
 export interface VideoCallResponse {
   success: boolean;
   data?: {
@@ -24,6 +34,11 @@ export interface VideoCallResponse {
   };
   message?: string;
   error?: string;
+}
+
+export interface VideoCallsListResponse {
+  success: boolean;
+  data: VideoCall[];
 }
 
 export class VideoApi {
@@ -42,10 +57,31 @@ export class VideoApi {
       throw new Error(error.response?.data?.message || 'Failed to create video call');
     }
   }
+
+  /**
+   * Get all video calls
+   */
+  async getVideoCalls(): Promise<VideoCallsListResponse> {
+    try {
+      const response = await axios.get<VideoCallsListResponse>(`${BASE_URL}/api/video/calls`, {
+        headers: getAuthHeaders()
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching video calls:', error);
+      handleApiError(error, "fetching video calls");
+      throw new Error(error.response?.data?.message || 'Failed to fetch video calls');
+    }
+  }
 }
 
-// Export function for direct use
+// Export functions for direct use
 export const CreateVideoCall = async (payload: CreateVideoCallPayload): Promise<VideoCallResponse> => {
   const api = new VideoApi();
   return api.createVideoCall(payload);
+};
+
+export const GetVideoCalls = async (): Promise<VideoCallsListResponse> => {
+  const api = new VideoApi();
+  return api.getVideoCalls();
 };

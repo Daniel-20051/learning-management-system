@@ -6,7 +6,7 @@ import { QuizApi, CreateQuiz, GetQuiz, GetQuizById, AddQuizQuestions, DeleteQuiz
 import { ExamsApi, GetStaffExams, GetExams, CreateExam, UpdateExam, DeleteExam, GetExamById, GetBankQuestions, AddObjectiveQuestion, AddTheoryQuestion, GetExamAttempts, GetAttemptForGrading, GradeTheoryAnswer, BulkGradeTheoryAnswers, GetExamStatistics, GetStudentExams, StartExam, SubmitExamAnswer, SubmitExam } from './exams';
 import { StudentsApi, GetStudents } from './students';
 import { ChatApi, GetChatThreads } from './chat';
-import { VideoApi, CreateVideoCall } from './video';
+import { VideoApi, CreateVideoCall, GetVideoCalls, DeleteVideoCall } from './video';
 
 // Re-export all API classes and functions
 export { AuthApi, CoursesApi, NotesApi, QuizApi, ExamsApi, StudentsApi, ChatApi, VideoApi };
@@ -16,7 +16,7 @@ export { CreateQuiz, GetQuiz, GetQuizById, AddQuizQuestions, DeleteQuiz, UpdateQ
 export { GetStaffExams, GetExams, CreateExam, UpdateExam, DeleteExam, GetExamById, GetBankQuestions, AddObjectiveQuestion, AddTheoryQuestion, GetExamAttempts, GetAttemptForGrading, GradeTheoryAnswer, BulkGradeTheoryAnswers, GetExamStatistics, GetStudentExams, StartExam, SubmitExamAnswer, SubmitExam };
 export { GetStudents };
 export { GetChatThreads };
-export { CreateVideoCall };
+export { CreateVideoCall, GetVideoCalls, DeleteVideoCall };
 
 // For backward compatibility, create a unified Api class that includes all functionality
 export class Api extends AuthApi {
@@ -284,6 +284,14 @@ export class Api extends AuthApi {
   // Re-export video methods for backward compatibility
   async CreateVideoCall(payload: any) {
     return this.video.createVideoCall(payload);
+  }
+
+  async GetVideoCalls() {
+    return this.video.getVideoCalls();
+  }
+
+  async DeleteVideoCall(callId: string) {
+    return this.video.deleteVideoCall(callId);
   }
 
   // Add user profile method

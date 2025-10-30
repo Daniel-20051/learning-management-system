@@ -41,6 +41,12 @@ export interface VideoCallsListResponse {
   data: VideoCall[];
 }
 
+export interface DeleteVideoCallResponse {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
 export class VideoApi {
   /**
    * Create a new video call
@@ -73,6 +79,22 @@ export class VideoApi {
       throw new Error(error.response?.data?.message || 'Failed to fetch video calls');
     }
   }
+
+  /**
+   * Delete a video call
+   */
+  async deleteVideoCall(callId: string): Promise<DeleteVideoCallResponse> {
+    try {
+      const response = await axios.delete<DeleteVideoCallResponse>(`${BASE_URL}/api/video/calls/${callId}`, {
+        headers: getAuthHeaders()
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error('Error deleting video call:', error);
+      handleApiError(error, "deleting video call");
+      throw new Error(error.response?.data?.message || 'Failed to delete video call');
+    }
+  }
 }
 
 // Export functions for direct use
@@ -84,4 +106,9 @@ export const CreateVideoCall = async (payload: CreateVideoCallPayload): Promise<
 export const GetVideoCalls = async (): Promise<VideoCallsListResponse> => {
   const api = new VideoApi();
   return api.getVideoCalls();
+};
+
+export const DeleteVideoCall = async (callId: string): Promise<DeleteVideoCallResponse> => {
+  const api = new VideoApi();
+  return api.deleteVideoCall(callId);
 };

@@ -7,10 +7,11 @@ import {
 } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
 import { Badge } from "@/Components/ui/badge";
-import { BookOpen, Calendar, ArrowRight, Video } from "lucide-react";
+import { BookOpen, Calendar, ArrowRight, Video, History } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import React, { useState } from "react";
 import { CreateVideoCallDialog } from "./CreateVideoCallDialog";
+import { CallHistoryDialog } from "./CallHistoryDialog";
 
 type Props = {
   courses?: any[];
@@ -26,6 +27,7 @@ const CourseList = ({
   const [isLoading] = useState<boolean>(false);
   const [isSessionLoading] = useState<boolean>(false);
   const [isVideoCallDialogOpen, setIsVideoCallDialogOpen] = useState(false);
+  const [isCallHistoryDialogOpen, setIsCallHistoryDialogOpen] = useState(false);
   const [selectedCourseId, setSelectedCourseId] = useState<number | null>(null);
   const handleViewCourse = (courseId: string) => {
     navigate(`/admin/courses/${courseId}`);
@@ -34,6 +36,10 @@ const CourseList = ({
   const handleCreateOnlineClass = (courseId: string) => {
     setSelectedCourseId(parseInt(courseId));
     setIsVideoCallDialogOpen(true);
+  };
+
+  const handleViewCallHistory = () => {
+    setIsCallHistoryDialogOpen(true);
   };
 
   const handleVideoCallSuccess = (callData: any) => {
@@ -158,14 +164,24 @@ const CourseList = ({
                     <ArrowRight className="ml-2 h-4 w-4" />
                   </Button>
                   
-                  <Button
-                    onClick={() => handleCreateOnlineClass(String(course.id))}
-                    className="w-full bg-primary text-white"
-                    variant="default"
-                  >
-                    <Video className="mr-2 h-4 w-4" />
-                    Create Online Class
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={() => handleCreateOnlineClass(String(course.id))}
+                      className="flex-1 bg-primary text-white"
+                      variant="default"
+                    >
+                      <Video className="mr-2 h-4 w-4" />
+                      Create Online Class
+                    </Button>
+                    <Button
+                      onClick={handleViewCallHistory}
+                      className="w-1/4"
+                      variant="outline"
+                      size="default"
+                    >
+                      <History className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               </CardContent>
             </Card>
@@ -178,6 +194,11 @@ const CourseList = ({
         onClose={() => setIsVideoCallDialogOpen(false)}
         courseId={selectedCourseId || undefined}
         onSuccess={handleVideoCallSuccess}
+      />
+      
+      <CallHistoryDialog
+        isOpen={isCallHistoryDialogOpen}
+        onClose={() => setIsCallHistoryDialogOpen(false)}
       />
     </div>
   );

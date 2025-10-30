@@ -125,7 +125,16 @@ function App() {
                     )
                   }
                 />
-                <Route path="meeting/:callId" element={<VideoLecture/>}/>
+                <Route
+                  path="meeting/:callId"
+                  element={
+                    isLoggedIn ? (
+                      <VideoLecture />
+                    ) : (
+                      <Navigate to="/" replace />
+                    )
+                  }
+                />
                 <Route path="*" element={<NotFoundPage />} />
 
               </Routes>

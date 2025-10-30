@@ -4,7 +4,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Badge } from "@/Components/ui/badge";
 // Using native HTML radio inputs instead of custom radio-group component
 import { Label } from "@/Components/ui/label";
-import { Textarea } from "@/Components/ui/textarea";
 import { SecureTextarea } from "@/Components/ui/secure-textarea";
 import { Clock, ChevronLeft, ChevronRight, FileText, CheckCircle } from "lucide-react";
 import type { ExamStartResponse } from "@/types/admin";

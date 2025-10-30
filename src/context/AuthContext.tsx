@@ -2,13 +2,9 @@ import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { 
   hasValidToken, 
-  removeAccessToken, 
   getUserData, 
-  setUserData, 
   getLoginState, 
-  setLoginState, 
-  clearAllAuthCookies,
-  hasValidSession 
+  clearAllAuthCookies
 } from "../lib/cookies";
 
 interface User {

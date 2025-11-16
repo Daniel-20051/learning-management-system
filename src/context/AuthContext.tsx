@@ -11,7 +11,9 @@ interface User {
   id: string;
   email: string;
   name: string;
-  role: "staff" | "student";
+  role: "staff" | "student" | "super_admin" ;
+  permissions?: any;
+  userType?: string;
 }
 
 interface AuthContextType {
@@ -20,6 +22,7 @@ interface AuthContextType {
   user: User | null;
   setUser: (user: User | null) => void;
   isAdmin: boolean;
+  isSuperAdmin: boolean;
   isInitializing: boolean;
   logout: () => void;
 }
@@ -31,7 +34,9 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
-  const isAdmin = user?.role === "staff";
+  const isAdmin = user?.role === "staff" ;
+  const isSuperAdmin = user?.role === "super_admin" ;
+
 
   const logout = () => {
     clearAllAuthCookies();
@@ -103,6 +108,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         user,
         setUser,
         isAdmin,
+        isSuperAdmin,
         isInitializing,
         logout,
       }}

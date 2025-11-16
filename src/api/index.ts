@@ -7,6 +7,7 @@ import { ExamsApi, GetStaffExams, GetExams, CreateExam, UpdateExam, DeleteExam, 
 import { StudentsApi, GetStudents } from './students';
 import { ChatApi, GetChatThreads } from './chat';
 import { VideoApi, CreateVideoCall, GetVideoCalls, DeleteVideoCall } from './video';
+import { getAdminProfile, updateAdminProfile, getStudents, getStudentStatistics, getStudent, createStudent, updateStudent, deactivateStudent, activateStudent, resetStudentPassword, getStaff, type AdminProfile, type AdminProfileResponse, type AdminPermissions, type UpdateAdminProfileData, type UpdateAdminProfileResponse, type Student, type GetStudentsParams, type GetStudentsResponse, type PaginationData, type StudentStatistics, type GetStudentStatisticsResponse, type StudentDetails, type GetStudentResponse, type CreateStudentData, type CreateStudentResponse, type UpdateStudentData, type UpdateStudentResponse, type DeactivateStudentResponse, type ActivateStudentResponse, type ResetStudentPasswordData, type ResetStudentPasswordResponse, type Staff, type StaffCourse, type GetStaffParams, type GetStaffResponse } from './admin';
 
 // Re-export all API classes and functions
 export { AuthApi, CoursesApi, NotesApi, QuizApi, ExamsApi, StudentsApi, ChatApi, VideoApi };
@@ -17,6 +18,7 @@ export { GetStaffExams, GetExams, CreateExam, UpdateExam, DeleteExam, GetExamByI
 export { GetStudents };
 export { GetChatThreads };
 export { CreateVideoCall, GetVideoCalls, DeleteVideoCall };
+export { getAdminProfile, updateAdminProfile, getStudents, getStudentStatistics, getStudent, createStudent, updateStudent, deactivateStudent, activateStudent, resetStudentPassword, getStaff, type AdminProfile, type AdminProfileResponse, type AdminPermissions, type UpdateAdminProfileData, type UpdateAdminProfileResponse, type Student, type GetStudentsParams, type GetStudentsResponse, type PaginationData, type StudentStatistics, type GetStudentStatisticsResponse, type StudentDetails, type GetStudentResponse, type CreateStudentData, type CreateStudentResponse, type UpdateStudentData, type UpdateStudentResponse, type DeactivateStudentResponse, type ActivateStudentResponse, type ResetStudentPasswordData, type ResetStudentPasswordResponse, type Staff, type StaffCourse, type GetStaffParams, type GetStaffResponse };
 
 // For backward compatibility, create a unified Api class that includes all functionality
 export class Api extends AuthApi {

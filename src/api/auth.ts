@@ -28,6 +28,31 @@ export class AuthApi {
     return response;
   }
 
+  async LoginAdmin(data: {
+    email: string;
+    password: string;
+  }) {
+    const payload = {
+      email: data.email,
+      password: data.password,
+    };
+    const response = await axios.post(`${BASE_URL}/api/admin/login`, payload);
+    
+    // Store access token in cookie if login is successful
+    if (response.data && 
+        typeof response.data === 'object' && 
+        'success' in response.data && 
+        response.data.success && 
+        'data' in response.data && 
+        response.data.data && 
+        typeof response.data.data === 'object' && 
+        'accessToken' in response.data.data) {
+      setAccessToken(response.data.data.accessToken as string);
+    }
+    console.log(response)
+    return response;
+  }
+
   // Method to logout and clear token
   async logout() {
     removeAccessToken();

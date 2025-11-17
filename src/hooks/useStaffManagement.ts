@@ -1,5 +1,12 @@
 import { useState, useEffect } from "react";
-import { getStaff, type Staff, type PaginationData } from "@/api/admin";
+import {
+  getStaff,
+  deactivateStaff,
+  resetStaffPassword,
+  type Staff,
+  type PaginationData,
+  type UpdateStaffData,
+} from "@/api/admin";
 import { toast } from "sonner";
 
 export function useStaffManagement() {
@@ -13,6 +20,13 @@ export function useStaffManagement() {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
+  const [selectedStaffId, setSelectedStaffId] = useState<number | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showDeactivateDialog, setShowDeactivateDialog] = useState(false);
+  const [showResetPasswordDialog, setShowResetPasswordDialog] = useState(false);
 
   useEffect(() => {
     fetchStaff();
@@ -66,6 +80,67 @@ export function useStaffManagement() {
     }
   };
 
+  const handleDeactivateStaff = async () => {
+    if (!selectedStaff) return;
+
+    try {
+      setActionLoading(true);
+      const response = await deactivateStaff(selectedStaff.id);
+      if (response.success) {
+        setStaff((prevStaff) =>
+          prevStaff.map((member) =>
+            member.id === selectedStaff.id
+              ? { ...member, admin_status: "inactive" }
+              : member
+          )
+        );
+        toast.success(response.message);
+        setShowDeactivateDialog(false);
+      }
+    } catch (error: any) {
+      console.error("Error deactivating staff:", error);
+      toast.error(error.response?.data?.message || "Failed to deactivate staff");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleResetPassword = async () => {
+    if (!selectedStaff) return;
+
+    try {
+      setActionLoading(true);
+      const tempPassword = `Staff${selectedStaff.id}!${Math.random()
+        .toString(36)
+        .slice(-4)}`;
+      const response = await resetStaffPassword(selectedStaff.id, {
+        newPassword: tempPassword,
+      });
+      if (response.success) {
+        toast.success(response.message);
+        setShowResetPasswordDialog(false);
+      }
+    } catch (error: any) {
+      console.error("Error resetting password:", error);
+      toast.error(error.response?.data?.message || "Failed to reset password");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleStaffUpdated = (updatedData: UpdateStaffData & { id: number }) => {
+    setStaff((prevStaff) =>
+      prevStaff.map((member) =>
+        member.id === updatedData.id ? { ...member, ...updatedData } : member
+      )
+    );
+  };
+
+  const handleStaffCreated = () => {
+    // Refresh the staff list after creating a new staff member
+    fetchStaff();
+  };
+
   return {
     // State
     staff,
@@ -73,13 +148,30 @@ export function useStaffManagement() {
     loading,
     searchTerm,
     currentPage,
+    selectedStaff,
+    selectedStaffId,
+    actionLoading,
+    showEditDialog,
+    showCreateDialog,
+    showDeactivateDialog,
+    showResetPasswordDialog,
 
     // Setters
     setSearchTerm,
+    setSelectedStaff,
+    setSelectedStaffId,
+    setShowEditDialog,
+    setShowCreateDialog,
+    setShowDeactivateDialog,
+    setShowResetPasswordDialog,
 
     // Handlers
     handlePreviousPage,
     handleNextPage,
+    handleDeactivateStaff,
+    handleResetPassword,
+    handleStaffUpdated,
+    handleStaffCreated,
     refetchStaff: fetchStaff,
   };
 }

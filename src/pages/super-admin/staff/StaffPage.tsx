@@ -6,6 +6,9 @@ import { useStaffManagement } from "@/hooks/useStaffManagement";
 import StaffStatistics from "@/Components/super-admin/staff/StaffStatistics";
 import StaffTable from "@/Components/super-admin/staff/StaffTable";
 import StudentsPagination from "@/Components/super-admin/students/StudentsPagination";
+import StaffActionDialogs from "@/Components/super-admin/staff/StaffActionDialogs";
+import EditStaffDialog from "@/Components/super-admin/staff/EditStaffDialog";
+import CreateStaffDialog from "@/Components/super-admin/dialogs/CreateStaffDialog";
 
 export default function StaffPage() {
   const {
@@ -14,9 +17,24 @@ export default function StaffPage() {
     loading,
     searchTerm,
     currentPage,
+    selectedStaff,
+    actionLoading,
+    showEditDialog,
+    showCreateDialog,
+    showDeactivateDialog,
+    showResetPasswordDialog,
     setSearchTerm,
+    setSelectedStaff,
+    setShowEditDialog,
+    setShowCreateDialog,
+    setShowDeactivateDialog,
+    setShowResetPasswordDialog,
     handlePreviousPage,
     handleNextPage,
+    handleDeactivateStaff,
+    handleResetPassword,
+    handleStaffUpdated,
+    handleStaffCreated,
   } = useStaffManagement();
 
   return (
@@ -27,7 +45,7 @@ export default function StaffPage() {
           <h1 className="text-3xl font-bold">Staff Management</h1>
           <p className="text-muted-foreground">Manage all staff members in the system</p>
         </div>
-        <Button>
+        <Button onClick={() => setShowCreateDialog(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Staff
         </Button>
@@ -61,6 +79,18 @@ export default function StaffPage() {
             loading={loading}
             staff={staff}
             searchTerm={searchTerm}
+            onEditStaff={(staff) => {
+              setSelectedStaff(staff);
+              setShowEditDialog(true);
+            }}
+            onResetPassword={(staff) => {
+              setSelectedStaff(staff);
+              setShowResetPasswordDialog(true);
+            }}
+            onDeactivateStaff={(staff) => {
+              setSelectedStaff(staff);
+              setShowDeactivateDialog(true);
+            }}
           />
 
           {/* Pagination */}
@@ -74,6 +104,38 @@ export default function StaffPage() {
           )}
         </CardContent>
       </Card>
+
+      {/* Action Dialogs */}
+      <StaffActionDialogs
+        selectedStaff={selectedStaff}
+        actionLoading={actionLoading}
+        showDeactivateDialog={showDeactivateDialog}
+        showResetPasswordDialog={showResetPasswordDialog}
+        onDeactivateDialogChange={setShowDeactivateDialog}
+        onResetPasswordDialogChange={setShowResetPasswordDialog}
+        onConfirmDeactivate={handleDeactivateStaff}
+        onConfirmResetPassword={handleResetPassword}
+      />
+
+      {/* Edit Staff Dialog */}
+      <EditStaffDialog
+        open={showEditDialog}
+        onOpenChange={(open) => {
+          if (!open) {
+            setShowEditDialog(false);
+            setSelectedStaff(null);
+          }
+        }}
+        staff={selectedStaff}
+        onStaffUpdated={handleStaffUpdated}
+      />
+
+      {/* Create Staff Dialog */}
+      <CreateStaffDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        onStaffCreated={handleStaffCreated}
+      />
     </div>
   );
 }

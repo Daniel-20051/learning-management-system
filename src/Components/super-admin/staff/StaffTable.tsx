@@ -15,7 +15,6 @@ import {
   Edit,
   Key,
   XCircle,
-  Trash,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -31,12 +30,18 @@ interface StaffTableProps {
   loading: boolean;
   staff: Staff[];
   searchTerm: string;
+  onEditStaff: (staff: Staff) => void;
+  onResetPassword: (staff: Staff) => void;
+  onDeactivateStaff: (staff: Staff) => void;
 }
 
 export default function StaffTable({
   loading,
   staff,
   searchTerm,
+  onEditStaff,
+  onResetPassword,
+  onDeactivateStaff,
 }: StaffTableProps) {
   return (
     <div className="rounded-md border">
@@ -114,22 +119,20 @@ export default function StaffTable({
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onEditStaff(member)}>
                         <Edit className="mr-2 h-4 w-4" />
                         Edit Staff
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => onResetPassword(member)}>
                         <Key className="mr-2 h-4 w-4" />
                         Reset Password
                       </DropdownMenuItem>
-                      <DropdownMenuItem className="text-orange-600">
+                      <DropdownMenuItem
+                        className="text-orange-600"
+                        onClick={() => onDeactivateStaff(member)}
+                      >
                         <XCircle className="mr-2 h-4 w-4" />
                         Deactivate
-                      </DropdownMenuItem>
-                      <DropdownMenuSeparator />
-                      <DropdownMenuItem className="text-destructive">
-                        <Trash className="mr-2 h-4 w-4" />
-                        Delete
                       </DropdownMenuItem>
                     </DropdownMenuContent>
                   </DropdownMenu>

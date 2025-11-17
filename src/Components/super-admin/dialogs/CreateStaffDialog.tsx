@@ -9,58 +9,95 @@ import {
 import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/input";
 import { Label } from "@/Components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/Components/ui/select";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { createStaff, type CreateStaffData } from "@/api/admin";
 
 interface CreateStaffDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  onStaffCreated?: () => void;
 }
 
-export default function CreateStaffDialog({ open, onOpenChange }: CreateStaffDialogProps) {
+export default function CreateStaffDialog({ open, onOpenChange, onStaffCreated }: CreateStaffDialogProps) {
   const [formData, setFormData] = useState({
-    name: "",
+    fname: "",
+    lname: "",
     email: "",
-    staffId: "",
-    role: "",
+    title: "",
     phone: "",
     password: "",
   });
   const [isLoading, setIsLoading] = useState(false);
+
+  // Cleanup effect to restore body styles when dialog closes
+  useEffect(() => {
+    if (!open) {
+      // Use a longer timeout to ensure dialog animation completes
+      const timer = setTimeout(() => {
+        // Remove any inline styles that might block interaction
+        if (document.body.style.pointerEvents === 'none') {
+          document.body.style.pointerEvents = '';
+        }
+        if (document.body.style.overflow === 'hidden') {
+          document.body.style.overflow = '';
+        }
+        // Also check for any overlay elements that might remain
+        const overlays = document.querySelectorAll('[data-radix-dialog-overlay]');
+        overlays.forEach(overlay => {
+          if (overlay instanceof HTMLElement) {
+            overlay.style.pointerEvents = '';
+          }
+        });
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  }, [open]);
+
+  const handleOpenChange = (isOpen: boolean) => {
+    onOpenChange(isOpen);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
 
     try {
-      // TODO: Implement API call to create staff
-      console.log("Creating staff:", formData);
-      toast.success("Staff member created successfully! Welcome email sent.");
-      onOpenChange(false);
-      setFormData({
-        name: "",
-        email: "",
-        staffId: "",
-        role: "",
-        phone: "",
-        password: "",
-      });
-    } catch (error) {
-      toast.error("Failed to create staff member");
+      const staffData: CreateStaffData = {
+        email: formData.email,
+        password: formData.password,
+        fname: formData.fname,
+        lname: formData.lname,
+        title: formData.title,
+        phone: formData.phone,
+      };
+
+      const response = await createStaff(staffData);
+      if (response.success) {
+        toast.success(response.message);
+        onOpenChange(false);
+        setFormData({
+          fname: "",
+          lname: "",
+          email: "",
+          title: "",
+          phone: "",
+          password: "",
+        });
+        if (onStaffCreated) {
+          onStaffCreated();
+        }
+      }
+    } catch (error: any) {
+      console.error("Error creating staff:", error);
+      toast.error(error.response?.data?.message || "Failed to create staff member");
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-[500px]">
         <DialogHeader>
           <DialogTitle>Create New Staff Member</DialogTitle>
@@ -70,15 +107,29 @@ export default function CreateStaffDialog({ open, onOpenChange }: CreateStaffDia
         </DialogHeader>
         <form onSubmit={handleSubmit}>
           <div className="space-y-4 py-4">
-            <div className="space-y-2">
-              <Label htmlFor="name">Full Name *</Label>
-              <Input
-                id="name"
-                placeholder="Jane Smith"
-                value={formData.name}
-                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="fname">First Name *</Label>
+                <Input
+                  id="fname"
+                  placeholder="Jane"
+                  value={formData.fname}
+                  onChange={(e) => setFormData({ ...formData, fname: e.target.value })}
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="lname">Last Name *</Label>
+                <Input
+                  id="lname"
+                  placeholder="Smith"
+                  value={formData.lname}
+                  onChange={(e) => setFormData({ ...formData, lname: e.target.value })}
+                  required
+                  disabled={isLoading}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email *</Label>
@@ -89,40 +140,32 @@ export default function CreateStaffDialog({ open, onOpenChange }: CreateStaffDia
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                 required
+                disabled={isLoading}
               />
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="staffId">Staff ID *</Label>
-              <Input
-                id="staffId"
-                placeholder="STF001"
-                value={formData.staffId}
-                onChange={(e) => setFormData({ ...formData, staffId: e.target.value })}
-                required
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="role">Role *</Label>
-              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select role" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="teacher">Teacher</SelectItem>
-                  <SelectItem value="instructor">Instructor</SelectItem>
-                  <SelectItem value="assistant">Assistant</SelectItem>
-                  <SelectItem value="coordinator">Coordinator</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="phone">Phone Number</Label>
-              <Input
-                id="phone"
-                placeholder="+1 234 567 8900"
-                value={formData.phone}
-                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-              />
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="title">Title *</Label>
+                <Input
+                  id="title"
+                  placeholder="Assistant Lecturer"
+                  value={formData.title}
+                  onChange={(e) => setFormData({ ...formData, title: e.target.value })}
+                  required
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="phone">Phone Number *</Label>
+                <Input
+                  id="phone"
+                  placeholder="+2348022222222"
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                  required
+                  disabled={isLoading}
+                />
+              </div>
             </div>
             <div className="space-y-2">
               <Label htmlFor="password">Password *</Label>
@@ -133,6 +176,7 @@ export default function CreateStaffDialog({ open, onOpenChange }: CreateStaffDia
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                 required
+                disabled={isLoading}
               />
             </div>
           </div>

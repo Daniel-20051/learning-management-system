@@ -1,35 +1,13 @@
-import { useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/input";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/Components/ui/table";
-import { Badge } from "@/Components/ui/badge";
+import { Skeleton } from "@/Components/ui/skeleton";
 import { 
   Plus, 
   Search, 
   Filter, 
-  MoreVertical, 
-  Edit, 
-  Trash, 
-  XCircle,
-  Eye,
-  Activity
+  Activity,
 } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/Components/ui/dropdown-menu";
 import { 
   Select, 
   SelectContent, 
@@ -37,25 +15,83 @@ import {
   SelectTrigger, 
   SelectValue 
 } from "@/Components/ui/select";
+import { useAdminsManagement } from "@/hooks/useAdminsManagement";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
+import ViewPermissionsDialog from "@/Components/super-admin/admins/ViewPermissionsDialog";
+import AdminsTable from "@/Components/super-admin/admins/AdminsTable";
+import CreateAdminDialog from "@/Components/super-admin/dialogs/CreateAdminDialog";
+import EditAdminDialog from "@/Components/super-admin/admins/EditAdminDialog";
+import AdminActionDialogs from "@/Components/super-admin/admins/AdminActionDialogs";
+import { deactivateAdmin, getAdminProfile } from "@/api/admin";
+import type { AdminListItem } from "@/api/admin";
 
 export default function AdminsPage() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+  const navigate = useNavigate();
+  const {
+    admins,
+    loading,
+    searchTerm,
+    statusFilter,
+    totalAdmins,
+    activeAdmins,
+    inactiveAdmins,
+    setSearchTerm,
+    setStatusFilter,
+    refetchAdmins,
+  } = useAdminsManagement();
 
-  // Placeholder data
-  const admins = [
-    {
-      id: 1,
-      name: "Admin User",
-      email: "admin@example.com",
-      adminId: "ADM001",
-      role: "Super Admin",
-      status: "active",
-      lastLogin: "2024-11-12",
-      joinedDate: "2023-01-01",
-    },
-    // Add more placeholder data as needed
-  ];
+  const [selectedAdmin, setSelectedAdmin] = useState<AdminListItem | null>(null);
+  const [showPermissionsDialog, setShowPermissionsDialog] = useState(false);
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeactivateDialog, setShowDeactivateDialog] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [currentAdminId, setCurrentAdminId] = useState<number | undefined>();
+
+  useEffect(() => {
+    fetchCurrentAdmin();
+  }, []);
+
+  const fetchCurrentAdmin = async () => {
+    try {
+      const response = await getAdminProfile();
+      if (response.success) {
+        setCurrentAdminId(response.data.admin.id);
+      }
+    } catch (error) {
+      console.error("Error fetching current admin:", error);
+    }
+  };
+
+  const handleCreateAdmin = () => {
+    refetchAdmins();
+  };
+
+  const handleEditAdmin = () => {
+    refetchAdmins();
+  };
+
+  const handleDeactivateAdmin = async () => {
+    if (!selectedAdmin) return;
+
+    try {
+      setActionLoading(true);
+      const response = await deactivateAdmin(selectedAdmin.id);
+      if (response.success) {
+        toast.success(response.message || "Admin deactivated successfully");
+        refetchAdmins();
+        setShowDeactivateDialog(false);
+        setSelectedAdmin(null);
+      }
+    } catch (error: any) {
+      console.error("Error deactivating admin:", error);
+      toast.error(error.response?.data?.message || "Failed to deactivate admin");
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -64,40 +100,51 @@ export default function AdminsPage() {
           <h1 className="text-3xl font-bold">Admins Management</h1>
           <p className="text-muted-foreground">Manage all system administrators</p>
         </div>
-        <Button>
+        <Button onClick={() => setShowCreateDialog(true)}>
           <Plus className="h-4 w-4 mr-2" />
           Add Admin
         </Button>
       </div>
 
-      <Card>
+      <Card className="pt-3" >
         <CardHeader>
           <CardTitle>Admin Statistics</CardTitle>
           <CardDescription>Overview of admin data</CardDescription>
         </CardHeader>
         <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="p-4 border rounded-lg">
-              <p className="text-sm text-muted-foreground">Total Admins</p>
-              <p className="text-2xl font-bold">0</p>
+          {loading ? (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, index) => (
+                <div key={index} className="p-4 border rounded-lg">
+                  <Skeleton className="h-4 w-24 mb-2" />
+                  <Skeleton className="h-8 w-16" />
+                </div>
+              ))}
             </div>
-            <div className="p-4 border rounded-lg">
-              <p className="text-sm text-muted-foreground">Active Admins</p>
-              <p className="text-2xl font-bold text-green-500">0</p>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <div className="p-4 border rounded-lg">
+                <p className="text-sm text-muted-foreground">Total Admins</p>
+                <p className="text-2xl font-bold">{totalAdmins}</p>
+              </div>
+              <div className="p-4 border rounded-lg">
+                <p className="text-sm text-muted-foreground">Active Admins</p>
+                <p className="text-2xl font-bold text-green-500">{activeAdmins}</p>
+              </div>
+              <div className="p-4 border rounded-lg">
+                <p className="text-sm text-muted-foreground">Inactive Admins</p>
+                <p className="text-2xl font-bold text-red-500">{inactiveAdmins}</p>
+              </div>
+              <div className="p-4 border rounded-lg">
+                <p className="text-sm text-muted-foreground">Recent Actions</p>
+                <p className="text-2xl font-bold text-blue-500">-</p>
+              </div>
             </div>
-            <div className="p-4 border rounded-lg">
-              <p className="text-sm text-muted-foreground">Inactive Admins</p>
-              <p className="text-2xl font-bold text-red-500">0</p>
-            </div>
-            <div className="p-4 border rounded-lg">
-              <p className="text-sm text-muted-foreground">Recent Actions</p>
-              <p className="text-2xl font-bold text-blue-500">0</p>
-            </div>
-          </div>
+          )}
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="pt-3">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -105,7 +152,11 @@ export default function AdminsPage() {
               <CardDescription>View and manage admin accounts</CardDescription>
             </div>
             <div className="flex items-center gap-2">
-              <Button variant="outline" size="sm">
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => navigate("/super-admin/activity-logs")}
+              >
                 <Activity className="h-4 w-4 mr-2" />
                 View Activity Logs
               </Button>
@@ -116,9 +167,10 @@ export default function AdminsPage() {
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-8"
+                  disabled={loading}
                 />
               </div>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
+              <Select value={statusFilter} onValueChange={setStatusFilter} disabled={loading}>
                 <SelectTrigger className="w-32">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue />
@@ -133,87 +185,27 @@ export default function AdminsPage() {
           </div>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Admin ID</TableHead>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Last Login</TableHead>
-                <TableHead>Joined Date</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {admins.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                    No admins found
-                  </TableCell>
-                </TableRow>
-              ) : (
-                admins.map((admin) => (
-                  <TableRow key={admin.id}>
-                    <TableCell className="font-medium">{admin.adminId}</TableCell>
-                    <TableCell>{admin.name}</TableCell>
-                    <TableCell>{admin.email}</TableCell>
-                    <TableCell>
-                      <Badge variant="outline" className="bg-purple-50">
-                        {admin.role}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={admin.status === "active" ? "default" : "secondary"}>
-                        {admin.status}
-                      </Badge>
-                    </TableCell>
-                    <TableCell>{admin.lastLogin}</TableCell>
-                    <TableCell>{admin.joinedDate}</TableCell>
-                    <TableCell className="text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon">
-                            <MoreVertical className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem>
-                            <Eye className="h-4 w-4 mr-2" />
-                            View Details
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Activity className="h-4 w-4 mr-2" />
-                            View Activity Log
-                          </DropdownMenuItem>
-                          <DropdownMenuItem>
-                            <Edit className="h-4 w-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem className="text-orange-500">
-                            <XCircle className="h-4 w-4 mr-2" />
-                            Deactivate
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem className="text-destructive">
-                            <Trash className="h-4 w-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+          <AdminsTable
+            loading={loading}
+            admins={admins}
+            searchTerm={searchTerm}
+            onShowPermissions={(admin) => {
+              setSelectedAdmin(admin);
+              setShowPermissionsDialog(true);
+            }}
+            onEdit={(admin) => {
+              setSelectedAdmin(admin);
+              setShowEditDialog(true);
+            }}
+            onDeactivate={(admin) => {
+              setSelectedAdmin(admin);
+              setShowDeactivateDialog(true);
+            }}
+          />
         </CardContent>
       </Card>
 
-      <Card>
+      <Card className="pt-3">
         <CardHeader>
           <CardTitle>Recent Activity Log</CardTitle>
           <CardDescription>Latest administrative actions</CardDescription>
@@ -226,6 +218,53 @@ export default function AdminsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {/* Create Admin Dialog */}
+      <CreateAdminDialog
+        open={showCreateDialog}
+        onOpenChange={setShowCreateDialog}
+        onAdminCreated={handleCreateAdmin}
+      />
+
+      {/* Edit Admin Dialog */}
+      <EditAdminDialog
+        open={showEditDialog}
+        onOpenChange={(open) => {
+          setShowEditDialog(open);
+          if (!open) {
+            setSelectedAdmin(null);
+          }
+        }}
+        admin={selectedAdmin}
+        onAdminUpdated={handleEditAdmin}
+      />
+
+      {/* Deactivate Admin Dialog */}
+      <AdminActionDialogs
+        selectedAdmin={selectedAdmin}
+        actionLoading={actionLoading}
+        showDeactivateDialog={showDeactivateDialog}
+        onDeactivateDialogChange={(open) => {
+          setShowDeactivateDialog(open);
+          if (!open) {
+            setSelectedAdmin(null);
+          }
+        }}
+        onConfirmDeactivate={handleDeactivateAdmin}
+        currentAdminId={currentAdminId}
+      />
+
+      {/* Permissions Dialog */}
+      <ViewPermissionsDialog
+        open={showPermissionsDialog}
+        onOpenChange={(open) => {
+          setShowPermissionsDialog(open);
+          if (!open) {
+            setSelectedAdmin(null);
+          }
+        }}
+        admin={selectedAdmin}
+      />
     </div>
   );
 }

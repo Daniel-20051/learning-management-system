@@ -37,6 +37,7 @@ import SuperAdminProfile from "./pages/super-admin/profile/ProfilePage";
 import StudentsPage from "./pages/super-admin/students/StudentsPage";
 import StaffPage from "./pages/super-admin/staff/StaffPage";
 import AdminsPage from "./pages/super-admin/admins/AdminsPage";
+import ActivityLogsPage from "./pages/super-admin/activity-logs/ActivityLogsPage";
 
 function App() {
   const { isLoggedIn, isAdmin, isSuperAdmin, isInitializing, user } = useAuth();
@@ -143,6 +144,7 @@ function App() {
                   <Route path="students" element={<StudentsPage />} />
                   <Route path="staff" element={<StaffPage />} />
                   <Route path="admins" element={<AdminsPage />} />
+                  <Route path="activity-logs" element={<ActivityLogsPage />} />
                 </Route>
 
                 <Route

@@ -130,6 +130,8 @@ export interface Student {
   level: number;
   admin_status: string;
   program_id: number;
+  phone?: string;
+  created_at?: string;
   program?: {
     id: number;
     title: string;
@@ -426,6 +428,7 @@ export interface Staff {
   file: string;
   research_areas: string;
   home_address: string;
+  admin_status: string;
   courses: StaffCourse[];
 }
 

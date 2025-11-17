@@ -16,7 +16,6 @@ import {
   Key,
   XCircle,
   Trash,
-  BookOpen,
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -26,15 +25,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/Components/ui/dropdown-menu";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-} from "@/Components/ui/dialog";
 import type { Staff } from "@/api/admin";
-import { useState } from "react";
 
 interface StaffTableProps {
   loading: boolean;
@@ -47,23 +38,6 @@ export default function StaffTable({
   staff,
   searchTerm,
 }: StaffTableProps) {
-  const [selectedStaff, setSelectedStaff] = useState<Staff | null>(null);
-  const [isCoursesDialogOpen, setIsCoursesDialogOpen] = useState(false);
-
-  const handleViewCourses = (staffMember: Staff) => {
-    setSelectedStaff(staffMember);
-    setTimeout(() => {
-      setIsCoursesDialogOpen(true);
-    }, 0);
-  };
-
-  const handleCloseDialog = (open: boolean) => {
-    if (!open) {
-      setIsCoursesDialogOpen(false);
-      setSelectedStaff(null);
-    }
-  };
-
   return (
     <div className="rounded-md border">
       <Table>
@@ -140,15 +114,6 @@ export default function StaffTable({
                     <DropdownMenuContent align="end">
                       <DropdownMenuLabel>Actions</DropdownMenuLabel>
                       <DropdownMenuSeparator />
-                      <DropdownMenuItem 
-                        onSelect={(e) => {
-                          e.preventDefault();
-                          handleViewCourses(member);
-                        }}
-                      >
-                        <BookOpen className="mr-2 h-4 w-4" />
-                        View Courses
-                      </DropdownMenuItem>
                       <DropdownMenuItem>
                         <Edit className="mr-2 h-4 w-4" />
                         Edit Staff
@@ -174,60 +139,6 @@ export default function StaffTable({
           )}
         </TableBody>
       </Table>
-
-      {/* Courses Dialog */}
-      {selectedStaff && (
-        <Dialog open={isCoursesDialogOpen} onOpenChange={handleCloseDialog}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Courses - {selectedStaff.full_name}</DialogTitle>
-              <DialogDescription>
-                {selectedStaff.email}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="mt-4">
-              {selectedStaff.courses && selectedStaff.courses.length > 0 ? (
-              <div className="space-y-3">
-                <p className="text-sm text-muted-foreground mb-3">
-                  Teaching {selectedStaff.courses.length} {selectedStaff.courses.length === 1 ? 'course' : 'courses'}
-                </p>
-                <div className="grid gap-3">
-                  {selectedStaff.courses.map((course) => (
-                    <div
-                      key={course.id}
-                      className="flex items-start justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors"
-                    >
-                      <div className="flex items-start gap-3">
-                        <div className="h-10 w-10 rounded-lg bg-primary/10 flex items-center justify-center flex-shrink-0">
-                          <BookOpen className="h-5 w-5 text-primary" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-sm">{course.title}</h4>
-                          <p className="text-sm text-muted-foreground mt-1">
-                            Course Code: <code className="text-xs bg-muted px-2 py-0.5 rounded">{course.course_code}</code>
-                          </p>
-                        </div>
-                      </div>
-                      <Badge variant="outline" className="text-xs">
-                        ID: {course.id}
-                      </Badge>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div className="text-center py-8">
-                <BookOpen className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                <p className="text-muted-foreground">No courses assigned</p>
-                <p className="text-sm text-muted-foreground mt-1">
-                  This staff member is not currently teaching any courses.
-                </p>
-              </div>
-              )}
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
     </div>
   );
 }

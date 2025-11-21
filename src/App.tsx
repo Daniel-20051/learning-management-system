@@ -4,7 +4,6 @@ import { useAuth } from "@/context/AuthContext";
 import { Toaster } from "sonner";
 import Home from "./pages/student/home/Home";
 import LoginPage from "./pages/Login";
-import AdminLoginPage from "./pages/AdminLogin";
 import AdminLayout from "@/Components/admin/AdminLayout";
 import DashboardPage from "./pages/admin/dashboard/DashboardPage";
 import CoursesPage from "./pages/admin/course/CoursesPage";
@@ -30,17 +29,41 @@ import { ChatProvider } from "@/context/ChatContext";
 import socketService from "@/services/Socketservice";
 import { useEffect } from "react";
 
-// Super Admin imports
-import SuperAdminLayout from "@/Components/super-admin/AdminLayout";
-import SuperAdminDashboard from "./pages/super-admin/dashboard/DashboardPage";
-import SuperAdminProfile from "./pages/super-admin/profile/ProfilePage";
-import StudentsPage from "./pages/super-admin/students/StudentsPage";
-import StaffPage from "./pages/super-admin/staff/StaffPage";
-import AdminsPage from "./pages/super-admin/admins/AdminsPage";
-import ActivityLogsPage from "./pages/super-admin/activity-logs/ActivityLogsPage";
+function AdminPortalRedirect({ targetUrl }: { targetUrl?: string }) {
+  useEffect(() => {
+    if (targetUrl) {
+      window.location.href = targetUrl;
+    }
+  }, [targetUrl]);
+
+  if (!targetUrl) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-6 text-center">
+        <div className="space-y-2">
+          <h1 className="text-2xl font-semibold">Admin Portal Moved</h1>
+          <p className="text-muted-foreground max-w-md">
+            The super admin experience now lives in a dedicated deployment. Set
+            <code className="mx-1 rounded bg-muted px-2 py-0.5">VITE_ADMIN_PORTAL_URL</code>
+            in your environment to enable automatic redirects.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex min-h-screen items-center justify-center p-6 text-center">
+      <div>
+        <p className="text-lg font-medium">Redirecting to admin portal…</p>
+        <p className="text-muted-foreground">{targetUrl}</p>
+      </div>
+    </div>
+  );
+}
 
 function App() {
-  const { isLoggedIn, isAdmin, isSuperAdmin, isInitializing, user } = useAuth();
+  const { isLoggedIn, isAdmin, isInitializing, user } = useAuth();
+  const adminPortalUrl = import.meta.env.VITE_ADMIN_PORTAL_URL;
 
   useEffect(() => {
     if (isLoggedIn && user?.id) {
@@ -62,9 +85,7 @@ function App() {
                   path="/"
                   element={
                     isLoggedIn ? (
-                      isSuperAdmin ? (
-                        <Navigate to="/super-admin/dashboard" replace />
-                      ) : isAdmin ? (
+                      isAdmin ? (
                         <Navigate to="/admin/dashboard" replace />
                       ) : (
                         <Home />
@@ -76,19 +97,7 @@ function App() {
                 />
                 <Route
                   path="/admin-login"
-                  element={
-                    isLoggedIn ? (
-                      isSuperAdmin ? (
-                        <Navigate to="/super-admin/dashboard" replace />
-                      ) : isAdmin ? (
-                        <Navigate to="/admin/dashboard" replace />
-                      ) : (
-                        <Navigate to="/" replace />
-                      )
-                    ) : (
-                      <AdminLoginPage />
-                    )
-                  }
+                  element={<AdminPortalRedirect targetUrl={adminPortalUrl} />}
                 />
                 <Route
                   path="/admin"
@@ -122,29 +131,6 @@ function App() {
                   <Route path="exams/:courseId" element={<AdminCourseExamsPage />} />
                   
                   <Route path="exams/:courseId/:examId" element={<AdminExamDetailsPage />} />
-                </Route>
-
-                {/* Super Admin Routes */}
-                <Route
-                  path="/super-admin"
-                  element={
-                    isLoggedIn && (user?.role === "super_admin" ) ? (
-                      <SuperAdminLayout />
-                    ) : (
-                      <Navigate to="/" replace />
-                    )
-                  }
-                >
-                  <Route
-                    index
-                    element={<Navigate to="/super-admin/dashboard" replace />}
-                  />
-                  <Route path="dashboard" element={<SuperAdminDashboard />} />
-                  <Route path="profile" element={<SuperAdminProfile />} />
-                  <Route path="students" element={<StudentsPage />} />
-                  <Route path="staff" element={<StaffPage />} />
-                  <Route path="admins" element={<AdminsPage />} />
-                  <Route path="activity-logs" element={<ActivityLogsPage />} />
                 </Route>
 
                 <Route

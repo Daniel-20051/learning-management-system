@@ -1,69 +1,61 @@
-# React + TypeScript + Vite
+# Learning Management System
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This repository now hosts two React/Vite applications:
 
-Currently, two official plugins are available:
+| App | Path | Purpose |
+| --- | --- | --- |
+| Student & Staff Portal | `./` | Course delivery, student experience, staff tooling |
+| Super Admin Portal | `./admin-app` | Dedicated experience for managing students, staff, admins, and activity logs |
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+Both apps share the same design system, hooks, and API layer, but they are built and deployed separately so the admin experience can live on an isolated URL.
 
-## Expanding the ESLint configuration
+## Prerequisites
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+- Node.js 18+
+- npm 10+
 
-```js
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+## Installing dependencies
 
-      // Remove tseslint.configs.recommended and replace with this
-      ...tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      ...tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      ...tseslint.configs.stylisticTypeChecked,
+```bash
+# student + staff portal
+npm install
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# admin portal
+cd admin-app
+npm install
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+## Running locally
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+```bash
+# student + staff portal
+npm run dev
 
-export default tseslint.config([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+# admin portal
+cd admin-app
+npm run dev
 ```
+
+Each app runs its own Vite dev server. Point `VITE_ADMIN_PORTAL_URL` in the main app to the admin dev URL if you want the "Login as Admin" button to work locally.
+
+## Environment variables
+
+| App | Variable | Description |
+| --- | --- | --- |
+| Main portal | `VITE_ADMIN_PORTAL_URL` | Absolute URL to the deployed admin portal (used for redirects) |
+| Admin portal | `VITE_MAIN_APP_URL` | Optional URL back to the main experience (used by the “Back to student login” button) |
+
+Populate these values in your `.env` files (`.env.local`, `.env.production`, etc.) for each app.
+
+## Build commands
+
+```bash
+# student + staff portal
+npm run build
+
+# admin portal
+cd admin-app
+npm run build
+```
+
+Each build outputs to its respective `dist/` folder and can be deployed onto independent domains or hosting targets.

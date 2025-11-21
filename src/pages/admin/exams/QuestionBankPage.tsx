@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams, useLocation } from "react-router-dom";
 import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/input";
 import { Label } from "@/Components/ui/label";
@@ -14,9 +14,14 @@ import AddObjectiveQuestionDialog from "./components/AddObjectiveQuestionDialog"
 const QuestionBankPage = () => {
   const api = useMemo(() => new Api(), []);
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
   const courseId = searchParams.get("courseId");
   const courseTitle = searchParams.get("courseTitle") || "Course";
+  
+  // Determine if we're in super-admin context
+  const isSuperAdmin = location.pathname.startsWith("/super-admin");
+  const examsBasePath = isSuperAdmin ? "/super-admin/exams" : "/admin/exams";
 
   const [loading, setLoading] = useState(false);
   const [questions, setQuestions] = useState<any[]>([]);
@@ -158,7 +163,7 @@ const QuestionBankPage = () => {
       <div className="flex items-center justify-center h-96">
         <div className="text-center">
           <p className="text-lg text-muted-foreground">Invalid course ID</p>
-          <Button className="mt-4" onClick={() => navigate("/admin/exams")}>
+          <Button className="mt-4" onClick={() => navigate(examsBasePath)}>
             Go Back
           </Button>
         </div>
@@ -175,7 +180,7 @@ const QuestionBankPage = () => {
             <Button 
               variant="ghost" 
               size="sm"
-              onClick={() => navigate("/admin/exams")}
+              onClick={() => navigate(examsBasePath)}
             >
               <ArrowLeft className="h-4 w-4 mr-2" />
               Back to Exams

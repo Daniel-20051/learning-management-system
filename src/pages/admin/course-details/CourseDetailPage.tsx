@@ -1,4 +1,4 @@
-import { useParams, useNavigate } from "react-router-dom";
+import { useParams, useNavigate, useLocation } from "react-router-dom";
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
@@ -59,7 +59,12 @@ import ConfirmDialog from "@/Components/ConfirmDialog";
 const CourseDetailPage = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const navigate = useNavigate();
+  const location = useLocation();
   const api = new Api();
+  
+  // Determine if we're in super-admin context
+  const isSuperAdmin = location.pathname.startsWith("/super-admin");
+  const coursesPath = isSuperAdmin ? "/super-admin/courses" : "/admin/courses";
   const [expandedModules, setExpandedModules] = useState<Set<string>>(
     new Set()
   );
@@ -643,7 +648,7 @@ const CourseDetailPage = () => {
       <CourseHeader
         title={courseCode}
         subtitle={courseTitle}
-        onBack={() => navigate("/admin/courses")}
+        onBack={() => navigate(coursesPath)}
       />
 
       <CourseStats

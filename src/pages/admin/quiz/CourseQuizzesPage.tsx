@@ -19,7 +19,7 @@ import {
   Clock,
   ClipboardList,
 } from "lucide-react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useLocation } from "react-router-dom";
 import { Api } from "@/api";
 import StudentScoresDialog from "./components/StudentScoresDialog";
 import type { StudentScoresDialogRef } from "./components/StudentScoresDialog";
@@ -41,8 +41,13 @@ interface QuizData {
 
 const CourseQuizzesPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { courseId } = useParams<{ courseId: string }>();
   const api = new Api();
+  
+  // Determine if we're in super-admin context
+  const isSuperAdmin = location.pathname.startsWith("/super-admin");
+  const resultsPath = isSuperAdmin ? "/super-admin/courses" : "/admin/results";
   const studentScoresDialogRef = useRef<StudentScoresDialogRef>(null);
   const [quizzes, setQuizzes] = useState<QuizData[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
@@ -86,7 +91,7 @@ const CourseQuizzesPage = () => {
   }, [quizzes, searchQuery]);
 
   const handleBack = () => {
-    navigate("/admin/results");
+    navigate(resultsPath);
   };
 
   const handleViewStudentScores = (quizId: number) => {

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { Card } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
 import { Badge } from "@/Components/ui/badge";
@@ -87,7 +87,12 @@ const AdminExamDetailsPage = () => {
   const { courseId, examId } = useParams<{ courseId: string; examId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const api = useMemo(() => new Api(), []);
+  
+  // Determine if we're in super-admin context
+  const isSuperAdmin = location.pathname.startsWith("/super-admin");
+  const examsBasePath = isSuperAdmin ? "/super-admin/exams" : "/admin/exams";
   
   const [exam, setExam] = useState<Exam | null>(null);
   const [loading, setLoading] = useState<boolean>(false);
@@ -234,7 +239,7 @@ const AdminExamDetailsPage = () => {
       
       if ((response as any)?.data?.success || (response as any)?.status === 200) {
         toast.success("Exam deleted successfully!");
-        navigate(`/admin/exams/${courseId}?session=${encodeURIComponent(session)}`);
+        navigate(`${examsBasePath}/${courseId}?session=${encodeURIComponent(session)}`);
       } else {
         toast.error("Failed to delete exam. Please try again.");
       }

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { useParams, useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { Card } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/Components/ui/table";
@@ -47,7 +47,12 @@ const AdminCourseExamsPage = () => {
   const { courseId } = useParams<{ courseId: string }>();
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
+  const location = useLocation();
   const api = useMemo(() => new Api(), []);
+  
+  // Determine if we're in super-admin context
+  const isSuperAdmin = location.pathname.startsWith("/super-admin");
+  const examsBasePath = isSuperAdmin ? "/super-admin/exams" : "/admin/exams";
   
   const [exams, setExams] = useState<Exam[]>([]);
   const [loading, setLoading] = useState<boolean>(false);
@@ -484,7 +489,7 @@ const AdminCourseExamsPage = () => {
         <div className="flex gap-2">
           <Button
             variant="outline"
-            onClick={() => navigate(`/admin/exams?session=${encodeURIComponent(session)}`)}
+            onClick={() => navigate(`${examsBasePath}?session=${encodeURIComponent(session)}`)}
           >
             Back to Exams
           </Button>
@@ -765,7 +770,7 @@ const AdminCourseExamsPage = () => {
                     <Button
                       variant="ghost"
                       size="sm"
-                      onClick={() => navigate(`/admin/exams/${courseId}/${exam.id}`)}
+                      onClick={() => navigate(`${examsBasePath}/${courseId}/${exam.id}`)}
                     >
                       <Eye className="h-4 w-4" />
                     </Button>

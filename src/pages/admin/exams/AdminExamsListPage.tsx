@@ -3,7 +3,7 @@ import { Card } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/Components/ui/table";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/Components/ui/select";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { Api } from "@/api";
 import { Loader2, BookOpen } from "lucide-react";
 import { toast } from "sonner";
@@ -11,6 +11,9 @@ import { toast } from "sonner";
 const AdminExamsListPage = () => {
   const api = useMemo(() => new Api(), []);
   const navigate = useNavigate();
+  const location = useLocation();
+  const isSuperAdmin = location.pathname.startsWith("/super-admin");
+  const examsBasePath = isSuperAdmin ? "/super-admin/exams" : "/admin/exams";
   const [session, setSession] = useState<string>("");
   const [availableSessions, setAvailableSessions] = useState<string[]>([]);
   const [courses, setCourses] = useState<any[]>([]);
@@ -80,7 +83,7 @@ const AdminExamsListPage = () => {
   const handleOpenQuestionBank = (course: any) => {
     const id = String(course.id ?? course.course_id);
     const title = course?.title ?? course?.course_title ?? `Course ${id}`;
-    navigate(`/admin/exams/question-bank?courseId=${id}&courseTitle=${encodeURIComponent(title)}`);
+    navigate(`${examsBasePath}/question-bank?courseId=${id}&courseTitle=${encodeURIComponent(title)}`);
   };
 
   return (
@@ -157,7 +160,7 @@ const AdminExamsListPage = () => {
                         <BookOpen className="h-4 w-4 mr-1" />
                         Question Bank
                       </Button>
-                      <Button size="sm" onClick={() => navigate(`/admin/exams/${id}?session=${encodeURIComponent(session)}`)}>
+                      <Button size="sm" onClick={() => navigate(`${examsBasePath}/${id}?session=${encodeURIComponent(session)}`)}>
                         Manage exams
                       </Button>
                     </div>

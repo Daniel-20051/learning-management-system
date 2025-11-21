@@ -3,6 +3,15 @@
 ## Overview
 This document outlines the new admin system structure for the Learning Management System (LMS). The system has been restructured to clearly separate **Staff** (previously Admin) and **Super Admin** (now Admin) roles.
 
+> **Important:** The super admin experience now lives inside the standalone `admin-app/` project. All paths mentioned below reference `admin-app/src`.
+
+## Deployment & URLs
+
+- Deploy `admin-app` to a dedicated domain or subdomain (e.g. `https://admin.example.com`)
+- Deploy the student/staff portal from the repository root as before
+- Main portal requires `VITE_ADMIN_PORTAL_URL` so the "Login as Admin" button can redirect to the admin deployment
+- Admin portal can optionally use `VITE_MAIN_APP_URL` for the "Back to student login" action
+
 ## Structure Changes
 
 ### Previous Structure
@@ -16,7 +25,8 @@ This document outlines the new admin system structure for the Learning Managemen
 ## Directory Structure
 
 ```
-src/
+admin-app/
+└── src/
 ├── Components/
 │   ├── admin/              # Staff components (unchanged functionality)
 │   │   ├── AdminLayout.tsx
@@ -34,14 +44,14 @@ src/
 │           ├── CreateAdminDialog.tsx
 │           └── ActivityLogsDialog.tsx
 │
-└── pages/
+    └── pages/
     ├── admin/              # Staff pages (unchanged functionality)
     │   ├── dashboard/
     │   ├── course/
     │   ├── exams/
     │   └── ...
     │
-    └── super-admin/        # NEW: Super Admin pages
+        └── super-admin/        # Super Admin pages
         ├── dashboard/
         │   └── DashboardPage.tsx
         ├── profile/

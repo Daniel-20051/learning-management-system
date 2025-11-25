@@ -192,6 +192,94 @@ export class CoursesApi {
       return handleApiError(err, "uploading course units video");
     }
   }
+
+  async GetAvailableCourses(params?: { level?: string; program_id?: string; faculty_id?: string }) {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.level) queryParams.append('level', params.level);
+      if (params?.program_id) queryParams.append('program_id', params.program_id);
+      if (params?.faculty_id) queryParams.append('faculty_id', params.faculty_id);
+      
+      const url = queryParams.toString() 
+        ? `${BASE_URL}/api/courses/available?${queryParams.toString()}`
+        : `${BASE_URL}/api/courses/available`;
+
+      const response = await axios.get(url, {
+        headers: getAuthHeaders()
+      });
+      
+      return response;
+
+    } catch (err: any) {
+      return handleApiError(err, "getting available courses");
+    }
+  }
+
+  async RegisterCourse(data: {
+    course_id: number;
+    academic_year: string;
+    semester: string;
+    level: string;
+  }) {
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/api/courses/register`,
+        data,
+        {
+          headers: getAuthHeaders()
+        }
+      );
+      
+      return response;
+
+    } catch (err: any) {
+      return handleApiError(err, "registering for course");
+    }
+  }
+
+  async UnregisterFromCourse(registrationId: string) {
+    try {
+      const response = await axios.delete(
+        `${BASE_URL}/api/courses/register/${registrationId}`,
+        {
+          headers: getAuthHeaders()
+        }
+      );
+      
+      return response;
+
+    } catch (err: any) {
+      return handleApiError(err, "unregistering from course");
+    }
+  }
+
+  async GetCourseParticipants(courseId: string, params?: {
+    academic_year?: string;
+    semester?: string;
+    search?: string;
+    includeSelf?: boolean;
+  }) {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.academic_year) queryParams.append('academic_year', params.academic_year);
+      if (params?.semester) queryParams.append('semester', params.semester);
+      if (params?.search) queryParams.append('search', params.search);
+      if (params?.includeSelf !== undefined) queryParams.append('includeSelf', String(params.includeSelf));
+      
+      const url = queryParams.toString() 
+        ? `${BASE_URL}/api/courses/${courseId}/participants?${queryParams.toString()}`
+        : `${BASE_URL}/api/courses/${courseId}/participants`;
+
+      const response = await axios.get(url, {
+        headers: getAuthHeaders()
+      });
+      
+      return response;
+
+    } catch (err: any) {
+      return handleApiError(err, "getting course participants");
+    }
+  }
 }
 
 // Export standalone functions for backward compatibility
@@ -243,4 +331,34 @@ export async function DeleteUnit(unitId: string) {
 export async function UploadUnitVideo(moduleId: string, unitId: string, videoFile: File, onProgress?: (progress: number) => void) {
   const api = new CoursesApi();
   return api.UploadUnitVideo(moduleId, unitId, videoFile, onProgress);
+}
+
+export async function GetAvailableCourses(params?: { level?: string; program_id?: string; faculty_id?: string }) {
+  const api = new CoursesApi();
+  return api.GetAvailableCourses(params);
+}
+
+export async function RegisterCourse(data: {
+  course_id: number;
+  academic_year: string;
+  semester: string;
+  level: string;
+}) {
+  const api = new CoursesApi();
+  return api.RegisterCourse(data);
+}
+
+export async function UnregisterFromCourse(registrationId: string) {
+  const api = new CoursesApi();
+  return api.UnregisterFromCourse(registrationId);
+}
+
+export async function GetCourseParticipants(courseId: string, params?: {
+  academic_year?: string;
+  semester?: string;
+  search?: string;
+  includeSelf?: boolean;
+}) {
+  const api = new CoursesApi();
+  return api.GetCourseParticipants(courseId, params);
 }

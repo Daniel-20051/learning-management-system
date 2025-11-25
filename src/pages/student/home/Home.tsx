@@ -218,6 +218,11 @@ const Home = () => {
                   courseType={course.course_type}
                   examFee={course.exam_fee}
                   courseId={course.id}
+                  registrationId={course.registration?.id}
+                  onUnregister={() => {
+                    // Remove the course from the list after unregistering
+                    setCourses((prev) => prev.filter((c) => c.id !== course.id));
+                  }}
                 />
               ))}
             </div>

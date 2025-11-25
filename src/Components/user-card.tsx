@@ -6,7 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/Components/ui/dropdown-menu";
-import { LogOut, User, Award, Settings, Video, BookOpen, Loader2 } from "lucide-react";
+import { LogOut, User, Award, Settings, Video, BookOpen, Loader2, Library } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 interface UserCardProps {
@@ -84,6 +84,15 @@ const UserCard = ({ sidebar }: UserCardProps) => {
             >
               <BookOpen className="mr-3 h-5 w-5" />
               <span className="text-base">My Courses</span>
+            </DropdownMenuItem>
+          )}
+          {!isAdmin && (
+            <DropdownMenuItem
+              className="cursor-pointer py-3"
+              onClick={() => navigate("/all-courses")}
+            >
+              <Library className="mr-3 h-5 w-5" />
+              <span className="text-base">All Courses</span>
             </DropdownMenuItem>
           )}
           <DropdownMenuItem

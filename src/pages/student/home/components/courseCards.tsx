@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   Card,
   CardContent,
@@ -9,6 +10,26 @@ import { Button } from "@/Components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/Components/ui/badge";
 import { useSession } from "@/context/SessionContext";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/Components/ui/dropdown-menu";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/Components/ui/alert-dialog";
+import { MoreVertical, Users, UserMinus, Loader2 } from "lucide-react";
+import { Api } from "@/api";
+import ParticipantsDialog from "./ParticipantsDialog";
 
 interface CourseCardsProps {
   courseCode: string;
@@ -23,6 +44,8 @@ interface CourseCardsProps {
   examFee?: number;
   courseId?: number | string;
   actionLabel?: string;
+  registrationId?: number | string;
+  onUnregister?: () => void;
 }
 
 const CourseCards = ({
@@ -36,9 +59,15 @@ const CourseCards = ({
 
   courseId,
   actionLabel,
+  registrationId,
+  onUnregister,
 }: CourseCardsProps) => {
   const navigate = useNavigate();
   const { selectedSession, selectedSemester } = useSession();
+  const [participantsDialogOpen, setParticipantsDialogOpen] = useState(false);
+  const [unregisterDialogOpen, setUnregisterDialogOpen] = useState(false);
+  const [isUnregistering, setIsUnregistering] = useState(false);
+  const api = new Api();
 
   const typeLabel =
     courseType === "C"
@@ -59,6 +88,24 @@ const CourseCards = ({
     }`;
     navigate(url);
   };
+
+  const handleUnregister = async () => {
+    if (!registrationId) return;
+    
+    setIsUnregistering(true);
+    try {
+      const response = await api.UnregisterFromCourse(String(registrationId));
+      if (response.data) {
+        setUnregisterDialogOpen(false);
+        onUnregister?.();
+      }
+    } catch (error) {
+      console.error("Error unregistering from course:", error);
+    } finally {
+      setIsUnregistering(false);
+    }
+  };
+
   return (
     <div>
       <Card className="overflow-hidden">
@@ -72,12 +119,80 @@ const CourseCards = ({
               {courseCode}
             </Badge>
           </div>
-          <div className="absolute top-2 md:top-3 right-2 md:right-3">
+          <div className="absolute top-2 md:top-3 right-2 md:right-3 flex items-center gap-1">
             <Badge className="bg-emerald-600 text-white border-transparent text-xs md:text-sm px-2 py-1">
               {typeLabel}
             </Badge>
+            <DropdownMenu modal={false}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 bg-white/20 hover:bg-white/30 text-white"
+                >
+                  <MoreVertical className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-48">
+                <DropdownMenuItem
+                  onSelect={() => setParticipantsDialogOpen(true)}
+                  className="cursor-pointer"
+                >
+                  <Users className="mr-2 h-4 w-4" />
+                  View Participants
+                </DropdownMenuItem>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem
+                  onSelect={() => setUnregisterDialogOpen(true)}
+                  className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+                >
+                  <UserMinus className="mr-2 h-4 w-4" />
+                  Unregister
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
+
+        {/* Participants Dialog */}
+        <ParticipantsDialog
+          open={participantsDialogOpen}
+          onOpenChange={setParticipantsDialogOpen}
+          courseId={courseId ?? ""}
+          courseTitle={courseTitle}
+          academicYear={academicYear}
+          semester={selectedSemester ?? undefined}
+        />
+
+        {/* Unregister Confirmation Dialog */}
+        <AlertDialog open={unregisterDialogOpen} onOpenChange={setUnregisterDialogOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Unregister from Course</AlertDialogTitle>
+              <AlertDialogDescription>
+                Are you sure you want to unregister from <strong>{courseTitle}</strong> ({courseCode})?
+                This action cannot be undone and you may need to re-register later.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={isUnregistering}>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={handleUnregister}
+                disabled={isUnregistering}
+                className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+              >
+                {isUnregistering ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Unregistering...
+                  </>
+                ) : (
+                  "Unregister"
+                )}
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
 
         <CardHeader className="pb-2 px-3 md:px-6 pt-3 md:pt-6">
           <CardTitle className="text-base md:text-xl leading-tight">

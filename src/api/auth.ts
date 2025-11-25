@@ -182,6 +182,25 @@ export class AuthApi {
       throw err;
     }
   }
+
+  // Method to register a new student
+  async RegisterStudent(data: {
+    email: string;
+    password: string;
+    fname: string;
+    lname: string;
+    phone: string;
+    level: string;
+    program_id: number;
+  }) {
+    try {
+      const response = await axios.post(`${BASE_URL}/api/auth/register/student`, data);
+      return response;
+    } catch (err: any) {
+      console.error("Error registering student:", err);
+      throw err;
+    }
+  }
 }
 
 // Import getAccessToken for use in this file

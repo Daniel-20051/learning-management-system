@@ -4,6 +4,7 @@ import { useAuth } from "@/context/AuthContext";
 import { Toaster } from "sonner";
 import Home from "./pages/student/home/Home";
 import LoginPage from "./pages/Login";
+import RegisterPage from "./pages/Register";
 import ForgotPasswordPage from "./pages/ForgotPassword";
 import ResetPasswordPage from "./pages/ResetPassword";
 import AdminLayout from "@/Components/admin/AdminLayout";
@@ -31,6 +32,7 @@ import { ChatProvider } from "@/context/ChatContext";
 import socketService from "@/services/Socketservice";
 import { useEffect } from "react";
 import StudentProfilePage from "./pages/student/profile/ProfilePage";
+import AllCoursesPage from "./pages/student/all-courses/AllCoursesPage";
 
 function AdminPortalRedirect({ targetUrl }: { targetUrl?: string }) {
   useEffect(() => {
@@ -103,6 +105,10 @@ function App() {
                   element={<AdminPortalRedirect targetUrl={adminPortalUrl} />}
                 />
                 <Route
+                  path="/register"
+                  element={<RegisterPage />}
+                />
+                <Route
                   path="/forgot-password"
                   element={<ForgotPasswordPage />}
                 />
@@ -169,6 +175,16 @@ function App() {
                   element={
                     isLoggedIn ? (
                       <StudentProfilePage />
+                    ) : (
+                      <Navigate to="/" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/all-courses"
+                  element={
+                    isLoggedIn ? (
+                      <AllCoursesPage />
                     ) : (
                       <Navigate to="/" replace />
                     )

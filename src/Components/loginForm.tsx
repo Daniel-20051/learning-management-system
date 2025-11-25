@@ -156,6 +156,17 @@ export function LoginForm({
               >
                 {isLoading ? "Loading..." : "Login"}
               </Button>
+              <div className="text-center text-sm">
+                <span className="text-muted-foreground">
+                  Not a student?{" "}
+                </span>
+                <Link
+                  to="/register"
+                  className="text-primary font-medium underline-offset-2 hover:underline"
+                >
+                  Register here
+                </Link>
+              </div>
             </div>
           </form>
         </CardContent>

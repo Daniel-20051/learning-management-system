@@ -4,6 +4,8 @@ import { useAuth } from "@/context/AuthContext";
 import { Toaster } from "sonner";
 import Home from "./pages/student/home/Home";
 import LoginPage from "./pages/Login";
+import ForgotPasswordPage from "./pages/ForgotPassword";
+import ResetPasswordPage from "./pages/ResetPassword";
 import AdminLayout from "@/Components/admin/AdminLayout";
 import DashboardPage from "./pages/admin/dashboard/DashboardPage";
 import CoursesPage from "./pages/admin/course/CoursesPage";
@@ -28,6 +30,7 @@ import ChatDialog from "@/Components/chat/ChatDialog";
 import { ChatProvider } from "@/context/ChatContext";
 import socketService from "@/services/Socketservice";
 import { useEffect } from "react";
+import StudentProfilePage from "./pages/student/profile/ProfilePage";
 
 function AdminPortalRedirect({ targetUrl }: { targetUrl?: string }) {
   useEffect(() => {
@@ -100,6 +103,14 @@ function App() {
                   element={<AdminPortalRedirect targetUrl={adminPortalUrl} />}
                 />
                 <Route
+                  path="/forgot-password"
+                  element={<ForgotPasswordPage />}
+                />
+                <Route
+                  path="/reset-password"
+                  element={<ResetPasswordPage />}
+                />
+                <Route
                   path="/admin"
                   element={
                     isLoggedIn && isAdmin ? (
@@ -129,7 +140,7 @@ function App() {
                   <Route path="exams" element={<AdminExamsListPage />} />
                   <Route path="exams/question-bank" element={<QuestionBankPage />} />
                   <Route path="exams/:courseId" element={<AdminCourseExamsPage />} />
-                  
+
                   <Route path="exams/:courseId/:examId" element={<AdminExamDetailsPage />} />
                 </Route>
 
@@ -148,6 +159,16 @@ function App() {
                   element={
                     isLoggedIn ? (
                       <CertificatePage />
+                    ) : (
+                      <Navigate to="/" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/profile"
+                  element={
+                    isLoggedIn ? (
+                      <StudentProfilePage />
                     ) : (
                       <Navigate to="/" replace />
                     )

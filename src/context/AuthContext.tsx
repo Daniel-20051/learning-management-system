@@ -1,9 +1,9 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { 
-  hasValidToken, 
-  getUserData, 
-  getLoginState, 
+import {
+  hasValidToken,
+  getUserData,
+  getLoginState,
   clearAllAuthCookies
 } from "../lib/cookies";
 
@@ -11,7 +11,7 @@ interface User {
   id: string;
   email: string;
   name: string;
-  role: "staff" | "student" | "super_admin" ;
+  role: "staff" | "student" | "super_admin";
   permissions?: any;
   userType?: string;
 }
@@ -24,7 +24,7 @@ interface AuthContextType {
   isAdmin: boolean;
   isSuperAdmin: boolean;
   isInitializing: boolean;
-  logout: () => void;
+  logout: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -34,17 +34,28 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
 
-  const isAdmin = user?.role === "staff" ;
-  const isSuperAdmin = user?.role === "super_admin" ;
+  const isAdmin = user?.role === "staff";
+  const isSuperAdmin = user?.role === "super_admin";
 
 
-  const logout = () => {
-    clearAllAuthCookies();
-    setIsLoggedIn(false);
-    setUser(null);
-    
-    // Dispatch custom event for cross-tab logout synchronization
-    window.dispatchEvent(new CustomEvent("auth:token-removed"));
+  const logout = async () => {
+    try {
+      // Call the API logout endpoint
+      const { AuthApi } = await import("../api/auth");
+      const authApi = new AuthApi();
+      await authApi.logout();
+    } catch (err) {
+      console.error("Error calling logout API:", err);
+      // Continue with local logout even if API fails
+    } finally {
+      // Always clear local state
+      clearAllAuthCookies();
+      setIsLoggedIn(false);
+      setUser(null);
+
+      // Dispatch custom event for cross-tab logout synchronization
+      window.dispatchEvent(new CustomEvent("auth:token-removed"));
+    }
   };
 
   useEffect(() => {

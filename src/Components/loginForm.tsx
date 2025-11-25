@@ -9,6 +9,7 @@ import { Api } from "@/api";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { getUserData, getLoginState, setUserData, setLoginState } from "@/lib/cookies";
+import { Link } from "react-router-dom";
 
 export function LoginForm({
   className,
@@ -38,7 +39,7 @@ export function LoginForm({
 
     try {
       const response = await api.LoginUser({ email, password });
-    
+
 
       if (response && response.data) {
         const apiResponse = response.data as any;
@@ -46,14 +47,14 @@ export function LoginForm({
         // Note: Auth token is now handled by the API layer and stored in cookies automatically
 
         const user = {
-          id: apiResponse.data?.user?.id ,
+          id: apiResponse.data?.user?.id,
           email: apiResponse.data?.user?.email,
           matricNumber: apiResponse.data?.user?.matricNumber,
           name:
             apiResponse.data?.user?.userType === "student"
               ? apiResponse.data?.user?.firstName +
-                " " +
-                apiResponse.data?.user?.lastName
+              " " +
+              apiResponse.data?.user?.lastName
               : apiResponse.data?.user?.fullName,
           role: apiResponse.data?.user?.userType,
         };
@@ -68,10 +69,10 @@ export function LoginForm({
       }
     } catch (err: any) {
       console.error("Login error:", err);
-      
+
       // Extract the exact error message from the API response
       let errorMessage = "An error occurred during login. Please try again.";
-      
+
       if (err.response?.data?.message) {
         errorMessage = err.response.data.message;
       } else if (err.response?.data?.error) {
@@ -79,7 +80,7 @@ export function LoginForm({
       } else if (err.message) {
         errorMessage = err.message;
       }
-      
+
       toast.error(errorMessage);
     } finally {
       setIsLoading(false);
@@ -119,12 +120,12 @@ export function LoginForm({
               <div className="grid gap-3">
                 <div className="flex items-center">
                   <Label htmlFor="password">Password</Label>
-                  <a
-                    href="#"
+                  <Link
+                    to="/forgot-password"
                     className="ml-auto text-sm underline-offset-2 hover:underline"
                   >
                     Forgot your password?
-                  </a>
+                  </Link>
                 </div>
                 <div className="relative">
                   <Input

@@ -6,7 +6,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/Components/ui/dropdown-menu";
-import { LogOut, User, Award, Settings, Video } from "lucide-react";
+import { LogOut, User, Award, Settings, Video, BookOpen, Loader2 } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 interface UserCardProps {
@@ -15,12 +15,20 @@ interface UserCardProps {
 
 const UserCard = ({ sidebar }: UserCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
   const { user, isAdmin, logout } = useAuth();
 
-  const handleLogout = () => {
-    logout();
-    navigate("/");
+  const handleLogout = async () => {
+    try {
+      setIsLoggingOut(true);
+      await logout();
+      navigate("/");
+    } catch (error) {
+      console.error("Logout error:", error);
+    } finally {
+      setIsLoggingOut(false);
+    }
   };
 
   return (
@@ -69,6 +77,15 @@ const UserCard = ({ sidebar }: UserCardProps) => {
               <span className="text-base">Admin Panel</span>
             </DropdownMenuItem>
           )}
+          {!isAdmin && (
+            <DropdownMenuItem
+              className="cursor-pointer py-3"
+              onClick={() => navigate("/")}
+            >
+              <BookOpen className="mr-3 h-5 w-5" />
+              <span className="text-base">My Courses</span>
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem
             className="cursor-pointer py-3"
             onClick={() => navigate("/profile")}
@@ -95,9 +112,16 @@ const UserCard = ({ sidebar }: UserCardProps) => {
           <DropdownMenuItem
             className="cursor-pointer py-3 text-red-600 focus:text-red-600"
             onClick={handleLogout}
+            disabled={isLoggingOut}
           >
-            <LogOut className="mr-3 h-5 w-5" />
-            <span className="text-base">Log out</span>
+            {isLoggingOut ? (
+              <Loader2 className="mr-3 h-5 w-5 animate-spin" />
+            ) : (
+              <LogOut className="mr-3 h-5 w-5" />
+            )}
+            <span className="text-base">
+              {isLoggingOut ? "Logging out..." : "Log out"}
+            </span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>

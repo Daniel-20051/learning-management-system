@@ -53,7 +53,7 @@ export class Api extends AuthApi {
     return this.courses.DeleteModule(moduleId);
   }
 
-  async AddUnit(moduleId: string, data: {title: string, content: string, content_type: string, order: number, status: string}) {
+  async AddUnit(moduleId: string, data: { title: string, content: string, content_type: string, order: number, status: string }) {
     return this.courses.AddUnit(moduleId, data);
   }
 
@@ -61,7 +61,7 @@ export class Api extends AuthApi {
     return this.courses.getUnits(moduleId);
   }
 
-  async EditUnit(unitId: string, data: {title: string, content: string, video_url?: string}) {
+  async EditUnit(unitId: string, data: { title: string, content: string, video_url?: string }) {
     return this.courses.EditUnit(unitId, data);
   }
 
@@ -78,11 +78,11 @@ export class Api extends AuthApi {
     return this.notes.GetModuleNotes(moduleId);
   }
 
-  async CreateModuleNotes(moduleId: string, data: { note_text: string, title?: string}) {
+  async CreateModuleNotes(moduleId: string, data: { note_text: string, title?: string }) {
     return this.notes.CreateModuleNotes(moduleId, data);
   }
 
-  async EditModuleNotes(moduleId: string, noteId: string, data: { note_text: string, title?: string}) {
+  async EditModuleNotes(moduleId: string, noteId: string, data: { note_text: string, title?: string }) {
     return this.notes.EditModuleNotes(moduleId, noteId, data);
   }
 
@@ -297,5 +297,15 @@ export class Api extends AuthApi {
   // Add user profile method
   async getUserProfile() {
     return super.getUserProfile();
+  }
+
+  // Add update student profile method
+  async updateStudentProfile(data: {
+    fname: string;
+    lname: string;
+    phone?: string;
+    address?: string;
+  }) {
+    return super.updateStudentProfile(data);
   }
 }

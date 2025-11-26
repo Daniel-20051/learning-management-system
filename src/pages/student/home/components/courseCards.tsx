@@ -27,9 +27,16 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/Components/ui/alert-dialog";
-import { MoreVertical, Users, UserMinus, Loader2 } from "lucide-react";
+import { MoreVertical, Users, UserMinus, Loader2, GraduationCap } from "lucide-react";
 import { Api } from "@/api";
 import ParticipantsDialog from "./ParticipantsDialog";
+
+interface Instructor {
+  id: number;
+  full_name: string;
+  email: string;
+  phone?: string;
+}
 
 interface CourseCardsProps {
   courseCode: string;
@@ -45,6 +52,7 @@ interface CourseCardsProps {
   courseId?: number | string;
   actionLabel?: string;
   registrationId?: number | string;
+  instructor?: Instructor;
   onUnregister?: () => void;
 }
 
@@ -60,6 +68,7 @@ const CourseCards = ({
   courseId,
   actionLabel,
   registrationId,
+  instructor,
   onUnregister,
 }: CourseCardsProps) => {
   const navigate = useNavigate();
@@ -199,11 +208,17 @@ const CourseCards = ({
             {courseTitle}
           </CardTitle>
         </CardHeader>
-        <CardContent className="pt-0 px-3 md:px-6">
+        <CardContent className="pt-0 px-3 md:px-6 space-y-1">
           <p className="text-muted-foreground text-xs md:text-sm">
             {`Level ${courseLevel ?? "-"}`} ·{" "}
             {`${courseUnit ?? "-"} Unit${(courseUnit || 0) === 1 ? "" : "s"}`}
           </p>
+          {instructor && (
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <GraduationCap className="h-3 w-3" />
+              <span className="truncate">{instructor.full_name}</span>
+            </div>
+          )}
         </CardContent>
 
         <CardFooter className="pt-3 md:pt-4 px-3 md:px-6 pb-3 md:pb-6 flex items-center justify-between">

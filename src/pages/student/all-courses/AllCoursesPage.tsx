@@ -1,23 +1,20 @@
 import Navbar from "@/Components/navbar";
 import { Api } from "@/api/index";
 import { useEffect, useState, useMemo } from "react";
-import { Card, CardContent } from "@/Components/ui/card";
+import {
+  Card,
+  CardContent,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/Components/ui/card";
 import { Badge } from "@/Components/ui/badge";
 import { Input } from "@/Components/ui/input";
 import { Button } from "@/Components/ui/button";
-import { BookOpen, Search, GraduationCap, Filter } from "lucide-react";
+import { BookOpen, Search, Filter, Loader2 } from "lucide-react";
 import { Skeleton } from "@/Components/ui/skeleton";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
-import { useSession } from "@/context/SessionContext";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/Components/ui/table";
 import {
   Select,
   SelectContent,
@@ -25,6 +22,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/Components/ui/select";
+import RegisterCourseDialog from "./components/RegisterCourseDialog";
 
 interface Course {
   id: number;
@@ -46,7 +44,6 @@ interface Course {
 const AllCoursesPage = () => {
   const api = new Api();
   const navigate = useNavigate();
-  const { selectedSession, selectedSemester } = useSession();
   const [courses, setCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isRegistering, setIsRegistering] = useState<number | null>(null);
@@ -54,6 +51,10 @@ const AllCoursesPage = () => {
   const [levelFilter, setLevelFilter] = useState<string>("");
   const [programFilter, setProgramFilter] = useState<string>("");
   const [facultyFilter, setFacultyFilter] = useState<string>("");
+  
+  // Dialog state
+  const [registerDialogOpen, setRegisterDialogOpen] = useState(false);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
 
   // Filter courses based on search query
   const filteredCourses = useMemo(() => {
@@ -91,8 +92,8 @@ const AllCoursesPage = () => {
       .sort((a, b) => a - b);
   }, [coursesByLevel]);
 
-  const isWSPCourse = (course: Course) => {
-    return course.owner_type === "wsp";
+  const isFreeCourse = (course: Course) => {
+    return course.owner_type === "wsp" || course.price === 0 || Number(course.price) === 0;
   };
 
   const fetchCourses = async () => {
@@ -118,19 +119,26 @@ const AllCoursesPage = () => {
     fetchCourses();
   }, [levelFilter, programFilter, facultyFilter]);
 
-  const handleRegister = async (course: Course) => {
-    if (!selectedSession || !selectedSemester) {
-      toast.error("Please select a session and semester first");
-      return;
-    }
+  // Open the registration dialog
+  const openRegisterDialog = (course: Course) => {
+    setSelectedCourse(course);
+    setRegisterDialogOpen(true);
+  };
 
-    setIsRegistering(course.id);
+  // Handle actual registration from dialog
+  const handleRegister = async (
+    courseId: number,
+    session: string,
+    semester: string,
+    level: string
+  ) => {
+    setIsRegistering(courseId);
     try {
       const response = await api.RegisterCourse({
-        course_id: course.id,
-        academic_year: selectedSession,
-        semester: selectedSemester,
-        level: String(course.course_level),
+        course_id: courseId,
+        academic_year: session,
+        semester: semester,
+        level: level,
       });
 
       if (response.data && response.data.status) {
@@ -143,7 +151,7 @@ const AllCoursesPage = () => {
         
         // Redirect to course page after a short delay
         setTimeout(() => {
-          navigate(`/unit/${course.id}`);
+          navigate(`/unit/${courseId}`);
         }, 1500);
       } else {
         toast.error(
@@ -157,6 +165,7 @@ const AllCoursesPage = () => {
         error.message ||
         "An error occurred while registering for the course";
       toast.error(errorMessage);
+      throw error; // Re-throw to let dialog handle it
     } finally {
       setIsRegistering(null);
     }
@@ -174,33 +183,101 @@ const AllCoursesPage = () => {
     return levels;
   }, [courses]);
 
+  
+
+  // Course Card Component
+  const CourseCard = ({ course }: { course: Course }) => {
+    const isFree = isFreeCourse(course);
+    const isCurrentlyRegistering = isRegistering === course.id;
+
+    return (
+      <Card className="overflow-hidden h-full flex flex-col">
+        {/* Header gradient with badges */}
+        <div className="w-full h-20 bg-gradient-to-br from-slate-700 via-slate-600 to-slate-800 relative">
+          <div className="absolute top-2.5 left-2.5">
+            <Badge
+              variant="secondary"
+              className="bg-white/20 text-white border-white/20 text-xs px-2 py-0.5"
+            >
+              {course.course_code}
+            </Badge>
+          </div>
+         
+        </div>
+
+        <CardHeader className="pb-1 px-4 pt-4">
+          <CardTitle className="text-base font-semibold leading-tight line-clamp-2">
+            {course.title}
+          </CardTitle>
+        </CardHeader>
+        
+        <CardContent className="pt-0 px-4 pb-2 flex-1">
+          <p className="text-muted-foreground text-sm">
+            Level {course.course_level} · {course.course_unit} Unit{course.course_unit !== 1 ? "s" : ""} · {course.semester}
+          </p>
+          <div className="mt-2 flex items-center gap-2">
+            {isFree ? (
+              <Badge className="bg-green-100 text-green-700 text-xs">FREE</Badge>
+            ) : (
+              <span className="text-sm font-medium text-blue-700">
+                ₦{course.price.toLocaleString()}
+              </span>
+            )}
+          </div>
+        </CardContent>
+
+        <CardFooter className="pt-2 px-4 pb-4">
+          {isFree ? (
+            <Button
+              size="sm"
+              className="w-full bg-primary text-sm"
+              onClick={() => openRegisterDialog(course)}
+              disabled={isCurrentlyRegistering}
+            >
+              {isCurrentlyRegistering ? (
+                <>
+                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                  Registering...
+                </>
+              ) : (
+                "Register"
+              )}
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              className="w-full text-sm bg-primary"
+              onClick={() => handlePurchase(course.id)}
+            >
+              Purchase
+            </Button>
+          )}
+        </CardFooter>
+      </Card>
+    );
+  };
+
+  // Skeleton Card Component
+  const SkeletonCard = () => (
+    <Card className="overflow-hidden">
+      <Skeleton className="w-full h-20" />
+      <CardHeader className="pb-1 px-4 pt-4">
+        <Skeleton className="h-5 w-3/4" />
+      </CardHeader>
+      <CardContent className="pt-0 px-4 pb-2">
+        <Skeleton className="h-4 w-1/2 mt-1" />
+        <Skeleton className="h-5 w-16 mt-2" />
+      </CardContent>
+      <CardFooter className="pt-2 px-4 pb-4">
+        <Skeleton className="h-9 w-full" />
+      </CardFooter>
+    </Card>
+  );
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar sidebar={false} />
-      <div className="flex-1 pt-4 md:pt-8 px-4 md:px-7 lg:px-12 xl:px-20 flex flex-col gap-4 md:gap-8 overflow-y-auto pb-6 md:pb-10">
-        {/* Header */}
-        <Card className="bg-gradient-to-br py-4 md:py-6 from-blue-900 via-blue-800 to-blue-700 text-white border-0">
-          <CardContent className="px-4 md:px-6 lg:px-8">
-            <div className="flex flex-col gap-2 md:gap-4">
-              <div className="flex items-center gap-3">
-                <div className="h-10 w-10 md:h-12 md:w-12 rounded-lg bg-white/10 flex items-center justify-center">
-                  <GraduationCap className="h-6 w-6 md:h-7 md:w-7 text-white" />
-                </div>
-                <div>
-                  <h1 className="text-xl md:text-2xl lg:text-3xl font-semibold leading-tight">
-                    All Available Courses
-                  </h1>
-                  <p className="text-sm md:text-base text-white/80">
-                    Browse all courses offered by the institution
-                  </p>
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-       
-
+      <div className="flex-1 pt-4 md:pt-8 px-4 md:px-7 lg:px-12 xl:px-20 flex flex-col gap-4 md:gap-6 overflow-y-auto pb-6 md:pb-10">
         {/* Filters and Search */}
         <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-start md:items-center justify-between">
           {/* Filters */}
@@ -210,7 +287,7 @@ const AllCoursesPage = () => {
               <span className="text-sm font-medium">Filters:</span>
             </div>
             <Select value={levelFilter || "all"} onValueChange={(value) => setLevelFilter(value === "all" ? "" : value)}>
-              <SelectTrigger className="w-[140px]">
+              <SelectTrigger className="w-[140px] h-9">
                 <SelectValue placeholder="All Levels" />
               </SelectTrigger>
               <SelectContent>
@@ -223,7 +300,7 @@ const AllCoursesPage = () => {
               </SelectContent>
             </Select>
             <Select value={programFilter || "all"} onValueChange={(value) => setProgramFilter(value === "all" ? "" : value)}>
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-[180px] h-9">
                 <SelectValue placeholder="All Programs" />
               </SelectTrigger>
               <SelectContent>
@@ -252,14 +329,14 @@ const AllCoursesPage = () => {
           </div>
 
           {/* Search Bar */}
-          <div className="relative w-full md:w-auto md:min-w-[300px]">
+          <div className="relative w-full md:w-auto md:min-w-[280px]">
             <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
             <Input
               type="text"
-              placeholder="Search by course code, title, or level"
+              placeholder="Search courses..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-10"
+              className="pl-10 h-9"
             />
           </div>
         </div>
@@ -267,19 +344,23 @@ const AllCoursesPage = () => {
         {/* Course Listing */}
         {isLoading ? (
           <div className="space-y-6">
-            {Array.from({ length: 3 }).map((_, idx) => (
+            {Array.from({ length: 2 }).map((_, idx) => (
               <div key={idx} className="space-y-3">
-                <Skeleton className="h-8 w-32" />
-                <Skeleton className="h-64 w-full" />
+                <Skeleton className="h-6 w-32" />
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {Array.from({ length: 4 }).map((_, cardIdx) => (
+                    <SkeletonCard key={cardIdx} />
+                  ))}
+                </div>
               </div>
             ))}
           </div>
         ) : filteredCourses.length > 0 ? (
-          <div className="space-y-6 md:space-y-8">
+          <div className="space-y-6">
             {sortedLevels.map((level) => (
-              <div key={level} className="space-y-3 md:space-y-4">
+              <div key={level} className="space-y-3">
                 <div className="flex items-center gap-2">
-                  <h2 className="text-lg md:text-xl font-semibold">
+                  <h2 className="text-base md:text-lg font-semibold">
                     Level {level}
                   </h2>
                   <Badge variant="secondary" className="text-xs">
@@ -287,96 +368,11 @@ const AllCoursesPage = () => {
                     {coursesByLevel[level].length !== 1 ? "s" : ""}
                   </Badge>
                 </div>
-                <Card>
-                  <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                      <Table>
-                        <TableHeader>
-                          <TableRow>
-                            <TableHead className="w-[120px]">Course Code</TableHead>
-                            <TableHead>Course Title</TableHead>
-                            <TableHead className="w-[80px] text-center">Units</TableHead>
-                            <TableHead className="w-[100px] text-center">Semester</TableHead>
-                            <TableHead className="w-[80px] text-center">Type</TableHead>
-                            <TableHead className="w-[100px] text-center">Status</TableHead>
-                            <TableHead className="w-[120px] text-right">Price</TableHead>
-                            <TableHead className="w-[100px] text-right">Exam Fee</TableHead>
-                            <TableHead className="w-[120px] text-center">Action</TableHead>
-                          </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                          {coursesByLevel[level].map((course) => (
-                            <TableRow key={course.id} className="hover:bg-muted/50">
-                              <TableCell className="font-medium">
-                                {course.course_code}
-                              </TableCell>
-                              <TableCell className="font-medium">{course.title}</TableCell>
-                              <TableCell className="text-center">
-                                {course.course_unit}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {course.semester}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {course.course_type === "C"
-                                  ? "Core"
-                                  : course.course_type === "E"
-                                  ? "Elective"
-                                  : course.course_type}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {isWSPCourse(course) ? (
-                                  <Badge className="bg-green-500 hover:bg-green-600 text-white">
-                                    FREE
-                                  </Badge>
-                                ) : course.is_marketplace ? (
-                                  <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                                    Marketplace
-                                  </Badge>
-                                ) : (
-                                  <Badge variant="outline">Standard</Badge>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-right font-medium">
-                                {isWSPCourse(course) ? (
-                                  <span className="text-green-600">Free</span>
-                                ) : (
-                                  <span className="text-blue-700">
-                                    ₦{course.price.toLocaleString()}
-                                  </span>
-                                )}
-                              </TableCell>
-                              <TableCell className="text-right">
-                                {course.exam_fee
-                                  ? `₦${course.exam_fee.toLocaleString()}`
-                                  : "-"}
-                              </TableCell>
-                              <TableCell className="text-center">
-                                {isWSPCourse(course) ? (
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handleRegister(course)}
-                                    disabled={isRegistering === course.id || !selectedSession || !selectedSemester}
-                                  >
-                                    {isRegistering === course.id ? "Registering..." : "Register"}
-                                  </Button>
-                                ) : (
-                                  <Button
-                                    size="sm"
-                                    onClick={() => handlePurchase(course.id)}
-                                    className="bg-blue-600 hover:bg-blue-700"
-                                  >
-                                    Purchase
-                                  </Button>
-                                )}
-                              </TableCell>
-                            </TableRow>
-                          ))}
-                        </TableBody>
-                      </Table>
-                    </div>
-                  </CardContent>
-                </Card>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {coursesByLevel[level].map((course) => (
+                    <CourseCard key={course.id} course={course} />
+                  ))}
+                </div>
               </div>
             ))}
           </div>
@@ -408,9 +404,16 @@ const AllCoursesPage = () => {
           </div>
         )}
       </div>
+
+      {/* Register Course Dialog */}
+      <RegisterCourseDialog
+        open={registerDialogOpen}
+        onOpenChange={setRegisterDialogOpen}
+        course={selectedCourse}
+        onRegister={handleRegister}
+      />
     </div>
   );
 };
 
 export default AllCoursesPage;
-

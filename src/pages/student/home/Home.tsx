@@ -200,13 +200,13 @@ const Home = () => {
           </div>
 
           {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-              {Array.from({ length: 3 }).map((_, index) => (
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, index) => (
                 <CourseCardSkeleton key={index} />
               ))}
             </div>
           ) : filteredCourses.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
               {filteredCourses.map((course: any, index: number) => (
                 <CourseCards
                   key={course.id || index}
@@ -219,6 +219,7 @@ const Home = () => {
                   examFee={course.exam_fee}
                   courseId={course.id}
                   registrationId={course.registration?.id}
+                  instructor={course.instructor}
                   onUnregister={() => {
                     // Remove the course from the list after unregistering
                     setCourses((prev) => prev.filter((c) => c.id !== course.id));

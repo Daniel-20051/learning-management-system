@@ -3,19 +3,12 @@ import { Card, CardContent } from "@/Components/ui/card";
 import { Input } from "@/Components/ui/input";
 import { Label } from "@/Components/ui/label";
 import { useState } from "react";
-import { Api } from "@/api";
+import { AuthApi } from "@/api/auth";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/Components/ui/select";
 
-export default function RegisterPage() {
+export default function RegisterStaffPage() {
   const navigate = useNavigate();
   const [formData, setFormData] = useState({
     email: "",
@@ -23,13 +16,12 @@ export default function RegisterPage() {
     fname: "",
     lname: "",
     phone: "",
-    level: "",
-    program_id: "",
+    department: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
-  const api = new Api();
+  const authApi = new AuthApi();
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -45,20 +37,19 @@ export default function RegisterPage() {
     try {
       // Validate all fields
       if (!formData.email || !formData.password || !formData.fname || 
-          !formData.lname || !formData.phone || !formData.level || !formData.program_id) {
+          !formData.lname || !formData.phone || !formData.department) {
         toast.error("Please fill in all required fields");
         setIsLoading(false);
         return;
       }
 
-      const response = await api.RegisterStudent({
+      const response = await authApi.RegisterStaff({
         email: formData.email,
         password: formData.password,
         fname: formData.fname,
         lname: formData.lname,
         phone: formData.phone,
-        level: formData.level,
-        program_id: parseInt(formData.program_id),
+        department: formData.department,
       });
 
       if (response && response.data) {
@@ -66,11 +57,11 @@ export default function RegisterPage() {
         
         if (apiResponse.status || apiResponse.success) {
           toast.success(
-            apiResponse.message || "Student registered successfully! Please check your email."
+            apiResponse.message || "Staff registered successfully! Please check your email."
           );
-          // Redirect to login page after successful registration
+          // Redirect to staff login page after successful registration
           setTimeout(() => {
-            navigate("/");
+            navigate("/admin/login");
           }, 2000);
         } else {
           toast.error(apiResponse.message || "Registration failed. Please try again.");
@@ -103,9 +94,9 @@ export default function RegisterPage() {
             <form onSubmit={handleSubmit}>
               <div className="flex flex-col gap-4">
                 <div className="flex flex-col items-center text-center mb-2">
-                  <h1 className="text-xl font-bold">Student Registration</h1>
+                  <h1 className="text-xl font-bold">Staff Registration</h1>
                   <p className="text-muted-foreground text-sm">
-                    Create your student account
+                    Create your staff account
                   </p>
                 </div>
 
@@ -116,7 +107,7 @@ export default function RegisterPage() {
                     <Input
                       id="fname"
                       type="text"
-                      placeholder="John"
+                      placeholder="Jane"
                       required
                       value={formData.fname}
                       onChange={(e) => handleChange("fname", e.target.value)}
@@ -128,7 +119,7 @@ export default function RegisterPage() {
                     <Input
                       id="lname"
                       type="text"
-                      placeholder="Doe"
+                      placeholder="Smith"
                       required
                       value={formData.lname}
                       onChange={(e) => handleChange("lname", e.target.value)}
@@ -143,7 +134,7 @@ export default function RegisterPage() {
                   <Input
                     id="email"
                     type="email"
-                    placeholder="student@example.com"
+                    placeholder="staff@example.com"
                     required
                     value={formData.email}
                     onChange={(e) => handleChange("email", e.target.value)}
@@ -184,7 +175,7 @@ export default function RegisterPage() {
                   <Input
                     id="phone"
                     type="tel"
-                    placeholder="08012345678"
+                    placeholder="08012345679"
                     required
                     value={formData.phone}
                     onChange={(e) => handleChange("phone", e.target.value)}
@@ -192,46 +183,18 @@ export default function RegisterPage() {
                   />
                 </div>
 
-                {/* Level & Program Row */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="level" className="text-sm">Level</Label>
-                    <Select
-                      value={formData.level}
-                      onValueChange={(value) => handleChange("level", value)}
-                      required
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Select level" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="100">100 Level</SelectItem>
-                        <SelectItem value="200">200 Level</SelectItem>
-                        <SelectItem value="300">300 Level</SelectItem>
-                        <SelectItem value="400">400 Level</SelectItem>
-                        <SelectItem value="500">500 Level</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="program_id" className="text-sm">Program</Label>
-                    <Select
-                      value={formData.program_id}
-                      onValueChange={(value) => handleChange("program_id", value)}
-                      required
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Select program" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">Computer Science</SelectItem>
-                        <SelectItem value="2">Information Technology</SelectItem>
-                        <SelectItem value="3">Software Engineering</SelectItem>
-                        <SelectItem value="4">Data Science</SelectItem>
-                        <SelectItem value="5">Cybersecurity</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {/* Department */}
+                <div className="grid gap-1.5">
+                  <Label htmlFor="department" className="text-sm">Department</Label>
+                  <Input
+                    id="department"
+                    type="text"
+                    placeholder="Computer Science"
+                    required
+                    value={formData.department}
+                    onChange={(e) => handleChange("department", e.target.value)}
+                    className="h-9"
+                  />
                 </div>
 
                 {/* Submit Button */}
@@ -249,7 +212,7 @@ export default function RegisterPage() {
                     Already have an account?{" "}
                   </span>
                   <Link
-                    to="/"
+                    to="/admin/login"
                     className="text-primary font-medium underline-offset-2 hover:underline"
                   >
                     Login here

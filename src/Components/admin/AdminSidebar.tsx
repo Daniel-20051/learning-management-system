@@ -8,7 +8,20 @@ import {
   BarChart3,
   MessageSquareText,
   FileText,
+  User,
+  LogOut,
+  ChevronUp,
 } from "lucide-react";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/Components/ui/dropdown-menu";
+import { Avatar, AvatarFallback } from "@/Components/ui/avatar";
+import { useNavigate } from "react-router-dom";
+import { useAuth } from "@/context/AuthContext";
 
 import type { MenuItem } from "@/types/admin";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -31,7 +44,23 @@ const AdminSidebar = ({
   onToggleCollapse,
 }: AdminSidebarProps) => {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
+  const { user, logout } = useAuth();
   const effectiveCollapsed = isMobile ? false : isCollapsed;
+
+  const getInitials = (name: string) => {
+    const parts = name.trim().split(" ");
+    if (parts.length >= 2) {
+      return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  };
+
+  const handleLogout = async () => {
+    await logout();
+    navigate("/admin/login");
+  };
+
   const menuItems = [
     {
       id: "dashboard" as MenuItem,
@@ -133,6 +162,57 @@ const AdminSidebar = ({
               </Button>
             ))}
           </nav>
+        </div>
+
+        {/* Profile Footer */}
+        <div className="border-t p-4">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                className={`w-full rounded-lg transition-all duration-200 ${
+                  effectiveCollapsed
+                    ? "h-12 justify-center px-0"
+                    : "h-14 justify-start gap-3 px-3"
+                } hover:bg-accent/70`}
+              >
+                <Avatar className="h-8 w-8 flex-shrink-0">
+                  <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
+                    {user?.name ? getInitials(user.name) : "ST"}
+                  </AvatarFallback>
+                </Avatar>
+                {!effectiveCollapsed && (
+                  <>
+                    <div className="flex-1 text-left min-w-0">
+                      <p className="text-sm font-medium truncate">{user?.name || "Staff"}</p>
+                      <p className="text-xs text-muted-foreground truncate">{user?.email || ""}</p>
+                    </div>
+                    <ChevronUp className="h-4 w-4 text-muted-foreground flex-shrink-0" />
+                  </>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" side="top" className="w-56">
+              <DropdownMenuItem
+                onClick={() => {
+                  navigate("/admin/profile");
+                  onClose();
+                }}
+                className="cursor-pointer"
+              >
+                <User className="mr-2 h-4 w-4" />
+                View Profile
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                onClick={handleLogout}
+                className="cursor-pointer text-red-600 focus:text-red-600 focus:bg-red-50"
+              >
+                <LogOut className="mr-2 h-4 w-4" />
+                Logout
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </aside>
     </>

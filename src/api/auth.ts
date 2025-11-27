@@ -201,6 +201,57 @@ export class AuthApi {
       throw err;
     }
   }
+
+  // Method to register a new staff
+  async RegisterStaff(data: {
+    email: string;
+    password: string;
+    fname: string;
+    lname: string;
+    phone: string;
+    department: string;
+  }) {
+    try {
+      const response = await axios.post(`${BASE_URL}/api/auth/register/staff`, data);
+      return response;
+    } catch (err: any) {
+      console.error("Error registering staff:", err);
+      throw err;
+    }
+  }
+
+  // Method to update staff profile
+  async updateStaffProfile(data: {
+    fname?: string;
+    lname?: string;
+    phone?: string;
+    linkedin?: string;
+    google_scholar?: string;
+    research_areas?: string;
+    home_address?: string;
+  }) {
+    try {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error("No access token found. Please login again.");
+      }
+
+      const response = await axios.put(`${BASE_URL}/api/auth/profile/staff`, data, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
+      });
+
+      return response;
+    } catch (err: any) {
+      console.error("Error updating staff profile:", err);
+      if (err.response?.status === 401) {
+        removeAccessToken();
+      }
+      throw err;
+    }
+  }
 }
 
 // Import getAccessToken for use in this file

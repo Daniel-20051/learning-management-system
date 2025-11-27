@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import Home from "./pages/student/home/Home";
 import LoginPage from "./pages/Login";
 import RegisterPage from "./pages/Register";
+import RegisterStaffPage from "./pages/RegisterStaff";
 import ForgotPasswordPage from "./pages/ForgotPassword";
 import ResetPasswordPage from "./pages/ResetPassword";
 import AdminLayout from "@/Components/admin/AdminLayout";
@@ -33,6 +34,7 @@ import socketService from "@/services/Socketservice";
 import { useEffect } from "react";
 import StudentProfilePage from "./pages/student/profile/ProfilePage";
 import AllCoursesPage from "./pages/student/all-courses/AllCoursesPage";
+import StaffProfilePage from "./pages/admin/profile/StaffProfilePage";
 
 function AdminPortalRedirect({ targetUrl }: { targetUrl?: string }) {
   useEffect(() => {
@@ -109,6 +111,10 @@ function App() {
                   element={<RegisterPage />}
                 />
                 <Route
+                  path="/register/staff"
+                  element={<RegisterStaffPage />}
+                />
+                <Route
                   path="/forgot-password"
                   element={<ForgotPasswordPage />}
                 />
@@ -148,6 +154,7 @@ function App() {
                   <Route path="exams/:courseId" element={<AdminCourseExamsPage />} />
 
                   <Route path="exams/:courseId/:examId" element={<AdminExamDetailsPage />} />
+                  <Route path="profile" element={<StaffProfilePage />} />
                 </Route>
 
                 <Route

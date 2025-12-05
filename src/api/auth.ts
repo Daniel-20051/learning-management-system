@@ -157,8 +157,14 @@ export class AuthApi {
   async updateStudentProfile(data: {
     fname: string;
     lname: string;
+    mname?: string;
     phone?: string;
     address?: string;
+    dob?: string;
+    country?: string;
+    state_origin?: string;
+    lcda?: string;
+    currency?: string;
   }) {
     try {
       const token = getAccessToken();

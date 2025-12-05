@@ -1,6 +1,6 @@
 // Import all API classes and functions from separate modules
 import { AuthApi } from './auth';
-import { CoursesApi, GetStaffCourses, GetStaffCoursesbyId, GetCourseModules, AddModule, DeleteModule, AddUnit, getUnits, EditUnit, DeleteUnit, UploadUnitVideo, UnregisterFromCourse, GetCourseParticipants } from './courses';
+import { CoursesApi, GetStaffCourses, GetStaffCoursesbyId, GetCourseModules, AddModule, DeleteModule, AddUnit, getUnits, EditUnit, DeleteUnit, UploadUnitVideo, UnregisterFromCourse, GetCourseParticipants, GetAllocatedCourses, RegisterAllocatedCourses } from './courses';
 import { NotesApi, GetModuleNotes, CreateModuleNotes, EditModuleNotes, DeleteModuleNotes } from './notes';
 import { QuizApi, CreateQuiz, GetQuiz, GetQuizById, AddQuizQuestions, DeleteQuiz, UpdateQuiz, UpdateQuizQuestions, StartQuizAttempt, SaveQuizAnswers, SubmitQuizAttempt, GetQuizStats, GetMyLatestAttempt } from './quiz';
 import { ExamsApi, GetStaffExams, GetExams, CreateExam, UpdateExam, DeleteExam, GetExamById, GetBankQuestions, AddObjectiveQuestion, AddTheoryQuestion, GetExamAttempts, GetAttemptForGrading, GradeTheoryAnswer, BulkGradeTheoryAnswers, GetExamStatistics, GetStudentExams, StartExam, SubmitExamAnswer, SubmitExam } from './exams';
@@ -10,7 +10,7 @@ import { VideoApi, CreateVideoCall, GetVideoCalls, DeleteVideoCall } from './vid
 
 // Re-export all API classes and functions
 export { AuthApi, CoursesApi, NotesApi, QuizApi, ExamsApi, StudentsApi, ChatApi, VideoApi };
-export { GetStaffCourses, GetStaffCoursesbyId, GetCourseModules, AddModule, DeleteModule, AddUnit, getUnits, EditUnit, DeleteUnit, UploadUnitVideo, UnregisterFromCourse, GetCourseParticipants };
+export { GetStaffCourses, GetStaffCoursesbyId, GetCourseModules, AddModule, DeleteModule, AddUnit, getUnits, EditUnit, DeleteUnit, UploadUnitVideo, UnregisterFromCourse, GetCourseParticipants, GetAllocatedCourses, RegisterAllocatedCourses };
 export { GetModuleNotes, CreateModuleNotes, EditModuleNotes, DeleteModuleNotes };
 export { CreateQuiz, GetQuiz, GetQuizById, AddQuizQuestions, DeleteQuiz, UpdateQuiz, UpdateQuizQuestions, StartQuizAttempt, SaveQuizAnswers, SubmitQuizAttempt, GetQuizStats, GetMyLatestAttempt };
 export { GetStaffExams, GetExams, CreateExam, UpdateExam, DeleteExam, GetExamById, GetBankQuestions, AddObjectiveQuestion, AddTheoryQuestion, GetExamAttempts, GetAttemptForGrading, GradeTheoryAnswer, BulkGradeTheoryAnswers, GetExamStatistics, GetStudentExams, StartExam, SubmitExamAnswer, SubmitExam };
@@ -97,6 +97,14 @@ export class Api extends AuthApi {
     includeSelf?: boolean;
   }) {
     return this.courses.GetCourseParticipants(courseId, params);
+  }
+
+  async GetAllocatedCourses() {
+    return this.courses.GetAllocatedCourses();
+  }
+
+  async RegisterAllocatedCourses() {
+    return this.courses.RegisterAllocatedCourses();
   }
 
   // Re-export notes methods for backward compatibility
@@ -329,8 +337,14 @@ export class Api extends AuthApi {
   async updateStudentProfile(data: {
     fname: string;
     lname: string;
+    mname?: string;
     phone?: string;
     address?: string;
+    dob?: string;
+    country?: string;
+    state_origin?: string;
+    lcda?: string;
+    currency?: string;
   }) {
     return super.updateStudentProfile(data);
   }

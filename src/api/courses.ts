@@ -280,6 +280,38 @@ export class CoursesApi {
       return handleApiError(err, "getting course participants");
     }
   }
+
+  // Get allocated courses for current semester
+  async GetAllocatedCourses() {
+    try {
+      const response = await axios.get(`${BASE_URL}/api/courses/allocated`, {
+        headers: getAuthHeaders()
+      });
+      
+      return response;
+
+    } catch (err: any) {
+      return handleApiError(err, "getting allocated courses");
+    }
+  }
+
+  // Register for all allocated courses
+  async RegisterAllocatedCourses() {
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/api/courses/register-allocated`,
+        {},
+        {
+          headers: getAuthHeaders()
+        }
+      );
+      
+      return response;
+
+    } catch (err: any) {
+      return handleApiError(err, "registering for allocated courses");
+    }
+  }
 }
 
 // Export standalone functions for backward compatibility
@@ -361,4 +393,14 @@ export async function GetCourseParticipants(courseId: string, params?: {
 }) {
   const api = new CoursesApi();
   return api.GetCourseParticipants(courseId, params);
+}
+
+export async function GetAllocatedCourses() {
+  const api = new CoursesApi();
+  return api.GetAllocatedCourses();
+}
+
+export async function RegisterAllocatedCourses() {
+  const api = new CoursesApi();
+  return api.RegisterAllocatedCourses();
 }

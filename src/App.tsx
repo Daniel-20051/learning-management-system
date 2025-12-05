@@ -34,6 +34,7 @@ import socketService from "@/services/Socketservice";
 import { useEffect } from "react";
 import StudentProfilePage from "./pages/student/profile/ProfilePage";
 import AllCoursesPage from "./pages/student/all-courses/AllCoursesPage";
+import AllocatedCoursesPage from "./pages/student/allocated-courses/AllocatedCoursesPage";
 import StaffProfilePage from "./pages/admin/profile/StaffProfilePage";
 
 function AdminPortalRedirect({ targetUrl }: { targetUrl?: string }) {
@@ -192,6 +193,16 @@ function App() {
                   element={
                     isLoggedIn ? (
                       <AllCoursesPage />
+                    ) : (
+                      <Navigate to="/" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/allocated-courses"
+                  element={
+                    isLoggedIn ? (
+                      <AllocatedCoursesPage />
                     ) : (
                       <Navigate to="/" replace />
                     )

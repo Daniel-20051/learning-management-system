@@ -6,6 +6,13 @@ import { Skeleton } from "@/Components/ui/skeleton";
 import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/input";
 import { Phone, GraduationCap, Wallet, Edit2, X, Check } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/Components/ui/select";
 import Navbar from "@/Components/navbar";
 
 interface StudentProfile {
@@ -87,9 +94,15 @@ export default function ProfilePage() {
   const [updateSuccess, setUpdateSuccess] = useState(false);
   const [formData, setFormData] = useState({
     fname: "",
+    mname: "",
     lname: "",
     phone: "",
     address: "",
+    dob: "",
+    country: "",
+    state_origin: "",
+    lcda: "",
+    currency: "",
   });
 
   useEffect(() => {
@@ -110,9 +123,15 @@ export default function ProfilePage() {
           // Initialize form data with current profile values
           setFormData({
             fname: userData.fname || "",
+            mname: userData.mname || "",
             lname: userData.lname || "",
             phone: userData.phone || "",
             address: userData.address || "",
+            dob: userData.dob || "",
+            country: userData.country || "",
+            state_origin: userData.state_origin || "",
+            lcda: userData.lcda || "",
+            currency: userData.currency || "",
           });
           setError(null);
         }
@@ -162,9 +181,15 @@ export default function ProfilePage() {
     if (profile) {
       setFormData({
         fname: profile.fname || "",
+        mname: profile.mname || "",
         lname: profile.lname || "",
         phone: profile.phone || "",
         address: profile.address || "",
+        dob: profile.dob || "",
+        country: profile.country || "",
+        state_origin: profile.state_origin || "",
+        lcda: profile.lcda || "",
+        currency: profile.currency || "",
       });
     }
   };
@@ -184,9 +209,15 @@ export default function ProfilePage() {
       const authApi = new AuthApi();
       await authApi.updateStudentProfile({
         fname: formData.fname,
+        mname: formData.mname || undefined,
         lname: formData.lname,
         phone: formData.phone || undefined,
         address: formData.address || undefined,
+        dob: formData.dob || undefined,
+        country: formData.country || undefined,
+        state_origin: formData.state_origin || undefined,
+        lcda: formData.lcda || undefined,
+        currency: formData.currency || undefined,
       });
 
       // Refresh profile data
@@ -331,6 +362,25 @@ export default function ProfilePage() {
                 </dd>
               </div>
 
+              {/* Middle Name - Editable */}
+              <div className="flex justify-between items-center py-1 text-sm">
+                <dt className="text-muted-foreground w-2/5 font-normal">Middle Name:</dt>
+                <dd className="font-medium text-right flex-1 break-words">
+                  {loading ? (
+                    <Skeleton className="h-4 w-20 inline-block" />
+                  ) : isEditing ? (
+                    <Input
+                      value={formData.mname}
+                      onChange={(e) => handleInputChange("mname", e.target.value)}
+                      className="h-8 text-sm"
+                      placeholder="Middle Name"
+                    />
+                  ) : (
+                    formatValue(profile?.mname)
+                  )}
+                </dd>
+              </div>
+
               {/* Last Name - Editable */}
               <div className="flex justify-between items-center py-1 text-sm">
                 <dt className="text-muted-foreground w-2/5 font-normal">Last Name:</dt>
@@ -388,35 +438,112 @@ export default function ProfilePage() {
                 </dd>
               </div>
 
-              {/* Read-only fields */}
+              {/* Gender - Read-only */}
               <div className="flex justify-between items-center py-1 text-sm">
                 <dt className="text-muted-foreground w-2/5 font-normal">Gender:</dt>
                 <dd className="font-medium text-right flex-1 break-words">
                   {loading ? <Skeleton className="h-4 w-20 inline-block" /> : formatValue(profile?.gender)}
                 </dd>
               </div>
+
+              {/* Date of Birth - Editable */}
               <div className="flex justify-between items-center py-1 text-sm">
                 <dt className="text-muted-foreground w-2/5 font-normal">Date of Birth:</dt>
                 <dd className="font-medium text-right flex-1 break-words">
-                  {loading ? <Skeleton className="h-4 w-20 inline-block" /> : formatValue(profile?.dob)}
+                  {loading ? (
+                    <Skeleton className="h-4 w-20 inline-block" />
+                  ) : isEditing ? (
+                    <Input
+                      type="date"
+                      value={formData.dob}
+                      onChange={(e) => handleInputChange("dob", e.target.value)}
+                      className="h-8 text-sm"
+                    />
+                  ) : (
+                    formatValue(profile?.dob)
+                  )}
                 </dd>
               </div>
+
+              {/* Country - Editable */}
               <div className="flex justify-between items-center py-1 text-sm">
                 <dt className="text-muted-foreground w-2/5 font-normal">Country:</dt>
                 <dd className="font-medium text-right flex-1 break-words">
-                  {loading ? <Skeleton className="h-4 w-20 inline-block" /> : formatValue(profile?.country)}
+                  {loading ? (
+                    <Skeleton className="h-4 w-20 inline-block" />
+                  ) : isEditing ? (
+                    <Input
+                      value={formData.country}
+                      onChange={(e) => handleInputChange("country", e.target.value)}
+                      className="h-8 text-sm"
+                      placeholder="Country"
+                    />
+                  ) : (
+                    formatValue(profile?.country)
+                  )}
                 </dd>
               </div>
+
+              {/* State of Origin - Editable */}
               <div className="flex justify-between items-center py-1 text-sm">
                 <dt className="text-muted-foreground w-2/5 font-normal">State of Origin:</dt>
                 <dd className="font-medium text-right flex-1 break-words">
-                  {loading ? <Skeleton className="h-4 w-20 inline-block" /> : formatValue(profile?.state_origin)}
+                  {loading ? (
+                    <Skeleton className="h-4 w-20 inline-block" />
+                  ) : isEditing ? (
+                    <Input
+                      value={formData.state_origin}
+                      onChange={(e) => handleInputChange("state_origin", e.target.value)}
+                      className="h-8 text-sm"
+                      placeholder="State of Origin"
+                    />
+                  ) : (
+                    formatValue(profile?.state_origin)
+                  )}
                 </dd>
               </div>
+
+              {/* LCDA - Editable */}
               <div className="flex justify-between items-center py-1 text-sm">
                 <dt className="text-muted-foreground w-2/5 font-normal">LCDA:</dt>
                 <dd className="font-medium text-right flex-1 break-words">
-                  {loading ? <Skeleton className="h-4 w-20 inline-block" /> : formatValue(profile?.lcda)}
+                  {loading ? (
+                    <Skeleton className="h-4 w-20 inline-block" />
+                  ) : isEditing ? (
+                    <Input
+                      value={formData.lcda}
+                      onChange={(e) => handleInputChange("lcda", e.target.value)}
+                      className="h-8 text-sm"
+                      placeholder="LCDA"
+                    />
+                  ) : (
+                    formatValue(profile?.lcda)
+                  )}
+                </dd>
+              </div>
+
+              {/* Currency - Editable Dropdown */}
+              <div className="flex justify-between items-center py-1 text-sm">
+                <dt className="text-muted-foreground w-2/5 font-normal">Currency:</dt>
+                <dd className="font-medium text-right flex-1 break-words">
+                  {loading ? (
+                    <Skeleton className="h-4 w-20 inline-block" />
+                  ) : isEditing ? (
+                    <Select
+                      value={formData.currency}
+                      onValueChange={(value) => handleInputChange("currency", value)}
+                    >
+                      <SelectTrigger className="h-8 text-sm">
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="NGN">NGN (Nigerian Naira)</SelectItem>
+                        <SelectItem value="USD">USD (US Dollar)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  ) : (
+                    formatValue(profile?.currency)
+                  )}
                 </dd>
               </div>
             </dl>

@@ -68,6 +68,13 @@ const UserCard = ({ sidebar }: UserCardProps) => {
           </div>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end" className="w-56">
+          <DropdownMenuItem
+            className="cursor-pointer py-3"
+            onClick={() => navigate("/profile")}
+          >
+            <User className="mr-3 h-5 w-5" />
+            <span className="text-base">Profile</span>
+          </DropdownMenuItem>
           {isAdmin && (
             <DropdownMenuItem
               className="cursor-pointer py-3"
@@ -104,13 +111,6 @@ const UserCard = ({ sidebar }: UserCardProps) => {
               <span className="text-base">Course Registration</span>
             </DropdownMenuItem>
           )}
-          <DropdownMenuItem
-            className="cursor-pointer py-3"
-            onClick={() => navigate("/profile")}
-          >
-            <User className="mr-3 h-5 w-5" />
-            <span className="text-base">Profile</span>
-          </DropdownMenuItem>
           {!isAdmin && (
             <DropdownMenuItem
               className="cursor-pointer py-3"

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { CoursesApi } from "@/api/courses";
+import { AuthApi } from "@/api/auth";
 import { Button } from "@/Components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/Components/ui/alert";
@@ -99,31 +100,50 @@ const formatDate = (dateString: string) => {
 export default function AllocatedCoursesPage() {
   const navigate = useNavigate();
   const coursesApi = new CoursesApi();
+  const authApi = new AuthApi();
   
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
   const [data, setData] = useState<AllocatedCoursesResponse["data"] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [currency, setCurrency] = useState<string>("NGN");
 
   useEffect(() => {
-    fetchAllocatedCourses();
+    fetchData();
   }, []);
 
-  const fetchAllocatedCourses = async () => {
+  const fetchData = async () => {
     try {
       setLoading(true);
       setError(null);
-      const response = await coursesApi.GetAllocatedCourses();
       
-      if (response?.data?.success) {
-        setData(response.data.data);
+      // Fetch both allocated courses and student profile in parallel
+      const [coursesResponse, profileResponse] = await Promise.all([
+        coursesApi.GetAllocatedCourses(),
+        authApi.getUserProfile()
+      ]);
+      
+      // Handle allocated courses
+      if (coursesResponse?.data?.success) {
+        setData(coursesResponse.data.data);
       } else {
-        setError(response?.data?.message || "Failed to load allocated courses");
+        setError(coursesResponse?.data?.message || "Failed to load allocated courses");
+      }
+
+      // Handle student profile for wallet balance
+      const profileData = profileResponse as any;
+      if (profileData?.data?.success || profileData?.data?.status) {
+        const userData = profileData?.data?.data?.user;
+        if (userData) {
+          setWalletBalance(parseFloat(userData.wallet_balance) || 0);
+          setCurrency(userData.currency || "NGN");
+        }
       }
     } catch (err: any) {
-      console.error("Error fetching allocated courses:", err);
-      const message = err?.response?.data?.message || err?.message || "Failed to load allocated courses";
+      console.error("Error fetching data:", err);
+      const message = err?.response?.data?.message || err?.message || "Failed to load data";
       setError(message);
     } finally {
       setLoading(false);
@@ -134,10 +154,7 @@ export default function AllocatedCoursesPage() {
     if (!data?.can_register) return;
     
     // Check wallet balance
-    const walletBalance = data.wallet_balance || 0;
-    const totalAmount = data.total_amount || 0;
-    
-    if (walletBalance < totalAmount) {
+    if (walletBalance < data.total_amount) {
       toast.error("Insufficient wallet balance. Please fund your wallet first.");
       return;
     }
@@ -156,7 +173,7 @@ export default function AllocatedCoursesPage() {
         toast.success(response?.data?.message || "Successfully registered for all allocated courses!");
         
         // Refresh data
-        await fetchAllocatedCourses();
+        await fetchData();
         
         // Navigate to home after short delay
         setTimeout(() => {
@@ -282,24 +299,45 @@ export default function AllocatedCoursesPage() {
                 </CardContent>
               </Card>
 
-              {/* Total Amount Card */}
+              {/* Wallet & Total Amount Card */}
               <Card className="border-primary pt-3">
                 <CardHeader className="pb-3">
                   <CardTitle className="flex items-center gap-2 text-sm">
                     <DollarSign className="h-4 w-4" />
-                    Total Registration Cost
+                    Registration Summary
                   </CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-3">
-                  <div>
-                    <p className="text-3xl font-bold">
-                      {formatCurrency(data.total_amount, data.currency)}
+                  {/* Wallet Balance */}
+                  <div className="pb-3 border-b">
+                    <p className="text-xs text-muted-foreground">Wallet Balance</p>
+                    <p className="text-2xl font-bold text-primary">
+                      {formatCurrency(walletBalance, currency)}
                     </p>
                   </div>
+                  
+                  {/* Total Cost */}
+                  <div>
+                    <p className="text-xs text-muted-foreground">Total Registration Cost</p>
+                    <p className="text-3xl font-bold">
+                      {formatCurrency(data.total_amount, currency)}
+                    </p>
+                  </div>
+
+                  {/* Show balance warning if insufficient */}
+                  {walletBalance < data.total_amount && (
+                    <Alert variant="destructive" className="mt-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Insufficient wallet balance. Please fund your wallet.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                  
                   <Button
                     size="default"
                     onClick={handleRegisterClick}
-                    disabled={!data.can_register || registering}
+                    disabled={!data.can_register || registering || walletBalance < data.total_amount}
                     className="w-full"
                   >
                     {registering ? "Registering..." : "Register All Courses"}
@@ -331,7 +369,7 @@ export default function AllocatedCoursesPage() {
                   </CardContent>
                 </Card>
               ) : (
-                <Card>
+                <Card className="pt-3">
                   <CardHeader className="pb-3">
                     <div className="flex items-center justify-between">
                       <div>
@@ -388,16 +426,16 @@ export default function AllocatedCoursesPage() {
               <div className="bg-muted p-4 rounded-lg space-y-2">
                 <div className="flex justify-between">
                   <span className="font-medium">Total Cost:</span>
-                  <span className="font-bold">{formatCurrency(data?.total_amount || 0, data?.currency)}</span>
+                  <span className="font-bold">{formatCurrency(data?.total_amount || 0, currency)}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="font-medium">Wallet Balance:</span>
-                  <span className="font-bold">{formatCurrency(data?.wallet_balance || 0, data?.currency)}</span>
+                  <span className="font-bold">{formatCurrency(walletBalance, currency)}</span>
                 </div>
                 <div className="flex justify-between border-t pt-2">
                   <span className="font-medium">Remaining Balance:</span>
                   <span className="font-bold">
-                    {formatCurrency((data?.wallet_balance || 0) - (data?.total_amount || 0), data?.currency)}
+                    {formatCurrency(walletBalance - (data?.total_amount || 0), currency)}
                   </span>
                 </div>
               </div>

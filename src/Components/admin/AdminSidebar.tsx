@@ -57,8 +57,15 @@ const AdminSidebar = ({
   };
 
   const handleLogout = async () => {
-    await logout();
-    navigate("/admin/login");
+    try {
+      await logout();
+      // Force navigation to login page
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Even if logout fails, try to navigate
+      window.location.href = "/";
+    }
   };
 
   const menuItems = [

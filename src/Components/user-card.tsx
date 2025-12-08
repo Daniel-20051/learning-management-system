@@ -23,12 +23,17 @@ const UserCard = ({ sidebar }: UserCardProps) => {
     try {
       setIsLoggingOut(true);
       await logout();
-      navigate("/");
+      // Force navigation to login page to ensure clean state
+      // Don't set state after navigation as page will reload
+      window.location.href = "/";
     } catch (error) {
       console.error("Logout error:", error);
-    } finally {
-      setIsLoggingOut(false);
+      // Even if logout fails, try to navigate
+      // Don't set state after navigation as page will reload
+      window.location.href = "/";
     }
+    // Note: Not using finally block here because window.location.href causes
+    // a hard navigation that will reload the page, making state updates unnecessary
   };
 
   return (

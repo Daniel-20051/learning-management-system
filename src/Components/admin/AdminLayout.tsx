@@ -49,9 +49,16 @@ const AdminLayout = () => {
     }
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate("/");
+  const handleLogout = async () => {
+    try {
+      await logout();
+      // Force navigation to login page to ensure clean state
+      window.location.href = "/";
+    } catch (error) {
+      console.error("Logout error:", error);
+      // Even if logout fails, try to navigate
+      window.location.href = "/";
+    }
   };
 
   return (

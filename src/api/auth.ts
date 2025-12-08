@@ -58,16 +58,21 @@ export class AuthApi {
     try {
       const token = getAccessToken();
       if (token) {
-        // Call logout endpoint with token
-        await axios.post(`${BASE_URL}/api/auth/logout`, {}, {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
+        // Call logout endpoint with token and timeout to prevent hanging
+        await Promise.race([
+          axios.post(`${BASE_URL}/api/auth/logout`, {}, {
+            headers: {
+              'Authorization': `Bearer ${token}`
+            }
+          }),
+          new Promise((_, reject) => 
+            setTimeout(() => reject(new Error('Logout timeout')), 5000)
+          )
+        ]);
       }
     } catch (err: any) {
       console.error("Error during logout:", err);
-      // Continue with local logout even if API call fails
+      // Continue with local logout even if API call fails or times out
     } finally {
       // Always remove token locally
       removeAccessToken();

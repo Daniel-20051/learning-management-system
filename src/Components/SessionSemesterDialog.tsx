@@ -57,8 +57,11 @@ const SessionSemesterDialog: React.FC<SessionSemesterDialogProps> = ({
           );
           setApiSessions(uniqueYears as string[]);
 
-          // Find active semester; if multiple, prefer the most recent by date/start_date
-          const active = items.find((it: any) => it.status === "Active");
+          // Find active semester; check case-insensitively for "active" status
+          // API may return "active", "Active", "ACTIVE", etc.
+          const active = items.find((it: any) => 
+            it.status && String(it.status).toLowerCase() === "active"
+          );
 
           if (active?.academic_year && active?.semester) {
             setSelectedSession(active.academic_year);

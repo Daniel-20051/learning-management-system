@@ -82,8 +82,10 @@ const RegisterCourseDialog = ({
         ) as string[];
         setSessions(uniqueYears);
 
-        // Find active semester and auto-select it
-        const active = items.find((it: SessionData) => it.status === "Active");
+        // Find active semester and auto-select it (case-insensitive check)
+        const active = items.find((it: SessionData) => 
+          it.status && String(it.status).toLowerCase() === "active"
+        );
 
         if (active?.academic_year && active?.semester) {
           setSelectedSession(active.academic_year);

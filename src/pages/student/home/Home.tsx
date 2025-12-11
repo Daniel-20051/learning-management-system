@@ -3,6 +3,8 @@ import CourseCards from "./components/courseCards";
 import CourseCardSkeleton from "./components/CourseCardSkeleton";
 import EmptyCoursesState from "./components/EmptyCoursesState";
 import SessionSemesterDialog from "../../../Components/SessionSemesterDialog";
+import NoticeSlider from "./components/NoticeSlider";
+import NoticeDetailsDialog from "./components/NoticeDetailsDialog";
 import { Api } from "../../../api/index";
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/Components/ui/card";
@@ -11,6 +13,7 @@ import { Input } from "@/Components/ui/input";
 import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
 import { BookOpen, CheckCircle2, Clock, Search } from "lucide-react";
+import type { Notice } from "@/api/notices";
 
 const Home = () => {
   const api = new Api();
@@ -21,6 +24,9 @@ const Home = () => {
   const [courses, setCourses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>("");
+  const [notices, setNotices] = useState<Notice[]>([]);
+  const [selectedNotice, setSelectedNotice] = useState<Notice | null>(null);
+  const [isNoticeDialogOpen, setIsNoticeDialogOpen] = useState(false);
 
   // Derive first name from authenticated user
   const userFirstName = useMemo(() => {
@@ -63,6 +69,26 @@ const Home = () => {
     setSessionAndSemester(session, semester);
   };
 
+  // Fetch notices on component mount
+  useEffect(() => {
+    const fetchNotices = async () => {
+      try {
+        const response = await api.GetNotices();
+        if (response.data && Array.isArray(response.data)) {
+          // Filter for active notices only
+          const activeNotices = response.data.filter(
+            (notice) => notice.status && String(notice.status).toLowerCase() === "active"
+          );
+          setNotices(activeNotices);
+        }
+      } catch (error) {
+        console.error("Error fetching notices:", error);
+      }
+    };
+
+    fetchNotices();
+  }, []);
+
   // Fetch courses when session/semester changes
   useEffect(() => {
     const fetchCourses = async () => {
@@ -87,25 +113,34 @@ const Home = () => {
     fetchCourses();
   }, [selectedSession, selectedSemester]);
 
+  const handleNoticeClick = (notice: Notice) => {
+    setSelectedNotice(notice);
+    setIsNoticeDialogOpen(true);
+  };
+
   return (
     <div className="flex flex-col min-h-screen">
       <Navbar sidebar={false} />
       <div className="flex-1 pt-4 md:pt-8 px-4 md:px-7 lg:px-12 xl:px-20 flex flex-col gap-4 md:gap-8 overflow-y-auto pb-6 md:pb-10">
-        {/* Welcome Banner */}
-        <Card className="bg-gradient-to-br py-4 md:py-6 from-slate-900 via-slate-800 to-slate-700 text-white border-0">
-          <CardContent className="px-4 md:px-6 lg:px-8">
-            <div className="flex flex-col gap-2 md:gap-4">
-              <div>
-                <p className="text-sm md:text-lg text-white/80">
-                  Welcome back, {userFirstName}
-                </p>
-                <h1 className="text-xl md:text-2xl lg:text-3xl font-semibold leading-tight">
-                  Keep up the excellent work!
-                </h1>
+        {/* Notices Slider */}
+        {notices.length > 0 ? (
+          <NoticeSlider notices={notices} onNoticeClick={handleNoticeClick} />
+        ) : (
+          <Card className="bg-gradient-to-br py-4 md:py-6 from-slate-900 via-slate-800 to-slate-700 text-white border-0">
+            <CardContent className="px-4 md:px-6 lg:px-8">
+              <div className="flex flex-col gap-2 md:gap-4">
+                <div>
+                  <p className="text-sm md:text-lg text-white/80">
+                    Welcome back, {userFirstName}
+                  </p>
+                  <h1 className="text-xl md:text-2xl lg:text-3xl font-semibold leading-tight">
+                    Keep up the excellent work!
+                  </h1>
+                </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Stats Row */}
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 md:gap-4">
@@ -248,6 +283,13 @@ const Home = () => {
           )}
         </div>
       </div>
+
+      {/* Notice Details Dialog */}
+      <NoticeDetailsDialog
+        notice={selectedNotice}
+        open={isNoticeDialogOpen}
+        onOpenChange={setIsNoticeDialogOpen}
+      />
     </div>
   );
 };

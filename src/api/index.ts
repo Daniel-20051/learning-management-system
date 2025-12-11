@@ -7,9 +7,11 @@ import { ExamsApi, GetStaffExams, GetExams, CreateExam, UpdateExam, DeleteExam, 
 import { StudentsApi, GetStudents } from './students';
 import { ChatApi, GetChatThreads } from './chat';
 import { VideoApi, CreateVideoCall, GetVideoCalls, DeleteVideoCall } from './video';
+import { NoticesApi, GetNotices } from './notices';
 
 // Re-export all API classes and functions
-export { AuthApi, CoursesApi, NotesApi, QuizApi, ExamsApi, StudentsApi, ChatApi, VideoApi };
+export { AuthApi, CoursesApi, NotesApi, QuizApi, ExamsApi, StudentsApi, ChatApi, VideoApi, NoticesApi };
+export { GetNotices };
 export { GetStaffCourses, GetStaffCoursesbyId, GetCourseModules, AddModule, DeleteModule, AddUnit, getUnits, EditUnit, DeleteUnit, UploadUnitVideo, UnregisterFromCourse, GetCourseParticipants, GetAllocatedCourses, RegisterAllocatedCourses };
 export { GetModuleNotes, CreateModuleNotes, EditModuleNotes, DeleteModuleNotes };
 export { CreateQuiz, GetQuiz, GetQuizById, AddQuizQuestions, DeleteQuiz, UpdateQuiz, UpdateQuizQuestions, StartQuizAttempt, SaveQuizAnswers, SubmitQuizAttempt, GetQuizStats, GetMyLatestAttempt };
@@ -27,6 +29,7 @@ export class Api extends AuthApi {
   students = new StudentsApi();
   chat = new ChatApi();
   video = new VideoApi();
+  notices = new NoticesApi();
 
   // Re-export course methods for backward compatibility
   async GetCourses(session: string, semester: string) {
@@ -326,6 +329,11 @@ export class Api extends AuthApi {
 
   async DeleteVideoCall(callId: string) {
     return this.video.deleteVideoCall(callId);
+  }
+
+  // Re-export notices methods for backward compatibility
+  async GetNotices() {
+    return this.notices.GetNotices();
   }
 
   // Add user profile method

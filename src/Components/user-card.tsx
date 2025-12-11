@@ -104,7 +104,7 @@ const UserCard = ({ sidebar }: UserCardProps) => {
               onClick={() => navigate("/all-courses")}
             >
               <Library className="mr-3 h-5 w-5" />
-              <span className="text-base">All Courses</span>
+              <span className="text-base">Marketplace</span>
             </DropdownMenuItem>
           )}
           {!isAdmin && (

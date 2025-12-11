@@ -11,10 +11,9 @@ import {
 import { Badge } from "@/Components/ui/badge";
 import { Input } from "@/Components/ui/input";
 import { Button } from "@/Components/ui/button";
-import { BookOpen, Search, Filter, Loader2 } from "lucide-react";
+import { BookOpen, Search, Filter } from "lucide-react";
 import { Skeleton } from "@/Components/ui/skeleton";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
 import {
   Select,
   SelectContent,
@@ -22,9 +21,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/Components/ui/select";
-import RegisterCourseDialog from "./components/RegisterCourseDialog";
 import PurchaseCourseDialog from "./components/PurchaseCourseDialog";
-import MultipleCourseRegistrationDialog from "./components/MultipleCourseRegistrationDialog";
 
 interface Course {
   id: number;
@@ -47,21 +44,16 @@ interface Course {
 
 const AllCoursesPage = () => {
   const api = new Api();
-  const navigate = useNavigate();
   const [courses, setCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [isRegistering, setIsRegistering] = useState<number | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [levelFilter, setLevelFilter] = useState<string>("");
   const [programFilter, setProgramFilter] = useState<string>("");
   const [facultyFilter, setFacultyFilter] = useState<string>("");
   
   // Dialog state
-  const [registerDialogOpen, setRegisterDialogOpen] = useState(false);
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
-  const [multipleRegisterDialogOpen, setMultipleRegisterDialogOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
-  const [selectedCourseIds, setSelectedCourseIds] = useState<number[]>([]);
   const [currency, setCurrency] = useState<string>("NGN");
 
   // Filter courses based on search query
@@ -100,13 +92,6 @@ const AllCoursesPage = () => {
       .sort((a, b) => a - b);
   }, [coursesByLevel]);
 
-  const isFreeCourse = (course: Course) => {
-    // Use requires_purchase flag if available, otherwise fall back to price check
-    if (course.hasOwnProperty('requires_purchase')) {
-      return !course.requires_purchase;
-    }
-    return course.owner_type === "wsp" || course.price === 0 || Number(course.price) === 0;
-  };
 
   const fetchCourses = async () => {
     setIsLoading(true);
@@ -118,7 +103,12 @@ const AllCoursesPage = () => {
 
       const response = await api.GetAvailableCourses(Object.keys(params).length > 0 ? params : undefined);
       if (response.data && response.data.data) {
-        setCourses(response.data.data);
+        // Filter to show only marketplace courses that are published
+        const marketplaceCourses = response.data.data.filter((course: Course) => 
+          course.is_marketplace === true && 
+          course.marketplace_status?.toLowerCase() === "published"
+        );
+        setCourses(marketplaceCourses);
       }
     } catch (error) {
       console.error("Error fetching available courses:", error);
@@ -148,103 +138,7 @@ const AllCoursesPage = () => {
     }
   };
 
-  // Get selected courses
-  const selectedCourses = useMemo(() => {
-    return courses.filter((c) => selectedCourseIds.includes(c.id));
-  }, [courses, selectedCourseIds]);
 
-  // Calculate total for selected courses
-  const selectedTotal = useMemo(() => {
-    return selectedCourses.reduce((sum, course) => {
-      return sum + (parseFloat(String(course.price)) || 0);
-    }, 0);
-  }, [selectedCourses]);
-
-  // Toggle course selection
-  const toggleCourseSelection = (courseId: number) => {
-    setSelectedCourseIds((prev) => {
-      if (prev.includes(courseId)) {
-        return prev.filter((id) => id !== courseId);
-      } else {
-        return [...prev, courseId];
-      }
-    });
-  };
-
-  // Handle multiple course registration success
-  const handleMultipleRegistrationSuccess = async () => {
-    setSelectedCourseIds([]);
-    await fetchCourses();
-    await fetchCurrency();
-  };
-
-  // Open the registration dialog
-  const openRegisterDialog = (course: Course) => {
-    setSelectedCourse(course);
-    setRegisterDialogOpen(true);
-  };
-
-  // Handle actual registration from dialog
-  const handleRegister = async (
-    courseId: number,
-    session: string,
-    semester: string,
-    level: string
-  ) => {
-    setIsRegistering(courseId);
-    try {
-      const response = await api.RegisterCourse({
-        course_id: courseId,
-        academic_year: session,
-        semester: semester,
-        level: level,
-      });
-
-      if (response.data && response.data.status) {
-        toast.success(
-          response.data.message || "Course registered successfully!"
-        );
-        
-        // Refresh the course list
-        await fetchCourses();
-        
-        // Redirect to course page after a short delay
-        setTimeout(() => {
-          navigate(`/unit/${courseId}`);
-        }, 1500);
-      } else {
-        toast.error(
-          response.data?.message || "Failed to register for course"
-        );
-      }
-    } catch (error: any) {
-      console.error("Error registering for course:", error);
-      const errorMessage =
-        error.response?.data?.message ||
-        error.message ||
-        "An error occurred while registering for the course";
-      
-      // Check if this is a marketplace course error
-      if (errorMessage.toLowerCase().includes("marketplace") || 
-          errorMessage.toLowerCase().includes("purchase")) {
-        // Close registration dialog and open purchase dialog
-        setRegisterDialogOpen(false);
-        const course = courses.find(c => c.id === courseId);
-        if (course) {
-          setSelectedCourse(course);
-          setPurchaseDialogOpen(true);
-          toast.info("This course requires purchase. Opening purchase dialog...");
-        } else {
-          toast.error(errorMessage);
-        }
-      } else {
-        toast.error(errorMessage);
-      }
-      throw error; // Re-throw to let dialog handle it
-    } finally {
-      setIsRegistering(null);
-    }
-  };
 
   const handlePurchase = (course: Course) => {
     setSelectedCourse(course);
@@ -267,12 +161,7 @@ const AllCoursesPage = () => {
 
   // Course Card Component
   const CourseCard = ({ course }: { course: Course }) => {
-    const isFree = isFreeCourse(course);
-    const requiresPurchase = course.requires_purchase || false;
-    const isCurrentlyRegistering = isRegistering === course.id;
-    const isMarketplace = course.is_marketplace && course.marketplace_status === "published";
-    const isSelected = selectedCourseIds.includes(course.id);
-    const canSelect = !requiresPurchase; // Only allow selection of non-marketplace courses
+    // All courses on this page are marketplace courses, so they all require purchase
 
     return (
       <Card className={`overflow-hidden h-full flex flex-col ${isSelected ? "ring-2 ring-primary" : ""}`}>
@@ -286,24 +175,11 @@ const AllCoursesPage = () => {
               {course.course_code}
             </Badge>
           </div>
-          {isMarketplace && (
-            <div className="absolute top-2.5 right-2.5">
-              <Badge className="bg-blue-600 text-white text-xs px-2 py-0.5">
-                Marketplace
-              </Badge>
-            </div>
-          )}
-          {canSelect && (
-            <div className="absolute top-2.5 right-2.5">
-              <input
-                type="checkbox"
-                checked={isSelected}
-                onChange={() => toggleCourseSelection(course.id)}
-                className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary cursor-pointer"
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-          )}
+          <div className="absolute top-2.5 right-2.5">
+            <Badge className="bg-blue-600 text-white text-xs px-2 py-0.5">
+              Marketplace
+            </Badge>
+          </div>
         </div>
 
         <CardHeader className="pb-1 px-4 pt-4">
@@ -317,42 +193,20 @@ const AllCoursesPage = () => {
             Level {course.course_level} · {course.course_unit} Unit{course.course_unit !== 1 ? "s" : ""} · {course.semester}
           </p>
           <div className="mt-2 flex items-center gap-2">
-            {isFree && !requiresPurchase ? (
-              <Badge className="bg-green-100 text-green-700 text-xs">FREE</Badge>
-            ) : (
-              <span className="text-sm font-medium text-blue-700">
-                {currency === "NGN" ? "₦" : currency}{course.price.toLocaleString()}
-              </span>
-            )}
+            <span className="text-sm font-medium text-blue-700">
+              {currency === "NGN" ? "₦" : currency}{course.price.toLocaleString()}
+            </span>
           </div>
         </CardContent>
 
         <CardFooter className="pt-2 px-4 pb-4">
-          {requiresPurchase ? (
-            <Button
-              size="sm"
-              className="w-full text-sm bg-primary"
-              onClick={() => handlePurchase(course)}
-            >
-              Purchase
-            </Button>
-          ) : (
-            <Button
-              size="sm"
-              className="w-full bg-primary text-sm"
-              onClick={() => openRegisterDialog(course)}
-              disabled={isCurrentlyRegistering}
-            >
-              {isCurrentlyRegistering ? (
-                <>
-                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                  Registering...
-                </>
-              ) : (
-                "Register"
-              )}
-            </Button>
-          )}
+          <Button
+            size="sm"
+            className="w-full text-sm bg-primary"
+            onClick={() => handlePurchase(course)}
+          >
+            Purchase
+          </Button>
         </CardFooter>
       </Card>
     );
@@ -379,35 +233,15 @@ const AllCoursesPage = () => {
     <div className="flex flex-col min-h-screen">
       <Navbar sidebar={false} />
       <div className="flex-1 pt-4 md:pt-8 px-4 md:px-7 lg:px-12 xl:px-20 flex flex-col gap-4 md:gap-6 overflow-y-auto pb-6 md:pb-10">
-        {/* Selection Summary Bar */}
-        {selectedCourseIds.length > 0 && (
-          <div className="bg-primary/10 border border-primary/20 rounded-lg p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-            <div className="flex-1">
-              <p className="text-sm font-medium">
-                {selectedCourseIds.length} course{selectedCourseIds.length !== 1 ? "s" : ""} selected
-              </p>
-              <p className="text-lg font-bold text-primary mt-1">
-                Total: {currency === "NGN" ? "₦" : currency}{selectedTotal.toLocaleString()}
-              </p>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setSelectedCourseIds([])}
-              >
-                Clear Selection
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => setMultipleRegisterDialogOpen(true)}
-                disabled={selectedCourseIds.length === 0}
-              >
-                Register Selected
-              </Button>
-            </div>
+        {/* Page Title */}
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold">Marketplace</h1>
+            <p className="text-sm text-muted-foreground mt-1">
+              Browse and purchase courses from the marketplace
+            </p>
           </div>
-        )}
+        </div>
 
         {/* Filters and Search */}
         <div className="flex flex-col md:flex-row gap-3 md:gap-4 items-start md:items-center justify-between">
@@ -527,22 +361,14 @@ const AllCoursesPage = () => {
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
             <h3 className="text-lg font-semibold text-foreground mb-2">
-              No courses available
+              No marketplace courses available
             </h3>
             <p className="text-sm text-muted-foreground">
-              There are no courses available at the moment.
+              There are no published marketplace courses available at the moment.
             </p>
           </div>
         )}
       </div>
-
-      {/* Register Course Dialog */}
-      <RegisterCourseDialog
-        open={registerDialogOpen}
-        onOpenChange={setRegisterDialogOpen}
-        course={selectedCourse}
-        onRegister={handleRegister}
-      />
 
       {/* Purchase Course Dialog */}
       <PurchaseCourseDialog
@@ -552,13 +378,6 @@ const AllCoursesPage = () => {
         onPurchaseSuccess={handlePurchaseSuccess}
       />
 
-      {/* Multiple Course Registration Dialog */}
-      <MultipleCourseRegistrationDialog
-        open={multipleRegisterDialogOpen}
-        onOpenChange={setMultipleRegisterDialogOpen}
-        selectedCourses={selectedCourses}
-        onRegistrationSuccess={handleMultipleRegistrationSuccess}
-      />
     </div>
   );
 };

@@ -62,7 +62,6 @@ const AllCoursesPage = () => {
   const [multipleRegisterDialogOpen, setMultipleRegisterDialogOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [selectedCourseIds, setSelectedCourseIds] = useState<number[]>([]);
-  const [walletBalance, setWalletBalance] = useState<number>(0);
   const [currency, setCurrency] = useState<string>("NGN");
 
   // Filter courses based on search query
@@ -130,23 +129,22 @@ const AllCoursesPage = () => {
 
   useEffect(() => {
     fetchCourses();
-    fetchWalletBalance();
+    fetchCurrency();
   }, [levelFilter, programFilter, facultyFilter]);
 
-  // Fetch wallet balance
-  const fetchWalletBalance = async () => {
+  // Fetch currency from user profile
+  const fetchCurrency = async () => {
     try {
       const response = await api.getUserProfile();
       const profileData = response as any;
       if (profileData?.data?.success || profileData?.data?.status) {
         const userData = profileData?.data?.data?.user;
-        if (userData) {
-          setWalletBalance(parseFloat(userData.wallet_balance) || 0);
+        if (userData?.currency) {
           setCurrency(userData.currency || "NGN");
         }
       }
     } catch (error) {
-      console.error("Error fetching wallet balance:", error);
+      console.error("Error fetching currency:", error);
     }
   };
 

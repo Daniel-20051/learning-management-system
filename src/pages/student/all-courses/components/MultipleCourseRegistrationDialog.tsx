@@ -11,7 +11,6 @@ import { Button } from "@/Components/ui/button";
 import { Badge } from "@/Components/ui/badge";
 import { Loader2, ShoppingCart, AlertCircle, CheckCircle2, DollarSign } from "lucide-react";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
 import { Api } from "@/api/index";
 import {
   Select,
@@ -46,7 +45,6 @@ const MultipleCourseRegistrationDialog = ({
   selectedCourses,
   onRegistrationSuccess,
 }: MultipleCourseRegistrationDialogProps) => {
-  const navigate = useNavigate();
   const api = new Api();
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedSession, setSelectedSession] = useState<string>("");

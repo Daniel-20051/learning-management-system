@@ -175,7 +175,7 @@ const AllCoursesPage = () => {
   const handleMultipleRegistrationSuccess = async () => {
     setSelectedCourseIds([]);
     await fetchCourses();
-    await fetchWalletBalance();
+    await fetchCurrency();
   };
 
   // Open the registration dialog

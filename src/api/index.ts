@@ -8,10 +8,11 @@ import { StudentsApi, GetStudents } from './students';
 import { ChatApi, GetChatThreads } from './chat';
 import { VideoApi, CreateVideoCall, GetVideoCalls, DeleteVideoCall } from './video';
 import { NoticesApi, GetNotices } from './notices';
+import { MarketplaceApi, PurchaseCourse } from './marketplace';
 
 // Re-export all API classes and functions
-export { AuthApi, CoursesApi, NotesApi, QuizApi, ExamsApi, StudentsApi, ChatApi, VideoApi, NoticesApi };
-export { GetNotices };
+export { AuthApi, CoursesApi, NotesApi, QuizApi, ExamsApi, StudentsApi, ChatApi, VideoApi, NoticesApi, MarketplaceApi };
+export { GetNotices, PurchaseCourse };
 export { GetStaffCourses, GetStaffCoursesbyId, GetCourseModules, AddModule, DeleteModule, AddUnit, getUnits, EditUnit, DeleteUnit, UploadUnitVideo, UnregisterFromCourse, GetCourseParticipants, GetAllocatedCourses, RegisterAllocatedCourses };
 export { GetModuleNotes, CreateModuleNotes, EditModuleNotes, DeleteModuleNotes };
 export { CreateQuiz, GetQuiz, GetQuizById, AddQuizQuestions, DeleteQuiz, UpdateQuiz, UpdateQuizQuestions, StartQuizAttempt, SaveQuizAnswers, SubmitQuizAttempt, GetQuizStats, GetMyLatestAttempt };
@@ -30,6 +31,7 @@ export class Api extends AuthApi {
   chat = new ChatApi();
   video = new VideoApi();
   notices = new NoticesApi();
+  marketplace = new MarketplaceApi();
 
   // Re-export course methods for backward compatibility
   async GetCourses(session: string, semester: string) {
@@ -81,10 +83,11 @@ export class Api extends AuthApi {
   }
 
   async RegisterCourse(data: {
-    course_id: number;
+    course_id?: number;
+    course_ids?: number[];
     academic_year: string;
     semester: string;
-    level: string;
+    level?: string;
   }) {
     return this.courses.RegisterCourse(data);
   }
@@ -334,6 +337,11 @@ export class Api extends AuthApi {
   // Re-export notices methods for backward compatibility
   async GetNotices() {
     return this.notices.GetNotices();
+  }
+
+  // Re-export marketplace methods for backward compatibility
+  async PurchaseCourse(payload: { course_id: number; payment_reference: string; payment_method: string }) {
+    return this.marketplace.PurchaseCourse(payload);
   }
 
   // Add user profile method

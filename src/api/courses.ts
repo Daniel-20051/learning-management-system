@@ -216,10 +216,11 @@ export class CoursesApi {
   }
 
   async RegisterCourse(data: {
-    course_id: number;
+    course_id?: number;
+    course_ids?: number[];
     academic_year: string;
     semester: string;
-    level: string;
+    level?: string;
   }) {
     try {
       const response = await axios.post(

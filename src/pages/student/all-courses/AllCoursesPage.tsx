@@ -47,7 +47,6 @@ const AllCoursesPage = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [levelFilter, setLevelFilter] = useState<string>("");
-  const [programFilter, setProgramFilter] = useState<string>("");
   const [facultyFilter, setFacultyFilter] = useState<string>("");
   
   // Dialog state
@@ -95,9 +94,8 @@ const AllCoursesPage = () => {
   const fetchCourses = async () => {
     setIsLoading(true);
     try {
-      const params: { level?: string; program_id?: string; faculty_id?: string } = {};
+      const params: { level?: string; faculty_id?: string } = {};
       if (levelFilter && levelFilter !== "all") params.level = levelFilter;
-      if (programFilter && programFilter !== "all") params.program_id = programFilter;
       if (facultyFilter && facultyFilter !== "all") params.faculty_id = facultyFilter;
 
       const response = await api.GetAvailableCourses(Object.keys(params).length > 0 ? params : undefined);
@@ -119,7 +117,7 @@ const AllCoursesPage = () => {
   useEffect(() => {
     fetchCourses();
     fetchCurrency();
-  }, [levelFilter, programFilter, facultyFilter]);
+  }, [levelFilter, facultyFilter]);
 
   // Fetch currency from user profile
   const fetchCurrency = async () => {
@@ -263,26 +261,12 @@ const AllCoursesPage = () => {
                 ))}
               </SelectContent>
             </Select>
-            <Select value={programFilter || "all"} onValueChange={(value) => setProgramFilter(value === "all" ? "" : value)}>
-              <SelectTrigger className="w-[180px] h-9">
-                <SelectValue placeholder="All Programs" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Programs</SelectItem>
-                <SelectItem value="1">Computer Science</SelectItem>
-                <SelectItem value="2">Information Technology</SelectItem>
-                <SelectItem value="3">Software Engineering</SelectItem>
-                <SelectItem value="4">Data Science</SelectItem>
-                <SelectItem value="5">Cybersecurity</SelectItem>
-              </SelectContent>
-            </Select>
-            {(levelFilter || programFilter || facultyFilter) && (
+            {(levelFilter || facultyFilter) && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
                   setLevelFilter("");
-                  setProgramFilter("");
                   setFacultyFilter("");
                 }}
                 className="h-9"

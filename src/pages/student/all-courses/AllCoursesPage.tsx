@@ -13,7 +13,6 @@ import { Input } from "@/Components/ui/input";
 import { Button } from "@/Components/ui/button";
 import { BookOpen, Search, Filter } from "lucide-react";
 import { Skeleton } from "@/Components/ui/skeleton";
-import { toast } from "sonner";
 import {
   Select,
   SelectContent,
@@ -164,7 +163,7 @@ const AllCoursesPage = () => {
     // All courses on this page are marketplace courses, so they all require purchase
 
     return (
-      <Card className={`overflow-hidden h-full flex flex-col ${isSelected ? "ring-2 ring-primary" : ""}`}>
+      <Card className="overflow-hidden h-full flex flex-col">
         {/* Header gradient with badges */}
         <div className="w-full h-20 bg-gradient-to-br from-slate-700 via-slate-600 to-slate-800 relative">
           <div className="absolute top-2.5 left-2.5">

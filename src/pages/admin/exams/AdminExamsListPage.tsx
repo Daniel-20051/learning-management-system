@@ -35,8 +35,10 @@ const AdminExamsListPage = () => {
           );
           setAvailableSessions(uniqueYears as string[]);
 
-          // Find active session or default to first
-          const active = items.find((it: any) => it.status === "Active");
+          // Find active session (case-insensitive check) or default to first
+          const active = items.find((it: any) => 
+            it.status && String(it.status).toLowerCase() === "active"
+          );
           const defaultSession = active?.academic_year || uniqueYears[0];
           
           if (defaultSession) {

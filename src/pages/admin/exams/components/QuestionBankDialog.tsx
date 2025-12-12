@@ -42,21 +42,31 @@ const QuestionBankDialog = ({
       try {
         const response = await api.GetBankQuestions(courseId);
         
-        const data = (response as any)?.data?.data ?? (response as any)?.data ?? [];
+        const responseData = (response as any)?.data;
+        const questionsData = responseData?.data ?? responseData ?? [];
+        
+        // Handle both array and single object responses
+        let questionsArray: any[] = [];
+        if (Array.isArray(questionsData)) {
+          questionsArray = questionsData;
+        } else if (questionsData && typeof questionsData === 'object' && questionsData.id) {
+          // Single question object - wrap it in an array
+          questionsArray = [questionsData];
+        }
         
         // Filter based on exam type
-        let filteredQuestions = data;
+        let filteredQuestions = questionsArray;
         if (examType === "objective-only") {
-          filteredQuestions = data.filter((q: any) => 
-            q.question_type === "multiple_choice" || q.question_type === "true_false"
+          filteredQuestions = questionsArray.filter((q: any) => 
+            q.question_type === "multiple_choice" || q.question_type === "true_false" || q.question_type === "objective"
           );
         } else if (examType === "theory-only") {
-          filteredQuestions = data.filter((q: any) => 
-            q.question_type === "essay" || q.question_type === "short_answer"
+          filteredQuestions = questionsArray.filter((q: any) => 
+            q.question_type === "essay" || q.question_type === "short_answer" || q.question_type === "theory"
           );
         }
         
-        setQuestions(Array.isArray(filteredQuestions) ? filteredQuestions : []);
+        setQuestions(filteredQuestions);
       } catch (err) {
         console.error("Error loading bank questions:", err);
         toast.error("Failed to load questions from bank");

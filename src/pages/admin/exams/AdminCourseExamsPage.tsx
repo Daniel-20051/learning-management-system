@@ -118,8 +118,10 @@ const AdminCourseExamsPage = () => {
           );
           setAcademicYears(uniqueYears as string[]);
           
-          // Find active session or default to first
-          const active = items.find((it: any) => it.status === "Active");
+          // Find active session (case-insensitive check) or default to first
+          const active = items.find((it: any) => 
+            it.status && String(it.status).toLowerCase() === "active"
+          );
           const defaultYear = active?.academic_year || uniqueYears[0];
           const defaultSemester = active?.semester || items[0]?.semester;
           
@@ -275,7 +277,9 @@ const AdminCourseExamsPage = () => {
         }
         
         // Reset form and close dialog
-        const active = sessions.find((it: any) => it.status === "Active");
+        const active = sessions.find((it: any) => 
+          it.status && String(it.status).toLowerCase() === "active"
+        );
         const defaultYear = active?.academic_year || academicYears[0] || "";
         const defaultSemester = active?.semester || "";
         

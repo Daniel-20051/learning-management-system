@@ -246,8 +246,8 @@ export class Api extends AuthApi {
     return this.exams.GetExamById(examId);
   }
 
-  async GetBankQuestions(courseId: number) {
-    return this.exams.GetBankQuestions(courseId);
+  async GetBankQuestions(courseId: number, page: number = 1, limit: number = 20) {
+    return this.exams.GetBankQuestions(courseId, page, limit);
   }
 
   async AddObjectiveQuestion(data: {

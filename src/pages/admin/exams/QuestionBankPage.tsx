@@ -49,9 +49,7 @@ const QuestionBankPage = () => {
     const loadQuestions = async () => {
       setLoading(true);
       try {
-        const response = await api.GetBankQuestions(Number(courseId));
-        
-        console.log("Full API response:", response);
+        const response = await api.GetBankQuestions(Number(courseId), currentPage, pagination.limit);
         
         // Check if response is an error (handleApiError returns the error object)
         if (response && (response as any).response && !(response as any).data) {
@@ -60,64 +58,43 @@ const QuestionBankPage = () => {
         }
         
         const responseData = (response as any)?.data;
-        console.log("Response data:", responseData);
         
-        // Handle different response structures
-        // API returns: { status: true, code: 200, message: "...", data: {...} }
-        // So response.data = { status, code, message, data }
-        // And response.data.data = the actual question(s)
-        let questionsData = null;
+        // API returns: { status: true, code: 200, message: "...", data: [...], pagination: {...} }
+        // So response.data = { status, code, message, data, pagination }
+        // And response.data.data = the array of questions
+        const questionsData = responseData?.data;
         
-        // Try to get questions from nested data property first
-        if (responseData?.data !== undefined && responseData?.data !== null) {
-          questionsData = responseData.data;
-        } else if (responseData) {
-          // Fallback: response data might be the questions directly
-          questionsData = responseData;
-        }
-        
-        console.log("Questions data extracted:", questionsData, "Type:", typeof questionsData, "IsArray:", Array.isArray(questionsData));
-        
-        // Handle both array and single object responses
+        // Handle questions array
         let questionsArray: any[] = [];
         if (Array.isArray(questionsData)) {
           questionsArray = questionsData;
-        } else if (questionsData && typeof questionsData === 'object') {
-          // Check if it's a question object
-          // A question should have an id and either question_type or objective/theory nested object
-          const hasId = questionsData.id !== undefined && questionsData.id !== null;
-          const hasQuestionType = questionsData.question_type !== undefined;
-          const hasObjective = questionsData.objective !== undefined;
-          const hasTheory = questionsData.theory !== undefined;
-          
-          if (hasId && (hasQuestionType || hasObjective || hasTheory)) {
-            questionsArray = [questionsData];
-            console.log("Wrapped single question object in array");
-          } else {
-            console.log("Object doesn't look like a question:", { hasId, hasQuestionType, hasObjective, hasTheory });
-          }
+        } else if (questionsData && typeof questionsData === 'object' && questionsData.id) {
+          // Single question object - wrap it in array
+          questionsArray = [questionsData];
         }
         
-        console.log("Final questions array:", questionsArray, "Length:", questionsArray.length);
         setQuestions(questionsArray);
         
         // Handle pagination
         const paginationData = responseData?.pagination;
         if (paginationData) {
           setPagination({
-            total: paginationData.total || questionsArray.length,
-            page: paginationData.page || 1,
+            total: paginationData.total || 0,
+            page: paginationData.page || currentPage,
             limit: paginationData.limit || 20,
             totalPages: paginationData.totalPages || 1,
             hasNextPage: paginationData.hasNextPage || false,
             hasPreviousPage: paginationData.hasPreviousPage || false
           });
         } else {
-          // If no pagination data, set total based on questions array length
+          // If no pagination data, set based on questions array length
           setPagination(prev => ({
             ...prev,
             total: questionsArray.length,
-            totalPages: questionsArray.length > 0 ? 1 : 0
+            page: currentPage,
+            totalPages: questionsArray.length > 0 ? 1 : 0,
+            hasNextPage: false,
+            hasPreviousPage: false
           }));
         }
       } catch (err: any) {

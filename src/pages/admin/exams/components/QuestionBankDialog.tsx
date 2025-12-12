@@ -40,12 +40,14 @@ const QuestionBankDialog = ({
     const loadQuestions = async () => {
       setLoading(true);
       try {
-        const response = await api.GetBankQuestions(courseId);
+        // Load all questions for dialog (no pagination, use a high limit)
+        const response = await api.GetBankQuestions(courseId, 1, 1000);
         
         const responseData = (response as any)?.data;
-        const questionsData = responseData?.data ?? responseData ?? [];
+        // API returns: { status: true, code: 200, message: "...", data: [...], pagination: {...} }
+        const questionsData = responseData?.data ?? [];
         
-        // Handle both array and single object responses
+        // Handle questions array
         let questionsArray: any[] = [];
         if (Array.isArray(questionsData)) {
           questionsArray = questionsData;

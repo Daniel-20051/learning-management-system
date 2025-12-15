@@ -78,10 +78,18 @@ export class Api extends AuthApi {
     return this.courses.UploadUnitVideo(moduleId, unitId, videoFile, onProgress);
   }
 
+  /**
+   * Get available courses - primarily for marketplace courses.
+   * Note: Students can no longer browse all WPU courses. Use GetAllocatedCourses() instead.
+   */
   async GetAvailableCourses(params?: { level?: string; program_id?: string; faculty_id?: string }) {
     return this.courses.GetAvailableCourses(params);
   }
 
+  /**
+   * @deprecated Direct course registration is no longer available.
+   * Use RegisterAllocatedCourses() instead to register for allocated courses.
+   */
   async RegisterCourse(data: {
     course_id?: number;
     course_ids?: number[];
@@ -92,6 +100,9 @@ export class Api extends AuthApi {
     return this.courses.RegisterCourse(data);
   }
 
+  /**
+   * @deprecated Course unregistration is no longer available.
+   */
   async UnregisterFromCourse(registrationId: string) {
     return this.courses.UnregisterFromCourse(registrationId);
   }
@@ -105,10 +116,18 @@ export class Api extends AuthApi {
     return this.courses.GetCourseParticipants(courseId, params);
   }
 
+  /**
+   * Get allocated courses for the current active semester.
+   * This is the primary endpoint for students to view courses allocated to them.
+   */
   async GetAllocatedCourses() {
     return this.courses.GetAllocatedCourses();
   }
 
+  /**
+   * Register for all allocated courses in the current active semester.
+   * The registration fee will be deducted from the student's wallet.
+   */
   async RegisterAllocatedCourses() {
     return this.courses.RegisterAllocatedCourses();
   }

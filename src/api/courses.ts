@@ -193,6 +193,12 @@ export class CoursesApi {
     }
   }
 
+  /**
+   * Get available courses - primarily for marketplace courses.
+   * 
+   * Note: Students can no longer browse all WPU courses. They should use GetAllocatedCourses()
+   * to view courses allocated to them. This endpoint is kept for marketplace course browsing.
+   */
   async GetAvailableCourses(params?: { level?: string; program_id?: string; faculty_id?: string }) {
     try {
       const queryParams = new URLSearchParams();
@@ -215,43 +221,35 @@ export class CoursesApi {
     }
   }
 
-  async RegisterCourse(data: {
+  /**
+   * @deprecated This endpoint has been removed. Students can no longer directly register for courses.
+   * Use RegisterAllocatedCourses() instead to register for allocated courses.
+   * 
+   * This method will throw an error to prevent usage.
+   */
+  async RegisterCourse(_data: {
     course_id?: number;
     course_ids?: number[];
     academic_year: string;
     semester: string;
     level?: string;
   }) {
-    try {
-      const response = await axios.post(
-        `${BASE_URL}/api/courses/register`,
-        data,
-        {
-          headers: getAuthHeaders()
-        }
-      );
-      
-      return response;
-
-    } catch (err: any) {
-      return handleApiError(err, "registering for course");
-    }
+    throw new Error(
+      "Direct course registration is no longer available. " +
+      "Please use the allocated courses registration page to register for your allocated courses."
+    );
   }
 
-  async UnregisterFromCourse(registrationId: string) {
-    try {
-      const response = await axios.delete(
-        `${BASE_URL}/api/courses/register/${registrationId}`,
-        {
-          headers: getAuthHeaders()
-        }
-      );
-      
-      return response;
-
-    } catch (err: any) {
-      return handleApiError(err, "unregistering from course");
-    }
+  /**
+   * @deprecated This endpoint has been removed. Students can no longer unregister from courses.
+   * 
+   * This method will throw an error to prevent usage.
+   */
+  async UnregisterFromCourse(_registrationId: string) {
+    throw new Error(
+      "Course unregistration is no longer available. " +
+      "Please contact your administrator if you need to make changes to your course registration."
+    );
   }
 
   async GetCourseParticipants(courseId: string, params?: {
@@ -282,7 +280,14 @@ export class CoursesApi {
     }
   }
 
-  // Get allocated courses for current semester
+  /**
+   * Get allocated courses for the current active semester.
+   * 
+   * This is the primary endpoint for students to view courses that have been
+   * automatically allocated to them based on their program, level, and semester.
+   * 
+   * @returns Response containing semester info, allocated courses, total amount, and registration status
+   */
   async GetAllocatedCourses() {
     try {
       const response = await axios.get(`${BASE_URL}/api/courses/allocated`, {
@@ -296,7 +301,14 @@ export class CoursesApi {
     }
   }
 
-  // Register for all allocated courses
+  /**
+   * Register for all allocated courses in the current active semester.
+   * 
+   * This endpoint allows students to register for all courses that have been
+   * allocated to them. The registration fee will be deducted from the student's wallet.
+   * 
+   * @returns Response containing order details, payment information, and registered courses
+   */
   async RegisterAllocatedCourses() {
     try {
       const response = await axios.post(
@@ -371,6 +383,10 @@ export async function GetAvailableCourses(params?: { level?: string; program_id?
   return api.GetAvailableCourses(params);
 }
 
+/**
+ * @deprecated Direct course registration is no longer available.
+ * Use RegisterAllocatedCourses() instead.
+ */
 export async function RegisterCourse(data: {
   course_id: number;
   academic_year: string;
@@ -381,6 +397,9 @@ export async function RegisterCourse(data: {
   return api.RegisterCourse(data);
 }
 
+/**
+ * @deprecated Course unregistration is no longer available.
+ */
 export async function UnregisterFromCourse(registrationId: string) {
   const api = new CoursesApi();
   return api.UnregisterFromCourse(registrationId);

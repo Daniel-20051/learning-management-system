@@ -43,7 +43,7 @@ const MultipleCourseRegistrationDialog = ({
   open,
   onOpenChange,
   selectedCourses,
-  onRegistrationSuccess,
+  onRegistrationSuccess: _onRegistrationSuccess,
 }: MultipleCourseRegistrationDialogProps) => {
   const api = new Api();
   const [isProcessing, setIsProcessing] = useState(false);
@@ -153,53 +153,19 @@ const MultipleCourseRegistrationDialog = ({
 
     setIsProcessing(true);
     try {
-      const courseIds = selectedCourses.map((c) => c.id);
-      const level = selectedCourses[0]?.course_level || "100";
-
-      const response = await api.RegisterCourse({
-        course_ids: courseIds,
-        academic_year: selectedSession,
-        semester: selectedSemester,
-        level: String(level),
-      });
-
-      // Handle both response formats
-      const responseData = response.data || response;
-      const isSuccess = responseData?.status || responseData?.success;
-
-      if (isSuccess) {
-        const message = responseData?.message || `Successfully registered for ${courseIds.length} course(s)`;
-        toast.success(message);
-
-        // Show payment details if payment was made
-        if (responseData?.data?.payment) {
-          const payment = responseData.data.payment;
-          toast.info(
-            `Payment: ${formatCurrency(payment.amount_paid, currency)} | New Balance: ${formatCurrency(payment.new_balance, currency)}`,
-            { duration: 5000 }
-          );
-        }
-
-        // Show note if available
-        if (responseData?.data?.note) {
-          toast.info(responseData.data.note, { duration: 4000 });
-        }
-
-        if (onRegistrationSuccess) {
-          onRegistrationSuccess();
-        }
-
-        // Close dialog and refresh
-        onOpenChange(false);
-      } else {
-        throw new Error(responseData?.message || "Registration failed");
-      }
+      // Direct course registration is no longer available
+      // Students must register through the allocated courses page
+      toast.error(
+        "Direct course registration is no longer available. " +
+        "Please use the Course Registration page to register for your allocated courses."
+      );
+      onOpenChange(false);
     } catch (error: any) {
-      console.error("Error registering for courses:", error);
+      console.error("Error:", error);
       const errorMessage =
         error.response?.data?.message ||
         error.message ||
-        "An error occurred while registering for courses";
+        "An error occurred";
       toast.error(errorMessage);
     } finally {
       setIsProcessing(false);

@@ -28,7 +28,7 @@ import {
   AlertDialogTitle,
 } from "@/Components/ui/alert-dialog";
 import { MoreVertical, Users, UserMinus, Loader2, GraduationCap } from "lucide-react";
-import { Api } from "@/api";
+import { toast } from "sonner";
 import ParticipantsDialog from "./ParticipantsDialog";
 
 interface Instructor {
@@ -69,14 +69,13 @@ const CourseCards = ({
   actionLabel,
   registrationId,
   instructor,
-  onUnregister,
+  onUnregister: _onUnregister,
 }: CourseCardsProps) => {
   const navigate = useNavigate();
   const { selectedSession, selectedSemester } = useSession();
   const [participantsDialogOpen, setParticipantsDialogOpen] = useState(false);
   const [unregisterDialogOpen, setUnregisterDialogOpen] = useState(false);
   const [isUnregistering, setIsUnregistering] = useState(false);
-  const api = new Api();
 
   const typeLabel =
     courseType === "C"
@@ -103,13 +102,15 @@ const CourseCards = ({
     
     setIsUnregistering(true);
     try {
-      const response = await api.UnregisterFromCourse(String(registrationId));
-      if (response.data) {
-        setUnregisterDialogOpen(false);
-        onUnregister?.();
-      }
+      // Course unregistration is no longer available
+      toast.error(
+        "Course unregistration is no longer available. " +
+        "Please contact your administrator if you need to make changes to your course registration."
+      );
+      setUnregisterDialogOpen(false);
     } catch (error) {
       console.error("Error unregistering from course:", error);
+      toast.error("Unable to unregister from course. Please contact your administrator.");
     } finally {
       setIsUnregistering(false);
     }

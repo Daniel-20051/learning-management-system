@@ -5,6 +5,7 @@ import EmptyCoursesState from "./components/EmptyCoursesState";
 import SessionSemesterDialog from "../../../Components/SessionSemesterDialog";
 import NoticeSlider from "./components/NoticeSlider";
 import NoticeDetailsDialog from "./components/NoticeDetailsDialog";
+import UnpaidCoursesAlert from "./components/UnpaidCoursesAlert";
 import { Api } from "../../../api/index";
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/Components/ui/card";
@@ -14,9 +15,11 @@ import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
 import { BookOpen, CheckCircle2, Clock, Search } from "lucide-react";
 import type { Notice } from "@/api/notices";
+import { useNavigate } from "react-router-dom";
 
 const Home = () => {
   const api = new Api();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const { selectedSession, selectedSemester, setSessionAndSemester } =
     useSession();
@@ -27,6 +30,7 @@ const Home = () => {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [selectedNotice, setSelectedNotice] = useState<Notice | null>(null);
   const [isNoticeDialogOpen, setIsNoticeDialogOpen] = useState(false);
+  const [showUnpaidAlert, setShowUnpaidAlert] = useState(true);
 
   // Derive first name from authenticated user
   const userFirstName = useMemo(() => {
@@ -35,12 +39,33 @@ const Home = () => {
     return fullName.split(" ")[0];
   }, [user?.name]);
 
-  // Filter courses based on search query
+  // Separate paid and unpaid courses
+  // Only show courses where paid === true (strict check)
+  const { paidCourses, unpaidCourses } = useMemo(() => {
+    const paid: any[] = [];
+    const unpaid: any[] = [];
+    
+    courses.forEach((course) => {
+      // Strict check: only true (boolean or string "true") is considered paid
+      const paidValue = course.paid;
+      const isPaid = paidValue === true || paidValue === "true" || String(paidValue).toLowerCase() === "true";
+      
+      if (isPaid) {
+        paid.push(course);
+      } else {
+        unpaid.push(course);
+      }
+    });
+    
+    return { paidCourses: paid, unpaidCourses: unpaid };
+  }, [courses]);
+
+  // Filter paid courses based on search query
   const filteredCourses = useMemo(() => {
-    if (!searchQuery.trim()) return courses;
+    if (!searchQuery.trim()) return paidCourses;
 
     const query = searchQuery.toLowerCase().trim();
-    return courses.filter((course) => {
+    return paidCourses.filter((course) => {
       const courseCode =
         typeof course.course_code === "string"
           ? course.course_code.toLowerCase()
@@ -58,10 +83,10 @@ const Home = () => {
         courseLevel.includes(query)
       );
     });
-  }, [courses, searchQuery]);
+  }, [paidCourses, searchQuery]);
 
   // Basic stat placeholders to match the dashboard vibe
-  const totalCourses = courses.length || 0;
+  const totalCourses = paidCourses.length || 0;
   const completedCourses = 0;
   const inProgressCourses = Math.max(totalCourses - completedCourses, 0);
 
@@ -100,7 +125,13 @@ const Home = () => {
             selectedSemester
           );
           if (response.data) {
-            setCourses(response.data.data);
+            const coursesData = response.data.data || response.data;
+            // Ensure we have an array
+            if (Array.isArray(coursesData)) {
+              setCourses(coursesData);
+            } else {
+              setCourses([]);
+            }
           }
         } catch (error) {
           console.error("Error fetching courses:", error);
@@ -195,6 +226,15 @@ const Home = () => {
             </CardContent>
           </Card>
         </div>
+
+        {/* Unpaid Courses Alert */}
+        {unpaidCourses.length > 0 && showUnpaidAlert && (
+          <UnpaidCoursesAlert
+            count={unpaidCourses.length}
+            onDismiss={() => setShowUnpaidAlert(false)}
+            onCompleteRegistration={() => navigate('/allocated-courses')}
+          />
+        )}
 
         {/* My Courses Header + Filters */}
         <div className="flex flex-col gap-3 md:gap-4">

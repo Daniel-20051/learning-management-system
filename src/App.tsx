@@ -35,6 +35,7 @@ import { useEffect } from "react";
 import StudentProfilePage from "./pages/student/profile/ProfilePage";
 import AllCoursesPage from "./pages/student/all-courses/AllCoursesPage";
 import AllocatedCoursesPage from "./pages/student/allocated-courses/AllocatedCoursesPage";
+import WalletPage from "./pages/student/wallet/WalletPage";
 import StaffProfilePage from "./pages/admin/profile/StaffProfilePage";
 
 function AdminPortalRedirect({ targetUrl }: { targetUrl?: string }) {
@@ -203,6 +204,16 @@ function App() {
                   element={
                     isLoggedIn ? (
                       <AllocatedCoursesPage />
+                    ) : (
+                      <Navigate to="/" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/wallet"
+                  element={
+                    isLoggedIn ? (
+                      <WalletPage />
                     ) : (
                       <Navigate to="/" replace />
                     )

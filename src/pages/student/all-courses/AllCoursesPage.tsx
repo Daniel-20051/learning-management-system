@@ -1,6 +1,7 @@
 import Navbar from "@/Components/navbar";
 import { Api } from "@/api/index";
 import { useEffect, useState, useMemo } from "react";
+import type { MarketplaceTutor, MarketplaceProgram } from "@/api/marketplace";
 import {
   Card,
   CardContent,
@@ -22,6 +23,13 @@ import {
 } from "@/Components/ui/select";
 import PurchaseCourseDialog from "./components/PurchaseCourseDialog";
 
+interface Instructor {
+  id: number;
+  name: string;
+  email?: string;
+  [key: string]: any;
+}
+
 interface Course {
   id: number;
   title: string;
@@ -34,11 +42,24 @@ interface Course {
   currency?: string;
   exam_fee: number | null;
   staff_id: number;
+  owner_id: number;
   owner_type: string;
   is_marketplace: boolean;
   marketplace_status: string | null;
+  is_owned?: boolean;
   requires_purchase: boolean;
   purchase_endpoint?: string;
+  instructor?: Instructor;
+}
+
+interface PaginationMeta {
+  total: number;
+  page: number;
+  limit: number;
+  totalPages: number;
+  hasNextPage: boolean;
+  hasPrevPage: boolean;
+  filters: Record<string, any>;
 }
 
 const AllCoursesPage = () => {
@@ -47,42 +68,34 @@ const AllCoursesPage = () => {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [levelFilter, setLevelFilter] = useState<string>("");
-  const [facultyFilter, setFacultyFilter] = useState<string>("");
+  const [programFilter, setProgramFilter] = useState<string>("");
+  const [ownerFilter, setOwnerFilter] = useState<string>(""); // Format: "owner_id:owner_type" or "wpu" for WPU
+  const [tutors, setTutors] = useState<MarketplaceTutor[]>([]);
+  const [isLoadingTutors, setIsLoadingTutors] = useState<boolean>(false);
+  const [programs, setPrograms] = useState<MarketplaceProgram[]>([]);
+  const [isLoadingPrograms, setIsLoadingPrograms] = useState<boolean>(false);
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [paginationMeta, setPaginationMeta] = useState<PaginationMeta | null>(null);
+  const pageLimit = 20;
   
   // Dialog state
   const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
   const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
   const [currency, setCurrency] = useState<string>("NGN");
 
-  // Filter courses based on search query
-  const filteredCourses = useMemo(() => {
-    if (!searchQuery.trim()) return courses;
-
-    const query = searchQuery.toLowerCase().trim();
-    return courses.filter((course) => {
-      const courseCode = course.course_code.toLowerCase();
-      const courseTitle = course.title.toLowerCase();
-      const courseLevel = String(course.course_level);
-
-      return (
-        courseCode.includes(query) ||
-        courseTitle.includes(query) ||
-        courseLevel.includes(query)
-      );
-    });
-  }, [courses, searchQuery]);
-
   // Group courses by level
   const coursesByLevel = useMemo(() => {
     const grouped: { [key: number]: Course[] } = {};
-    filteredCourses.forEach((course) => {
+    courses.forEach((course) => {
       if (!grouped[course.course_level]) {
         grouped[course.course_level] = [];
       }
       grouped[course.course_level].push(course);
     });
     return grouped;
-  }, [filteredCourses]);
+  }, [courses]);
 
   const sortedLevels = useMemo(() => {
     return Object.keys(coursesByLevel)
@@ -90,34 +103,112 @@ const AllCoursesPage = () => {
       .sort((a, b) => a - b);
   }, [coursesByLevel]);
 
-
   const fetchCourses = async () => {
     setIsLoading(true);
     try {
-      const params: { level?: string; faculty_id?: string } = {};
-      if (levelFilter && levelFilter !== "all") params.level = levelFilter;
-      if (facultyFilter && facultyFilter !== "all") params.faculty_id = facultyFilter;
+      const params: {
+        level?: string;
+        program_id?: string;
+        owner_id?: number | null;
+        owner_type?: "sole_tutor" | "organization" | "wpu";
+        search?: string;
+        page?: number;
+        limit?: number;
+      } = {
+        page: currentPage,
+        limit: pageLimit,
+      };
 
-      const response = await api.GetAvailableCourses(Object.keys(params).length > 0 ? params : undefined);
+      if (levelFilter && levelFilter !== "all") params.level = levelFilter;
+      if (programFilter && programFilter !== "all") params.program_id = programFilter;
+      
+      // Parse owner filter: format is "owner_id:owner_type" or "wpu"
+      if (ownerFilter && ownerFilter !== "all") {
+        if (ownerFilter === "wpu") {
+          params.owner_type = "wpu";
+          params.owner_id = null;
+        } else {
+          const [ownerId, ownerType] = ownerFilter.split(":");
+          if (ownerId && ownerType) {
+            params.owner_id = parseInt(ownerId);
+            params.owner_type = ownerType as "sole_tutor" | "organization";
+          }
+        }
+      }
+      
+      if (debouncedSearchQuery.trim()) params.search = debouncedSearchQuery.trim();
+
+      const response = await api.marketplace.GetMarketplaceCourses(params);
       if (response.data && response.data.data) {
-        // Filter to show only marketplace courses that are published
-        const marketplaceCourses = response.data.data.filter((course: Course) => 
-          course.is_marketplace === true && 
-          course.marketplace_status?.toLowerCase() === "published"
-        );
-        setCourses(marketplaceCourses);
+        setCourses(response.data.data);
+        if (response.data.meta) {
+          setPaginationMeta(response.data.meta);
+        }
+      } else {
+        setCourses([]);
+        setPaginationMeta(null);
       }
     } catch (error) {
-      console.error("Error fetching available courses:", error);
+      console.error("Error fetching marketplace courses:", error);
+      setCourses([]);
+      setPaginationMeta(null);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const fetchTutors = async () => {
+    setIsLoadingTutors(true);
+    try {
+      const response = await api.marketplace.GetMarketplaceTutors();
+      if (response.data && response.data.data) {
+        setTutors(response.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching marketplace tutors:", error);
+    } finally {
+      setIsLoadingTutors(false);
+    }
+  };
+
+  const fetchPrograms = async () => {
+    setIsLoadingPrograms(true);
+    try {
+      const response = await api.marketplace.GetMarketplacePrograms();
+      if (response.data && response.data.data) {
+        setPrograms(response.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching marketplace programs:", error);
+    } finally {
+      setIsLoadingPrograms(false);
+    }
+  };
+
+  // Debounce search query to avoid too many API calls
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState<string>("");
+
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+      // Reset to first page when search changes
+      if (currentPage !== 1) {
+        setCurrentPage(1);
+      }
+    }, 500);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
   useEffect(() => {
     fetchCourses();
+  }, [levelFilter, programFilter, ownerFilter, currentPage, debouncedSearchQuery]);
+
+  useEffect(() => {
     fetchCurrency();
-  }, [levelFilter, facultyFilter]);
+    fetchTutors();
+    fetchPrograms();
+  }, []);
 
   // Fetch currency from user profile
   const fetchCurrency = async () => {
@@ -148,17 +239,15 @@ const AllCoursesPage = () => {
     setPurchaseDialogOpen(false);
   };
 
-  // Get unique levels from all courses for filter dropdown
-  const availableLevels = useMemo(() => {
-    const levels = Array.from(new Set(courses.map(c => c.course_level))).sort((a, b) => a - b);
-    return levels;
-  }, [courses]);
+  // Common course levels for filter
+  const availableLevels = [100, 200, 300, 400, 500, 600];
 
   
 
   // Course Card Component
   const CourseCard = ({ course }: { course: Course }) => {
-    // All courses on this page are marketplace courses, so they all require purchase
+    const isOwned = course.is_owned === true;
+    const displayCurrency = course.currency || currency;
 
     return (
       <Card className="overflow-hidden h-full flex flex-col">
@@ -172,7 +261,12 @@ const AllCoursesPage = () => {
               {course.course_code}
             </Badge>
           </div>
-          <div className="absolute top-2.5 right-2.5">
+          <div className="absolute top-2.5 right-2.5 flex gap-1">
+            {isOwned && (
+              <Badge className="bg-green-600 text-white text-xs px-2 py-0.5">
+                Owned
+              </Badge>
+            )}
             <Badge className="bg-blue-600 text-white text-xs px-2 py-0.5">
               Marketplace
             </Badge>
@@ -189,21 +283,36 @@ const AllCoursesPage = () => {
           <p className="text-muted-foreground text-sm">
             Level {course.course_level} · {course.course_unit} Unit{course.course_unit !== 1 ? "s" : ""} · {course.semester}
           </p>
+          {course.instructor && (
+            <p className="text-muted-foreground text-xs mt-1">
+              Instructor: {course.instructor.name}
+            </p>
+          )}
           <div className="mt-2 flex items-center gap-2">
             <span className="text-sm font-medium text-blue-700">
-              {currency === "NGN" ? "₦" : currency}{course.price.toLocaleString()}
+              {displayCurrency === "NGN" ? "₦" : displayCurrency}{course.price.toLocaleString()}
             </span>
           </div>
         </CardContent>
 
         <CardFooter className="pt-2 px-4 pb-4">
-          <Button
-            size="sm"
-            className="w-full text-sm bg-primary"
-            onClick={() => handlePurchase(course)}
-          >
-            Purchase
-          </Button>
+          {isOwned ? (
+            <Button
+              size="sm"
+              className="w-full text-sm bg-green-600 hover:bg-green-700"
+              disabled
+            >
+              Already Owned
+            </Button>
+          ) : (
+            <Button
+              size="sm"
+              className="w-full text-sm bg-primary"
+              onClick={() => handlePurchase(course)}
+            >
+              Purchase
+            </Button>
+          )}
         </CardFooter>
       </Card>
     );
@@ -261,13 +370,53 @@ const AllCoursesPage = () => {
                 ))}
               </SelectContent>
             </Select>
-            {(levelFilter || facultyFilter) && (
+            <Select 
+              value={ownerFilter || "all"} 
+              onValueChange={(value) => setOwnerFilter(value === "all" ? "" : value)}
+              disabled={isLoadingTutors}
+            >
+              <SelectTrigger className="w-[180px] h-9">
+                <SelectValue placeholder="All Tutors/Orgs" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Tutors/Organizations</SelectItem>
+                {tutors.map((tutor) => {
+                  const value = tutor.owner_type === "wpu" 
+                    ? "wpu" 
+                    : `${tutor.owner_id}:${tutor.owner_type}`;
+                  return (
+                    <SelectItem key={value} value={value}>
+                      {tutor.display_name} ({tutor.course_count} {tutor.course_count === 1 ? 'course' : 'courses'})
+                    </SelectItem>
+                  );
+                })}
+              </SelectContent>
+            </Select>
+            <Select 
+              value={programFilter || "all"} 
+              onValueChange={(value) => setProgramFilter(value === "all" ? "" : value)}
+              disabled={isLoadingPrograms}
+            >
+              <SelectTrigger className="w-[200px] h-9">
+                <SelectValue placeholder="All Programs" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">All Programs</SelectItem>
+                {programs.map((program) => (
+                  <SelectItem key={program.id} value={String(program.id)}>
+                    {program.title} {program.faculty && `(${program.faculty.name})`} ({program.course_count} {program.course_count === 1 ? 'course' : 'courses'})
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {(levelFilter || programFilter || ownerFilter) && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
                   setLevelFilter("");
-                  setFacultyFilter("");
+                  setProgramFilter("");
+                  setOwnerFilter("");
                 }}
                 className="h-9"
               >
@@ -303,27 +452,54 @@ const AllCoursesPage = () => {
               </div>
             ))}
           </div>
-        ) : filteredCourses.length > 0 ? (
-          <div className="space-y-6">
-            {sortedLevels.map((level) => (
-              <div key={level} className="space-y-3">
-                <div className="flex items-center gap-2">
-                  <h2 className="text-base md:text-lg font-semibold">
-                    Level {level}
-                  </h2>
-                  <Badge variant="secondary" className="text-xs">
-                    {coursesByLevel[level].length} course
-                    {coursesByLevel[level].length !== 1 ? "s" : ""}
-                  </Badge>
+        ) : courses.length > 0 ? (
+          <>
+            <div className="space-y-6">
+              {sortedLevels.map((level) => (
+                <div key={level} className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base md:text-lg font-semibold">
+                      Level {level}
+                    </h2>
+                    <Badge variant="secondary" className="text-xs">
+                      {coursesByLevel[level].length} course
+                      {coursesByLevel[level].length !== 1 ? "s" : ""}
+                    </Badge>
+                  </div>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                    {coursesByLevel[level].map((course) => (
+                      <CourseCard key={course.id} course={course} />
+                    ))}
+                  </div>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {coursesByLevel[level].map((course) => (
-                    <CourseCard key={course.id} course={course} />
-                  ))}
-                </div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {paginationMeta && paginationMeta.totalPages > 1 && (
+              <div className="flex items-center justify-center gap-2 mt-6">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                  disabled={!paginationMeta.hasPrevPage || isLoading}
+                >
+                  Previous
+                </Button>
+                <span className="text-sm text-muted-foreground">
+                  Page {paginationMeta.page} of {paginationMeta.totalPages}
+                </span>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(prev => Math.min(paginationMeta.totalPages, prev + 1))}
+                  disabled={!paginationMeta.hasNextPage || isLoading}
+                >
+                  Next
+                </Button>
               </div>
-            ))}
-          </div>
+            )}
+          </>
         ) : searchQuery.trim() ? (
           <div className="flex flex-col items-center justify-center py-12 text-center">
             <Search className="h-12 w-12 text-muted-foreground mb-4" />

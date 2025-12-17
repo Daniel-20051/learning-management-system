@@ -91,9 +91,9 @@ interface AlertDialogDescriptionProps {
 
 const AlertDialogDescription: React.FC<AlertDialogDescriptionProps> = ({ children, className }) => {
   return (
-    <p className={cn("text-sm text-muted-foreground", className)}>
+    <div className={cn("text-sm text-muted-foreground", className)}>
       {children}
-    </p>
+    </div>
   );
 };
 

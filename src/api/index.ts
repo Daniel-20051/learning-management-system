@@ -9,9 +9,11 @@ import { ChatApi, GetChatThreads } from './chat';
 import { VideoApi, CreateVideoCall, GetVideoCalls, DeleteVideoCall } from './video';
 import { NoticesApi, GetNotices } from './notices';
 import { MarketplaceApi, PurchaseCourse } from './marketplace';
+import { WalletApi } from './wallet';
+import { ProgramsApi, GetProgramById, GetFacultyById } from './programs';
 
 // Re-export all API classes and functions
-export { AuthApi, CoursesApi, NotesApi, QuizApi, ExamsApi, StudentsApi, ChatApi, VideoApi, NoticesApi, MarketplaceApi };
+export { AuthApi, CoursesApi, NotesApi, QuizApi, ExamsApi, StudentsApi, ChatApi, VideoApi, NoticesApi, MarketplaceApi, WalletApi, ProgramsApi };
 export { GetNotices, PurchaseCourse };
 export { GetStaffCourses, GetStaffCoursesbyId, GetCourseModules, AddModule, DeleteModule, AddUnit, getUnits, EditUnit, DeleteUnit, UploadUnitVideo, UnregisterFromCourse, GetCourseParticipants, GetAllocatedCourses, RegisterAllocatedCourses };
 export { GetModuleNotes, CreateModuleNotes, EditModuleNotes, DeleteModuleNotes };
@@ -20,6 +22,7 @@ export { GetStaffExams, GetExams, CreateExam, UpdateExam, DeleteExam, GetExamByI
 export { GetStudents };
 export { GetChatThreads };
 export { CreateVideoCall, GetVideoCalls, DeleteVideoCall };
+export { GetProgramById, GetFacultyById };
 
 // For backward compatibility, create a unified Api class that includes all functionality
 export class Api extends AuthApi {
@@ -32,6 +35,8 @@ export class Api extends AuthApi {
   video = new VideoApi();
   notices = new NoticesApi();
   marketplace = new MarketplaceApi();
+  wallet = new WalletApi();
+  programs = new ProgramsApi();
 
   // Re-export course methods for backward compatibility
   async GetCourses(session: string, semester: string) {
@@ -359,8 +364,28 @@ export class Api extends AuthApi {
   }
 
   // Re-export marketplace methods for backward compatibility
-  async PurchaseCourse(payload: { course_id: number; payment_reference: string; payment_method: string }) {
+  async PurchaseCourse(payload: { course_id: number }) {
     return this.marketplace.PurchaseCourse(payload);
+  }
+
+  async GetMarketplaceCourses(params?: {
+    owner_id?: number | null;
+    owner_type?: "sole_tutor" | "organization" | "wpu";
+    level?: number | string;
+    program_id?: number | string;
+    search?: string;
+    page?: number;
+    limit?: number;
+  }) {
+    return this.marketplace.GetMarketplaceCourses(params);
+  }
+
+  async GetMarketplaceTutors() {
+    return this.marketplace.GetMarketplaceTutors();
+  }
+
+  async GetMarketplacePrograms() {
+    return this.marketplace.GetMarketplacePrograms();
   }
 
   // Add user profile method
@@ -382,5 +407,14 @@ export class Api extends AuthApi {
     currency?: string;
   }) {
     return super.updateStudentProfile(data);
+  }
+
+  // Re-export programs methods for backward compatibility
+  async GetProgramById(id: number) {
+    return this.programs.GetProgramById(id);
+  }
+
+  async GetFacultyById(id: number) {
+    return this.programs.GetFacultyById(id);
   }
 }

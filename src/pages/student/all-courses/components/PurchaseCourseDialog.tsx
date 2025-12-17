@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,7 +9,7 @@ import {
 } from "@/Components/ui/dialog";
 import { Button } from "@/Components/ui/button";
 import { Badge } from "@/Components/ui/badge";
-import { Loader2, ShoppingCart, AlertCircle, CheckCircle2 } from "lucide-react";
+import { Loader2, ShoppingCart, AlertCircle, CheckCircle2, Wallet } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 
@@ -39,33 +39,64 @@ const PurchaseCourseDialog = ({
   const navigate = useNavigate();
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStep, setPaymentStep] = useState<"initiate" | "processing" | "success" | "error">("initiate");
+  const [walletBalance, setWalletBalance] = useState<number>(0);
+  const [currency, setCurrency] = useState<string>("NGN");
+  const [isLoadingWallet, setIsLoadingWallet] = useState(true);
+
+  const fetchWalletBalance = useCallback(async () => {
+    setIsLoadingWallet(true);
+    try {
+      // Import API dynamically to avoid circular dependencies
+      const { Api } = await import("@/api/index");
+      const api = new Api();
+      const response = await api.getUserProfile();
+      const profileData = response as any;
+      if (profileData?.data?.success || profileData?.data?.status) {
+        const userData = profileData?.data?.data?.user;
+        if (userData) {
+          setWalletBalance(parseFloat(userData.wallet_balance) || 0);
+          setCurrency(userData.currency || "NGN");
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching wallet balance:", error);
+      toast.error("Failed to load wallet balance");
+    } finally {
+      setIsLoadingWallet(false);
+    }
+  }, []);
+
+  // Fetch wallet balance when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchWalletBalance();
+    } else {
+      // Reset state when dialog closes
+      setPaymentStep("initiate");
+      setIsLoadingWallet(true);
+    }
+  }, [open, fetchWalletBalance]);
 
   // This would typically integrate with Flutterwave or another payment gateway
   const handleInitiatePayment = async () => {
     if (!course) return;
 
+    // Verify wallet balance before proceeding
+    if (walletBalance < course.price) {
+      toast.error("Insufficient wallet balance. Please top up your wallet to continue.");
+      return;
+    }
+
     setIsProcessing(true);
     setPaymentStep("processing");
 
     try {
-      // TODO: Integrate with Flutterwave payment gateway
-      // For now, we'll simulate the payment flow
-      // In production, this would:
-      // 1. Initialize Flutterwave payment
-      // 2. Get payment reference
-      // 3. Call the purchase API with the reference
-
-      // Simulated payment reference (replace with actual Flutterwave integration)
-      const paymentReference = `FLW-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-      
       // Import API dynamically to avoid circular dependencies
       const { Api } = await import("@/api/index");
       const api = new Api();
       
       const response = await api.PurchaseCourse({
         course_id: course.id,
-        payment_reference: paymentReference,
-        payment_method: "flutterwave",
       });
 
       // Handle both response formats (direct response or response.data)
@@ -119,8 +150,10 @@ const PurchaseCourseDialog = ({
 
   if (!course) return null;
 
-  const currency = course.currency || "NGN";
-  const currencySymbol = currency === "NGN" ? "₦" : currency;
+  const courseCurrency = course.currency || currency;
+  const currencySymbol = courseCurrency === "NGN" ? "₦" : courseCurrency;
+  const remainingBalance = walletBalance - course.price;
+  const hasInsufficientBalance = walletBalance < course.price;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -150,6 +183,22 @@ const PurchaseCourseDialog = ({
               </p>
             </div>
 
+            {/* Wallet Balance Display */}
+            <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border">
+              <div className="flex items-center gap-2">
+                <Wallet className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm font-medium">Wallet Balance:</span>
+              </div>
+              {isLoadingWallet ? (
+                <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+              ) : (
+                <span className={`text-sm font-semibold ${hasInsufficientBalance ? "text-red-600" : "text-green-600"}`}>
+                  {currencySymbol}
+                  {walletBalance.toLocaleString()}
+                </span>
+              )}
+            </div>
+
             {/* Price Display */}
             <div className="flex items-center justify-between p-4 border rounded-lg">
               <span className="text-sm font-medium">Total Amount:</span>
@@ -159,14 +208,38 @@ const PurchaseCourseDialog = ({
               </span>
             </div>
 
+            {/* Remaining Balance */}
+            {!isLoadingWallet && (
+              <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
+                <span className="text-sm font-medium">Balance After Purchase:</span>
+                <span className={`text-sm font-semibold ${remainingBalance < 0 ? "text-red-600" : "text-muted-foreground"}`}>
+                  {currencySymbol}
+                  {remainingBalance.toLocaleString()}
+                </span>
+              </div>
+            )}
+
+            {/* Insufficient Balance Warning */}
+            {!isLoadingWallet && hasInsufficientBalance && (
+              <div className="flex items-start gap-2 p-3 bg-red-50 rounded-lg border border-red-200">
+                <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-red-800">
+                  Insufficient wallet balance. You need {currencySymbol}
+                  {(course.price - walletBalance).toLocaleString()} more to purchase this course.
+                </p>
+              </div>
+            )}
+
             {/* Info Message */}
-            <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
-              <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-              <p className="text-xs text-blue-800">
-                This is a WPU marketplace course. 100% of the revenue goes to WPU.
-                You will be redirected to complete payment.
-              </p>
-            </div>
+            {!hasInsufficientBalance && (
+              <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
+                <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                <p className="text-xs text-blue-800">
+                  This is a WPU marketplace course. 100% of the revenue goes to WPU.
+                  The amount will be debited from your wallet balance.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -219,7 +292,7 @@ const PurchaseCourseDialog = ({
               </Button>
               <Button
                 onClick={handleInitiatePayment}
-                disabled={isProcessing}
+                disabled={isProcessing || isLoadingWallet || hasInsufficientBalance}
                 className="gap-2"
               >
                 {isProcessing ? (

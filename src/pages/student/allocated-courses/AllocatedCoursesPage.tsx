@@ -169,6 +169,18 @@ export default function AllocatedCoursesPage() {
       
       const response = await coursesApi.RegisterAllocatedCourses();
       
+      // Check if response is an error (from handleApiError)
+      if (response?.response) {
+        // This is an axios error object returned by handleApiError
+        const errorMessage = 
+          response?.response?.data?.message || 
+          response?.data?.message || 
+          "Failed to register for courses";
+        toast.error(errorMessage);
+        return;
+      }
+      
+      // Check if it's a successful response
       if (response?.data?.success || response?.data?.status) {
         toast.success(response?.data?.message || "Successfully registered for all allocated courses!");
         
@@ -180,11 +192,18 @@ export default function AllocatedCoursesPage() {
           navigate("/home");
         }, 2000);
       } else {
-        toast.error(response?.data?.message || "Failed to register for courses");
+        // Show the actual error message from backend (non-axios error response)
+        const errorMessage = response?.data?.message || "Failed to register for courses";
+        toast.error(errorMessage);
       }
     } catch (err: any) {
       console.error("Error registering for courses:", err);
-      const message = err?.response?.data?.message || err?.message || "Failed to register for courses";
+      // Extract error message from various possible locations in the error object
+      const message = 
+        err?.response?.data?.message || 
+        err?.data?.message || 
+        err?.message || 
+        "Failed to register for courses";
       toast.error(message);
     } finally {
       setRegistering(false);

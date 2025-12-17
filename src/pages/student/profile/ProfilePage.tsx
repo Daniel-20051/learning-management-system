@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { AuthApi } from "@/api/auth";
+import { ProgramsApi } from "@/api/programs";
 import { Badge } from "@/Components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/Components/ui/alert";
 import { Skeleton } from "@/Components/ui/skeleton";
@@ -92,6 +93,10 @@ export default function ProfilePage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [updateError, setUpdateError] = useState<string | null>(null);
   const [updateSuccess, setUpdateSuccess] = useState(false);
+  const [programName, setProgramName] = useState<string | null>(null);
+  const [facultyName, setFacultyName] = useState<string | null>(null);
+  const [loadingProgramName, setLoadingProgramName] = useState(false);
+  const [loadingFacultyName, setLoadingFacultyName] = useState(false);
   const [formData, setFormData] = useState({
     fname: "",
     mname: "",
@@ -134,6 +139,16 @@ export default function ProfilePage() {
             currency: userData.currency || "",
           });
           setError(null);
+          
+          // Reset names and fetch program and faculty names
+          setProgramName(null);
+          setFacultyName(null);
+          if (userData.program_id) {
+            fetchProgramName(userData.program_id);
+          }
+          if (userData.facaulty_id) {
+            fetchFacultyName(userData.facaulty_id);
+          }
         }
       } catch (err: any) {
         if (!isMounted) return;
@@ -153,6 +168,54 @@ export default function ProfilePage() {
       isMounted = false;
     };
   }, []);
+
+  // Fetch program name by ID
+  const fetchProgramName = async (programId: number) => {
+    try {
+      setLoadingProgramName(true);
+      const programsApi = new ProgramsApi();
+      const response = await programsApi.GetProgramById(programId);
+      // Handle response structure: response.data.data.program.title
+      const programName = response?.data?.data?.program?.title ||
+                         response?.data?.program?.title ||
+                         response?.data?.data?.title ||
+                         response?.data?.title ||
+                         response?.data?.data?.program?.name ||
+                         response?.data?.program?.name ||
+                         response?.data?.data?.name ||
+                         response?.data?.name;
+      if (programName) {
+        setProgramName(programName);
+      }
+    } catch (err: any) {
+      console.error("Error fetching program name:", err);
+      // Keep programName as null, will show ID as fallback
+    } finally {
+      setLoadingProgramName(false);
+    }
+  };
+
+  // Fetch faculty name by ID
+  const fetchFacultyName = async (facultyId: number) => {
+    try {
+      setLoadingFacultyName(true);
+      const programsApi = new ProgramsApi();
+      const response = await programsApi.GetFacultyById(facultyId);
+      // Handle response structure: response.data.data.faculty.name
+      const facultyName = response?.data?.data?.faculty?.name || 
+                         response?.data?.faculty?.name || 
+                         response?.data?.data?.name ||
+                         response?.data?.name;
+      if (facultyName) {
+        setFacultyName(facultyName);
+      }
+    } catch (err: any) {
+      console.error("Error fetching faculty name:", err);
+      // Keep facultyName as null, will show ID as fallback
+    } finally {
+      setLoadingFacultyName(false);
+    }
+  };
 
   // Auto-dismiss success message after 5 seconds
   useEffect(() => {
@@ -250,8 +313,8 @@ export default function ProfilePage() {
     { label: "Matric Number", value: profile?.matric_number },
     { label: "Level", value: profile?.level },
     { label: "Study Mode", value: profile?.study_mode },
-    { label: "Program ID", value: profile?.program_id },
-    { label: "Faculty ID", value: profile?.facaulty_id },
+    { label: "Program", value: programName || profile?.program_id || null },
+    { label: "Faculty", value: facultyName || profile?.facaulty_id || null },
     { label: "Application Code", value: profile?.application_code },
   ];
 
@@ -551,12 +614,20 @@ export default function ProfilePage() {
           <div className="border bg-card rounded-lg p-5 min-w-0 min-h-[180px]">
             <h3 className="text-base font-semibold mb-3 text-muted-foreground">Academic Information</h3>
             <dl className="space-y-1">
-              {academicDetails.map((detail) => (
-                <div key={detail.label} className="flex justify-between items-center py-1 text-sm">
-                  <dt className="text-muted-foreground w-2/5 font-normal">{detail.label}:</dt>
-                  <dd className="font-medium text-right flex-1 break-words">{loading ? <Skeleton className="h-4 w-20 inline-block" /> : formatValue(detail.value)}</dd>
-                </div>
-              ))}
+              {academicDetails.map((detail) => {
+                const isProgramLoading = detail.label === "Program" && loadingProgramName;
+                const isFacultyLoading = detail.label === "Faculty" && loadingFacultyName;
+                const isLoading = loading || isProgramLoading || isFacultyLoading;
+                
+                return (
+                  <div key={detail.label} className="flex justify-between items-center py-1 text-sm">
+                    <dt className="text-muted-foreground w-2/5 font-normal">{detail.label}:</dt>
+                    <dd className="font-medium text-right flex-1 break-words">
+                      {isLoading ? <Skeleton className="h-4 w-20 inline-block" /> : formatValue(detail.value)}
+                    </dd>
+                  </div>
+                );
+              })}
             </dl>
           </div>
         </section>

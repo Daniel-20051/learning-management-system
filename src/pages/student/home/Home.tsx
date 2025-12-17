@@ -6,6 +6,7 @@ import SessionSemesterDialog from "../../../Components/SessionSemesterDialog";
 import NoticeSlider from "./components/NoticeSlider";
 import NoticeDetailsDialog from "./components/NoticeDetailsDialog";
 import UnpaidCoursesAlert from "./components/UnpaidCoursesAlert";
+import CourseTypeFilter from "./components/CourseTypeFilter";
 import { Api } from "../../../api/index";
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/Components/ui/card";
@@ -16,6 +17,8 @@ import { useSession } from "@/context/SessionContext";
 import { BookOpen, CheckCircle2, Clock, Search } from "lucide-react";
 import type { Notice } from "@/api/notices";
 import { useNavigate } from "react-router-dom";
+
+type CourseType = "allocated" | "marketplace";
 
 const Home = () => {
   const api = new Api();
@@ -31,6 +34,7 @@ const Home = () => {
   const [selectedNotice, setSelectedNotice] = useState<Notice | null>(null);
   const [isNoticeDialogOpen, setIsNoticeDialogOpen] = useState(false);
   const [showUnpaidAlert, setShowUnpaidAlert] = useState(true);
+  const [courseType, setCourseType] = useState<CourseType>("allocated");
 
   // Derive first name from authenticated user
   const userFirstName = useMemo(() => {
@@ -39,9 +43,15 @@ const Home = () => {
     return fullName.split(" ")[0];
   }, [user?.name]);
 
-  // Separate paid and unpaid courses
+  // Separate paid and unpaid courses (only for allocated courses)
   // Only show courses where paid === true (strict check)
   const { paidCourses, unpaidCourses } = useMemo(() => {
+    // For marketplace courses, show all courses (they're already purchased)
+    if (courseType === "marketplace") {
+      return { paidCourses: courses, unpaidCourses: [] };
+    }
+
+    // For allocated courses, filter by paid status
     const paid: any[] = [];
     const unpaid: any[] = [];
     
@@ -58,7 +68,7 @@ const Home = () => {
     });
     
     return { paidCourses: paid, unpaidCourses: unpaid };
-  }, [courses]);
+  }, [courses, courseType]);
 
   // Filter paid courses based on search query
   const filteredCourses = useMemo(() => {
@@ -114,35 +124,51 @@ const Home = () => {
     fetchNotices();
   }, []);
 
-  // Fetch courses when session/semester changes
+  // Fetch courses when course type, session/semester changes
   useEffect(() => {
     const fetchCourses = async () => {
-      if (selectedSession && selectedSemester) {
-        setIsLoading(true);
-        try {
-          const response = await api.GetCourses(
-            selectedSession,
-            selectedSemester
-          );
+      setIsLoading(true);
+      try {
+        if (courseType === "marketplace") {
+          // Fetch marketplace courses
+          const response = await api.marketplace.GetMyCourses();
           if (response.data) {
             const coursesData = response.data.data || response.data;
-            // Ensure we have an array
             if (Array.isArray(coursesData)) {
               setCourses(coursesData);
             } else {
               setCourses([]);
             }
           }
-        } catch (error) {
-          console.error("Error fetching courses:", error);
-        } finally {
-          setIsLoading(false);
+        } else {
+          // Fetch allocated courses (requires session and semester)
+          if (selectedSession && selectedSemester) {
+            const response = await api.GetCourses(
+              selectedSession,
+              selectedSemester
+            );
+            if (response.data) {
+              const coursesData = response.data.data || response.data;
+              if (Array.isArray(coursesData)) {
+                setCourses(coursesData);
+              } else {
+                setCourses([]);
+              }
+            }
+          } else {
+            setCourses([]);
+          }
         }
+      } catch (error) {
+        console.error("Error fetching courses:", error);
+        setCourses([]);
+      } finally {
+        setIsLoading(false);
       }
     };
 
     fetchCourses();
-  }, [selectedSession, selectedSemester]);
+  }, [courseType, selectedSession, selectedSemester]);
 
   const handleNoticeClick = (notice: Notice) => {
     setSelectedNotice(notice);
@@ -227,8 +253,8 @@ const Home = () => {
           </Card>
         </div>
 
-        {/* Unpaid Courses Alert */}
-        {unpaidCourses.length > 0 && showUnpaidAlert && (
+        {/* Unpaid Courses Alert - Only for allocated courses */}
+        {courseType === "allocated" && unpaidCourses.length > 0 && showUnpaidAlert && (
           <UnpaidCoursesAlert
             count={unpaidCourses.length}
             onDismiss={() => setShowUnpaidAlert(false)}
@@ -241,9 +267,17 @@ const Home = () => {
           <div className="flex flex-col gap-3 md:gap-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
               <h2 className="text-lg md:text-xl font-semibold">My Courses</h2>
-              <SessionSemesterDialog
-                onSelectionChange={handleSessionSemesterChange}
-              />
+              <div className="flex items-center gap-3">
+                <CourseTypeFilter
+                  activeType={courseType}
+                  onTypeChange={setCourseType}
+                />
+                {courseType === "allocated" && (
+                  <SessionSemesterDialog
+                    onSelectionChange={handleSessionSemesterChange}
+                  />
+                )}
+              </div>
             </div>
 
             {/* Search Bar */}
@@ -257,21 +291,23 @@ const Home = () => {
                 className="pl-10"
               />
             </div>
-            <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs md:text-sm text-muted-foreground">
-              <div className="flex items-center gap-2">
-                <span>Session:</span>
-                <span className="text-foreground font-medium">
-                  {selectedSession || "-"}
-                </span>
+            {courseType === "allocated" && (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs md:text-sm text-muted-foreground">
+                <div className="flex items-center gap-2">
+                  <span>Session:</span>
+                  <span className="text-foreground font-medium">
+                    {selectedSession || "-"}
+                  </span>
+                </div>
+                <span className="hidden sm:inline text-muted-foreground">/</span>
+                <div className="flex items-center gap-2">
+                  <span>Semester:</span>
+                  <span className="text-foreground font-medium">
+                    {selectedSemester || "-"}
+                  </span>
+                </div>
               </div>
-              <span className="hidden sm:inline text-muted-foreground">/</span>
-              <div className="flex items-center gap-2">
-                <span>Semester:</span>
-                <span className="text-foreground font-medium">
-                  {selectedSemester || "-"}
-                </span>
-              </div>
-            </div>
+            )}
           </div>
 
           {isLoading ? (
@@ -282,25 +318,30 @@ const Home = () => {
             </div>
           ) : filteredCourses.length > 0 ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {filteredCourses.map((course: any, index: number) => (
-                <CourseCards
-                  key={course.id || index}
-                  courseCode={course.course_code}
-                  courseTitle={course.title}
-                  courseLevel={course.course_level}
-                  courseUnit={course.course_unit}
-                  academicYear={course.registration?.academic_year}
-                  courseType={course.course_type}
-                  examFee={course.exam_fee}
-                  courseId={course.id}
-                  registrationId={course.registration?.id}
-                  instructor={course.instructor}
-                  onUnregister={() => {
-                    // Remove the course from the list after unregistering
-                    setCourses((prev) => prev.filter((c) => c.id !== course.id));
-                  }}
-                />
-              ))}
+              {filteredCourses.map((course: any, index: number) => {
+                // Handle both allocated and marketplace course structures
+                const registration = course.registration || {};
+                
+                return (
+                  <CourseCards
+                    key={course.id || index}
+                    courseCode={course.course_code}
+                    courseTitle={course.title}
+                    courseLevel={course.course_level}
+                    courseUnit={course.course_unit}
+                    academicYear={registration.academic_year || course.academic_year}
+                    courseType={course.course_type}
+                    examFee={course.exam_fee}
+                    courseId={course.id}
+                    registrationId={registration.id || course.registration_id}
+                    instructor={course.instructor}
+                    onUnregister={() => {
+                      // Remove the course from the list after unregistering
+                      setCourses((prev) => prev.filter((c) => c.id !== course.id));
+                    }}
+                  />
+                );
+              })}
             </div>
           ) : searchQuery.trim() ? (
             <div className="flex flex-col items-center justify-center py-12 text-center">

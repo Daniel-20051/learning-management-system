@@ -137,6 +137,14 @@ export class Api extends AuthApi {
     return this.courses.RegisterAllocatedCourses();
   }
 
+  async GetSchoolFees() {
+    return this.courses.GetSchoolFees();
+  }
+
+  async PaySchoolFees() {
+    return this.courses.PaySchoolFees();
+  }
+
   // Re-export notes methods for backward compatibility
   async GetModuleNotes(moduleId: string) {
     return this.notes.GetModuleNotes(moduleId);

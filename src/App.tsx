@@ -36,6 +36,7 @@ import StudentProfilePage from "./pages/student/profile/ProfilePage";
 import AllCoursesPage from "./pages/student/all-courses/AllCoursesPage";
 import AllocatedCoursesPage from "./pages/student/allocated-courses/AllocatedCoursesPage";
 import WalletPage from "./pages/student/wallet/WalletPage";
+import SchoolFeesPage from "./pages/student/school-fees/SchoolFeesPage";
 import StaffProfilePage from "./pages/admin/profile/StaffProfilePage";
 
 function AdminPortalRedirect({ targetUrl }: { targetUrl?: string }) {
@@ -214,6 +215,16 @@ function App() {
                   element={
                     isLoggedIn ? (
                       <WalletPage />
+                    ) : (
+                      <Navigate to="/" replace />
+                    )
+                  }
+                />
+                <Route
+                  path="/school-fees"
+                  element={
+                    isLoggedIn ? (
+                      <SchoolFeesPage />
                     ) : (
                       <Navigate to="/" replace />
                     )

@@ -325,6 +325,41 @@ export class CoursesApi {
       return handleApiError(err, "registering for allocated courses");
     }
   }
+
+  /**
+   * Get school fees information for current semester
+   */
+  async GetSchoolFees(): Promise<any> {
+    try {
+      const response = await axios.get(
+        `${BASE_URL}/api/courses/school-fees`,
+        {
+          headers: getAuthHeaders()
+        }
+      );
+      return response;
+    } catch (err: any) {
+      return handleApiError(err, "getting school fees");
+    }
+  }
+
+  /**
+   * Pay school fees from wallet
+   */
+  async PaySchoolFees(): Promise<any> {
+    try {
+      const response = await axios.post(
+        `${BASE_URL}/api/courses/school-fees/pay-from-wallet`,
+        {},
+        {
+          headers: getAuthHeaders()
+        }
+      );
+      return response;
+    } catch (err: any) {
+      return handleApiError(err, "paying school fees");
+    }
+  }
 }
 
 // Export standalone functions for backward compatibility

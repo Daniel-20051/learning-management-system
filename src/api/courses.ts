@@ -360,6 +360,38 @@ export class CoursesApi {
       return handleApiError(err, "paying school fees");
     }
   }
+
+  /**
+   * Get school fees payment history
+   * @param params Query parameters for filtering and pagination
+   */
+  async GetSchoolFeesHistory(params?: {
+    page?: number;
+    limit?: number;
+    status?: string;
+    semester?: string;
+    academic_year?: string;
+  }): Promise<any> {
+    try {
+      const queryParams = new URLSearchParams();
+      if (params?.page) queryParams.append('page', String(params.page));
+      if (params?.limit) queryParams.append('limit', String(params.limit));
+      if (params?.status) queryParams.append('status', params.status);
+      if (params?.semester) queryParams.append('semester', params.semester);
+      if (params?.academic_year) queryParams.append('academic_year', params.academic_year);
+
+      const url = queryParams.toString()
+        ? `${BASE_URL}/api/courses/school-fees/history?${queryParams.toString()}`
+        : `${BASE_URL}/api/courses/school-fees/history`;
+
+      const response = await axios.get(url, {
+        headers: getAuthHeaders()
+      });
+      return response;
+    } catch (err: any) {
+      return handleApiError(err, "getting school fees history");
+    }
+  }
 }
 
 // Export standalone functions for backward compatibility

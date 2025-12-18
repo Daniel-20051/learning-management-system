@@ -39,41 +39,8 @@ import WalletPage from "./pages/student/wallet/WalletPage";
 import SchoolFeesPage from "./pages/student/school-fees/SchoolFeesPage";
 import StaffProfilePage from "./pages/admin/profile/StaffProfilePage";
 
-function AdminPortalRedirect({ targetUrl }: { targetUrl?: string }) {
-  useEffect(() => {
-    if (targetUrl) {
-      window.location.href = targetUrl;
-    }
-  }, [targetUrl]);
-
-  if (!targetUrl) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-6 text-center">
-        <div className="space-y-2">
-          <h1 className="text-2xl font-semibold">Admin Portal Moved</h1>
-          <p className="text-muted-foreground max-w-md">
-            The super admin experience now lives in a dedicated deployment. Set
-            <code className="mx-1 rounded bg-muted px-2 py-0.5">VITE_ADMIN_PORTAL_URL</code>
-            in your environment to enable automatic redirects.
-          </p>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex min-h-screen items-center justify-center p-6 text-center">
-      <div>
-        <p className="text-lg font-medium">Redirecting to admin portal…</p>
-        <p className="text-muted-foreground">{targetUrl}</p>
-      </div>
-    </div>
-  );
-}
-
 function App() {
   const { isLoggedIn, isAdmin, isInitializing, user } = useAuth();
-  const adminPortalUrl = import.meta.env.VITE_ADMIN_PORTAL_URL;
 
   useEffect(() => {
     if (isLoggedIn && user?.id) {
@@ -107,7 +74,7 @@ function App() {
                 />
                 <Route
                   path="/admin-login"
-                  element={<AdminPortalRedirect targetUrl={adminPortalUrl} />}
+                  element={<Navigate to="/" replace />}
                 />
                 <Route
                   path="/register"

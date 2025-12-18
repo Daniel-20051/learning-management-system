@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
 import { CoursesApi } from "@/api/courses";
+import { Api } from "@/api";
 import { Button } from "@/Components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/Components/ui/alert";
 import { Skeleton } from "@/Components/ui/skeleton";
 import { Badge } from "@/Components/ui/badge";
+import { Label } from "@/Components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/Components/ui/select";
 import Navbar from "@/Components/navbar";
 import { 
   Receipt, 
@@ -13,7 +22,11 @@ import {
   CheckCircle2,
   Wallet,
   Loader2,
-  DollarSign
+  DollarSign,
+  History,
+  ChevronLeft,
+  ChevronRight,
+  Filter
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -54,6 +67,19 @@ interface SchoolFeesData {
   };
 }
 
+interface PaymentHistoryItem {
+  id: number;
+  amount: number;
+  currency: string;
+  status: string;
+  academic_year: string;
+  semester: string;
+  date: string;
+  teller_no: string;
+  type: string;
+  student_level: string;
+}
+
 const formatCurrency = (amount: number, currency: string = "NGN") => {
   const symbol = currency === "NGN" ? "₦" : currency;
   return `${symbol}${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -66,11 +92,38 @@ export default function SchoolFeesPage() {
   const [error, setError] = useState<string | null>(null);
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
 
+  // Transaction history state
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [history, setHistory] = useState<PaymentHistoryItem[]>([]);
+  const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyFilters, setHistoryFilters] = useState({
+    page: 1,
+    limit: 20,
+    status: "",
+    semester: "",
+    academic_year: "",
+  });
+  const [pagination, setPagination] = useState({
+    total: 0,
+    page: 1,
+    limit: 20,
+    totalPages: 1,
+  });
+  const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>([]);
+  const [loadingAcademicYears, setLoadingAcademicYears] = useState(false);
+
   const coursesApi = new CoursesApi();
+  const api = new Api();
 
   useEffect(() => {
     fetchSchoolFees();
+    fetchHistory();
+    fetchAcademicYears();
   }, []);
+
+  useEffect(() => {
+    fetchHistory();
+  }, [historyFilters]);
 
   const fetchSchoolFees = async () => {
     try {
@@ -128,8 +181,9 @@ export default function SchoolFeesPage() {
           );
         }
         
-        // Refresh school fees data
+        // Refresh school fees data and history
         await fetchSchoolFees();
+        await fetchHistory();
       } else {
         throw new Error(responseData?.message || "Failed to pay school fees");
       }
@@ -139,6 +193,129 @@ export default function SchoolFeesPage() {
       toast.error(message);
     } finally {
       setPaying(false);
+    }
+  };
+
+  const fetchAcademicYears = async () => {
+    try {
+      setLoadingAcademicYears(true);
+      const response = await api.Getsessions();
+      const items = response?.data?.data ?? response?.data ?? [];
+
+      if (Array.isArray(items) && items.length > 0) {
+        // Build unique academic year list from API
+        const uniqueYears = Array.from(
+          new Set(items.map((it: any) => it.academic_year).filter(Boolean))
+        ) as string[];
+        setAvailableAcademicYears(uniqueYears.sort().reverse()); // Sort descending (newest first)
+      }
+    } catch (err: any) {
+      console.error("Error fetching academic years:", err);
+      // Fallback to empty array - will be populated from history if available
+    } finally {
+      setLoadingAcademicYears(false);
+    }
+  };
+
+  const fetchHistory = async () => {
+    try {
+      setHistoryLoading(true);
+      setHistoryError(null);
+
+      const params: any = {
+        page: historyFilters.page,
+        limit: historyFilters.limit,
+      };
+
+      if (historyFilters.status) params.status = historyFilters.status;
+      if (historyFilters.semester) params.semester = historyFilters.semester;
+      if (historyFilters.academic_year) params.academic_year = historyFilters.academic_year;
+
+      const response = await coursesApi.GetSchoolFeesHistory(params);
+      const responseData = response?.data || response;
+
+      if (responseData?.success && responseData?.data) {
+        const historyData = responseData.data.history || [];
+        setHistory(historyData);
+        setPagination(responseData.data.pagination || {
+          total: 0,
+          page: 1,
+          limit: 20,
+          totalPages: 1,
+        });
+
+        // Extract unique academic years from history and merge with available years
+        if (historyData.length > 0) {
+          const historyYears = Array.from(
+            new Set(historyData.map((item: PaymentHistoryItem) => item.academic_year).filter(Boolean))
+          ) as string[];
+          
+          setAvailableAcademicYears((prev) => {
+            const merged = Array.from(new Set([...prev, ...historyYears]));
+            return merged.sort().reverse(); // Sort descending (newest first)
+          });
+        }
+      } else {
+        setHistoryError(responseData?.message || "Failed to load payment history");
+      }
+    } catch (err: any) {
+      console.error("Error fetching payment history:", err);
+      const message = err?.response?.data?.message || err?.message || "Failed to load payment history";
+      setHistoryError(message);
+    } finally {
+      setHistoryLoading(false);
+    }
+  };
+
+  const handleFilterChange = (key: string, value: string) => {
+    setHistoryFilters((prev) => ({
+      ...prev,
+      [key]: value,
+      page: 1, // Reset to first page when filter changes
+    }));
+  };
+
+  const handlePageChange = (newPage: number) => {
+    setHistoryFilters((prev) => ({
+      ...prev,
+      page: newPage,
+    }));
+  };
+
+  const formatDate = (dateString: string) => {
+    try {
+      const date = new Date(dateString);
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      });
+    } catch {
+      return dateString;
+    }
+  };
+
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "paid":
+      case "completed":
+        return "default";
+      case "pending":
+        return "secondary";
+      default:
+        return "outline";
+    }
+  };
+
+  const getStatusBadgeColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case "paid":
+      case "completed":
+        return "bg-green-100 text-green-800 hover:bg-green-100 dark:bg-green-900 dark:text-green-200";
+      case "pending":
+        return "bg-yellow-100 text-yellow-800 hover:bg-yellow-100 dark:bg-yellow-900 dark:text-yellow-200";
+      default:
+        return "";
     }
   };
 
@@ -168,13 +345,145 @@ export default function SchoolFeesPage() {
 
         {loading ? (
           <div className="space-y-6">
-            <Card>
+            {/* Semester Information and Wallet Balance - Side by Side */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Semester Information Skeleton */}
+              <Card className="pt-3">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Skeleton className="h-5 w-5 rounded" />
+                    <Skeleton className="h-6 w-40" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex flex-wrap gap-4">
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-5 w-32" />
+                    </div>
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-20" />
+                      <Skeleton className="h-5 w-16" />
+                    </div>
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-6 w-16 rounded-full" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Wallet Balance Skeleton */}
+              <Card className="pt-3">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Skeleton className="h-5 w-5 rounded" />
+                    <Skeleton className="h-6 w-32" />
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-28" />
+                      <Skeleton className="h-8 w-40" />
+                    </div>
+                    <div className="space-y-2 text-right">
+                      <Skeleton className="h-4 w-24 ml-auto" />
+                      <Skeleton className="h-6 w-32 ml-auto" />
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* School Fees Breakdown Skeleton */}
+            <Card className="pt-3">
               <CardHeader>
-                <Skeleton className="h-6 w-48" />
-                <Skeleton className="h-4 w-64 mt-2" />
+                <CardTitle className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-5 rounded" />
+                  <Skeleton className="h-6 w-48" />
+                </CardTitle>
+                <CardDescription>
+                  <Skeleton className="h-4 w-40 mt-2" />
+                </CardDescription>
               </CardHeader>
               <CardContent>
-                <Skeleton className="h-32 w-full" />
+                <div className="space-y-3">
+                  {[1, 2, 3].map((i) => (
+                    <div
+                      key={i}
+                      className="flex items-center justify-between p-3 border rounded-lg"
+                    >
+                      <div className="space-y-2 flex-1">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-48" />
+                      </div>
+                      <Skeleton className="h-5 w-24" />
+                    </div>
+                  ))}
+                  <div className="flex items-center justify-between p-4 border-t-2 mt-4">
+                    <Skeleton className="h-6 w-16" />
+                    <Skeleton className="h-8 w-32" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Payment History Skeleton */}
+            <Card className="pt-3">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Skeleton className="h-5 w-5 rounded" />
+                  <Skeleton className="h-6 w-40" />
+                </CardTitle>
+                <CardDescription>
+                  <Skeleton className="h-4 w-56 mt-2" />
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {/* Filters Skeleton */}
+                <div className="mb-6 space-y-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Skeleton className="h-4 w-4 rounded" />
+                    <Skeleton className="h-4 w-16" />
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    {[1, 2, 3, 4].map((i) => (
+                      <div key={i} className="space-y-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-10 w-full" />
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Table Skeleton */}
+                <div className="space-y-3">
+                  {/* Table Header */}
+                  <div className="grid grid-cols-7 gap-4 pb-2 border-b">
+                    {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                      <Skeleton key={i} className="h-4 w-full" />
+                    ))}
+                  </div>
+                  {/* Table Rows */}
+                  {[1, 2, 3, 4, 5].map((row) => (
+                    <div key={row} className="grid grid-cols-7 gap-4 py-3 border-b">
+                      {[1, 2, 3, 4, 5, 6, 7].map((col) => (
+                        <Skeleton key={col} className="h-4 w-full" />
+                      ))}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Pagination Skeleton */}
+                <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                  <Skeleton className="h-4 w-48" />
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-9 w-20" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-9 w-20" />
+                  </div>
+                </div>
               </CardContent>
             </Card>
           </div>
@@ -335,6 +644,205 @@ export default function SchoolFeesPage() {
                 </Button>
               </div>
             )}
+
+            {/* Payment History */}
+            <Card className="pt-3">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <History className="h-5 w-5" />
+                  Payment History
+                </CardTitle>
+                <CardDescription>
+                  View your school fees payment history
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                {/* Filters */}
+                <div className="mb-6 space-y-4">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Filter className="h-4 w-4 text-muted-foreground" />
+                    <span className="text-sm font-medium text-muted-foreground">Filters</span>
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div className="space-y-2">
+                      <Label htmlFor="status-filter">Status</Label>
+                      <Select
+                        value={historyFilters.status || "all"}
+                        onValueChange={(value) => handleFilterChange("status", value === "all" ? "" : value)}
+                      >
+                        <SelectTrigger id="status-filter">
+                          <SelectValue placeholder="All Status" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Status</SelectItem>
+                          <SelectItem value="Paid">Paid</SelectItem>
+                          <SelectItem value="Pending">Pending</SelectItem>
+                          <SelectItem value="Completed">Completed</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="semester-filter">Semester</Label>
+                      <Select
+                        value={historyFilters.semester || "all"}
+                        onValueChange={(value) => handleFilterChange("semester", value === "all" ? "" : value)}
+                      >
+                        <SelectTrigger id="semester-filter">
+                          <SelectValue placeholder="All Semesters" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Semesters</SelectItem>
+                          <SelectItem value="1ST">1ST</SelectItem>
+                          <SelectItem value="2ND">2ND</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="academic-year-filter">Academic Year</Label>
+                      <Select
+                        value={historyFilters.academic_year || "all"}
+                        onValueChange={(value) => handleFilterChange("academic_year", value === "all" ? "" : value)}
+                        disabled={loadingAcademicYears}
+                      >
+                        <SelectTrigger id="academic-year-filter">
+                          <SelectValue placeholder={loadingAcademicYears ? "Loading..." : "All Academic Years"} />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="all">All Academic Years</SelectItem>
+                          {availableAcademicYears.map((year) => (
+                            <SelectItem key={year} value={year}>
+                              {year}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label htmlFor="limit-filter">Items per Page</Label>
+                      <Select
+                        value={String(historyFilters.limit)}
+                        onValueChange={(value) => {
+                          setHistoryFilters((prev) => ({
+                            ...prev,
+                            limit: parseInt(value),
+                            page: 1,
+                          }));
+                        }}
+                      >
+                        <SelectTrigger id="limit-filter">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="10">10</SelectItem>
+                          <SelectItem value="20">20</SelectItem>
+                          <SelectItem value="50">50</SelectItem>
+                          <SelectItem value="100">100</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+                </div>
+
+                {/* History Table */}
+                {historyLoading ? (
+                  <div className="space-y-3">
+                    {[1, 2, 3].map((i) => (
+                      <Skeleton key={i} className="h-20 w-full" />
+                    ))}
+                  </div>
+                ) : historyError ? (
+                  <Alert variant="destructive">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{historyError}</AlertDescription>
+                  </Alert>
+                ) : history.length === 0 ? (
+                  <Alert>
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>No Payment History</AlertTitle>
+                    <AlertDescription>
+                      You don't have any payment history yet.
+                    </AlertDescription>
+                  </Alert>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="w-full">
+                        <thead>
+                          <tr className="border-b">
+                            <th className="text-left p-3 text-sm font-medium text-muted-foreground">Date</th>
+                            <th className="text-left p-3 text-sm font-medium text-muted-foreground">Amount</th>
+                            <th className="text-left p-3 text-sm font-medium text-muted-foreground">Academic Year</th>
+                            <th className="text-left p-3 text-sm font-medium text-muted-foreground">Semester</th>
+                            <th className="text-left p-3 text-sm font-medium text-muted-foreground">Level</th>
+                            <th className="text-left p-3 text-sm font-medium text-muted-foreground">Status</th>
+                            <th className="text-left p-3 text-sm font-medium text-muted-foreground">Teller No</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {history.map((item) => (
+                            <tr key={item.id} className="border-b hover:bg-muted/50">
+                              <td className="p-3 text-sm">{formatDate(item.date)}</td>
+                              <td className="p-3 text-sm font-semibold">
+                                {formatCurrency(item.amount, item.currency)}
+                              </td>
+                              <td className="p-3 text-sm">{item.academic_year}</td>
+                              <td className="p-3 text-sm">{item.semester}</td>
+                              <td className="p-3 text-sm">{item.student_level}</td>
+                              <td className="p-3">
+                                <Badge
+                                  variant={getStatusBadgeVariant(item.status)}
+                                  className={getStatusBadgeColor(item.status)}
+                                >
+                                  {item.status}
+                                </Badge>
+                              </td>
+                              <td className="p-3 text-sm font-mono text-muted-foreground">
+                                {item.teller_no}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Pagination */}
+                    {pagination.totalPages > 1 && (
+                      <div className="flex items-center justify-between mt-6 pt-4 border-t">
+                        <div className="text-sm text-muted-foreground">
+                          Showing {((pagination.page - 1) * pagination.limit) + 1} to{" "}
+                          {Math.min(pagination.page * pagination.limit, pagination.total)} of{" "}
+                          {pagination.total} entries
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(pagination.page - 1)}
+                            disabled={pagination.page === 1 || historyLoading}
+                          >
+                            <ChevronLeft className="h-4 w-4" />
+                            Previous
+                          </Button>
+                          <div className="text-sm text-muted-foreground">
+                            Page {pagination.page} of {pagination.totalPages}
+                          </div>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handlePageChange(pagination.page + 1)}
+                            disabled={pagination.page >= pagination.totalPages || historyLoading}
+                          >
+                            Next
+                            <ChevronRight className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
           </div>
         ) : (
           <Alert>

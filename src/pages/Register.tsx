@@ -2,8 +2,9 @@ import { Button } from "@/Components/ui/button";
 import { Card, CardContent } from "@/Components/ui/card";
 import { Input } from "@/Components/ui/input";
 import { Label } from "@/Components/ui/label";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Api } from "@/api";
+import type { MarketplaceProgram } from "@/api/marketplace";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
@@ -23,13 +24,33 @@ export default function RegisterPage() {
     fname: "",
     lname: "",
     phone: "",
-    level: "",
     program_id: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [programs, setPrograms] = useState<MarketplaceProgram[]>([]);
+  const [isLoadingPrograms, setIsLoadingPrograms] = useState(false);
 
   const api = new Api();
+
+  useEffect(() => {
+    fetchPrograms();
+  }, []);
+
+  const fetchPrograms = async () => {
+    setIsLoadingPrograms(true);
+    try {
+      const response = await api.GetMarketplacePrograms();
+      if (response.data && response.data.data) {
+        setPrograms(response.data.data);
+      }
+    } catch (error) {
+      console.error("Error fetching programs:", error);
+      toast.error("Failed to load programs. Please refresh the page.");
+    } finally {
+      setIsLoadingPrograms(false);
+    }
+  };
 
   const handleChange = (field: string, value: string) => {
     setFormData((prev) => ({
@@ -45,7 +66,7 @@ export default function RegisterPage() {
     try {
       // Validate all fields
       if (!formData.email || !formData.password || !formData.fname || 
-          !formData.lname || !formData.phone || !formData.level || !formData.program_id) {
+          !formData.lname || !formData.phone || !formData.program_id) {
         toast.error("Please fill in all required fields");
         setIsLoading(false);
         return;
@@ -57,7 +78,7 @@ export default function RegisterPage() {
         fname: formData.fname,
         lname: formData.lname,
         phone: formData.phone,
-        level: formData.level,
+        level: "100", // Default to 100 level for new students
         program_id: parseInt(formData.program_id),
       });
 
@@ -192,46 +213,27 @@ export default function RegisterPage() {
                   />
                 </div>
 
-                {/* Level & Program Row */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="level" className="text-sm">Level</Label>
-                    <Select
-                      value={formData.level}
-                      onValueChange={(value) => handleChange("level", value)}
-                      required
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Select level" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="100">100 Level</SelectItem>
-                        <SelectItem value="200">200 Level</SelectItem>
-                        <SelectItem value="300">300 Level</SelectItem>
-                        <SelectItem value="400">400 Level</SelectItem>
-                        <SelectItem value="500">500 Level</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="program_id" className="text-sm">Program</Label>
-                    <Select
-                      value={formData.program_id}
-                      onValueChange={(value) => handleChange("program_id", value)}
-                      required
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Select program" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="1">Computer Science</SelectItem>
-                        <SelectItem value="2">Information Technology</SelectItem>
-                        <SelectItem value="3">Software Engineering</SelectItem>
-                        <SelectItem value="4">Data Science</SelectItem>
-                        <SelectItem value="5">Cybersecurity</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
+                {/* Program */}
+                <div className="grid gap-1.5">
+                  <Label htmlFor="program_id" className="text-sm">Program</Label>
+                  <Select
+                    value={formData.program_id}
+                    onValueChange={(value) => handleChange("program_id", value)}
+                    required
+                    disabled={isLoadingPrograms}
+                  >
+                    <SelectTrigger className="h-9">
+                      <SelectValue placeholder={isLoadingPrograms ? "Loading programs..." : "Select program"} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {programs.map((program) => (
+                        <SelectItem key={program.id} value={String(program.id)}>
+                          {program.title}
+                          {program.faculty && ` (${program.faculty.name})`}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
 
                 {/* Submit Button */}

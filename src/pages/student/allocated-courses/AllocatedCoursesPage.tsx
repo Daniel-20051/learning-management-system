@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { CoursesApi } from "@/api/courses";
 import { AuthApi } from "@/api/auth";
@@ -22,7 +22,8 @@ import {
   AlertCircle, 
   GraduationCap,
   Clock,
-  DollarSign
+  DollarSign,
+  ArrowRightLeft
 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -36,6 +37,36 @@ import {
   AlertDialogTitle,
 } from "@/Components/ui/alert-dialog";
 
+// Currency conversion utility
+// TODO: Replace with actual API endpoint when ready
+const getExchangeRate = (): number => {
+  return 1500; // Placeholder rate: 1 USD = 1500 NGN
+};
+
+const convertCurrency = (
+  amount: number,
+  fromCurrency: string,
+  toCurrency: string
+): number => {
+  if (fromCurrency === toCurrency) {
+    return amount;
+  }
+
+  const rate = getExchangeRate();
+
+  // USD to NGN: multiply by rate
+  if (fromCurrency === "USD" && toCurrency === "NGN") {
+    return amount * rate;
+  }
+
+  // NGN to USD: divide by rate
+  if (fromCurrency === "NGN" && toCurrency === "USD") {
+    return amount / rate;
+  }
+
+  return amount;
+};
+
 interface CourseDetails {
   id: number;
   title: string;
@@ -47,6 +78,7 @@ interface AllocatedCourse {
   allocation_id: number;
   course: CourseDetails;
   price: number;
+  currency: string;
   allocated_at: string | null;
 }
 
@@ -76,11 +108,11 @@ interface AllocatedCoursesResponse {
 const formatCurrency = (amount: number | string, currency?: string) => {
   const parsed = typeof amount === 'string' ? parseFloat(amount) : amount;
   if (isNaN(parsed)) return "—";
-  return new Intl.NumberFormat(undefined, {
-    style: "currency",
-    currency: currency || "NGN",
-    maximumFractionDigits: 2,
-  }).format(parsed);
+  const currencySymbol = currency === "USD" ? "$" : "₦";
+  return `${currencySymbol}${parsed.toLocaleString(undefined, {
+    minimumFractionDigits: currency === "USD" ? 2 : 0,
+    maximumFractionDigits: currency === "USD" ? 2 : 0,
+  })}`;
 };
 
 const formatDate = (dateString: string) => {
@@ -109,6 +141,63 @@ export default function AllocatedCoursesPage() {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [currency, setCurrency] = useState<string>("NGN");
+
+  // Calculate currency conversions for all courses
+  const courseConversions = useMemo(() => {
+    if (!data?.allocated_courses) return [];
+    
+    return data.allocated_courses.map((course) => {
+      const courseCurrency = course.currency || "NGN";
+      const studentCurrency = currency;
+      
+      if (courseCurrency === studentCurrency) {
+        return {
+          allocation_id: course.allocation_id,
+          originalPrice: course.price,
+          originalCurrency: courseCurrency,
+          convertedPrice: course.price,
+          convertedCurrency: studentCurrency,
+          needsConversion: false,
+        };
+      }
+      
+      const convertedPrice = convertCurrency(course.price, courseCurrency, studentCurrency);
+      
+      return {
+        allocation_id: course.allocation_id,
+        originalPrice: course.price,
+        originalCurrency: courseCurrency,
+        convertedPrice,
+        convertedCurrency: studentCurrency,
+        needsConversion: true,
+      };
+    });
+  }, [data?.allocated_courses, currency]);
+
+  // Calculate total amount in student's currency
+  const totalAmountInStudentCurrency = useMemo(() => {
+    if (!data?.allocated_courses) return 0;
+    
+    return data.allocated_courses.reduce((sum, course) => {
+      const courseCurrency = course.currency || "NGN";
+      const studentCurrency = currency;
+      
+      if (courseCurrency === studentCurrency) {
+        return sum + course.price;
+      }
+      
+      const convertedPrice = convertCurrency(course.price, courseCurrency, studentCurrency);
+      return sum + convertedPrice;
+    }, 0);
+  }, [data?.allocated_courses, currency]);
+
+  // Check if any course needs conversion
+  const hasCurrencyConversion = useMemo(() => {
+    if (!data?.allocated_courses) return false;
+    return data.allocated_courses.some(
+      (course) => (course.currency || "NGN") !== currency
+    );
+  }, [data?.allocated_courses, currency]);
 
   useEffect(() => {
     fetchData();
@@ -153,8 +242,8 @@ export default function AllocatedCoursesPage() {
   const handleRegisterClick = () => {
     if (!data?.can_register) return;
     
-    // Check wallet balance
-    if (walletBalance < data.total_amount) {
+    // Check wallet balance using converted total amount
+    if (walletBalance < totalAmountInStudentCurrency) {
       toast.error("Insufficient wallet balance. Please fund your wallet first.");
       return;
     }
@@ -347,12 +436,30 @@ export default function AllocatedCoursesPage() {
                   <div>
                     <p className="text-xs text-muted-foreground">Total Registration Cost</p>
                     <p className="text-3xl font-bold">
-                      {formatCurrency(data.total_amount, currency)}
+                      {formatCurrency(totalAmountInStudentCurrency, currency)}
                     </p>
+                    {hasCurrencyConversion && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        (Converted from mixed currencies)
+                      </p>
+                    )}
                   </div>
 
+                  {/* Currency Conversion Info */}
+                  {hasCurrencyConversion && (
+                    <Alert className="mt-2 bg-amber-50 border-amber-200">
+                      <ArrowRightLeft className="h-4 w-4 text-amber-600" />
+                      <AlertDescription className="text-xs text-amber-900">
+                        <div className="space-y-1">
+                          <p className="font-semibold">Currency Conversion Applied</p>
+                          <p>Some courses are priced in different currencies. All prices have been converted to {currency} using the current exchange rate (1 USD = {getExchangeRate().toLocaleString()} NGN).</p>
+                        </div>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   {/* Show balance warning if insufficient */}
-                  {walletBalance < data.total_amount && (
+                  {walletBalance < totalAmountInStudentCurrency && (
                     <Alert variant="destructive" className="mt-2">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription className="text-xs">
@@ -364,7 +471,7 @@ export default function AllocatedCoursesPage() {
                   <Button
                     size="default"
                     onClick={handleRegisterClick}
-                    disabled={!data.can_register || registering || walletBalance < data.total_amount}
+                    disabled={!data.can_register || registering || walletBalance < totalAmountInStudentCurrency}
                     className="w-full"
                   >
                     {registering ? "Registering..." : "Register All Courses"}
@@ -418,20 +525,43 @@ export default function AllocatedCoursesPage() {
                             <TableHead className="w-[120px]">Course Code</TableHead>
                             <TableHead>Course Title</TableHead>
                             <TableHead className="w-[80px] text-center">Units</TableHead>
-                            <TableHead className="w-[120px] text-right">Price</TableHead>
+                            <TableHead className="w-[180px] text-right">Price</TableHead>
                           </TableRow>
                         </TableHeader>
                         <TableBody>
-                          {data.allocated_courses.map((item) => (
-                            <TableRow key={item.allocation_id}>
-                              <TableCell className="font-medium">{item.course.course_code}</TableCell>
-                              <TableCell>{item.course.title}</TableCell>
-                              <TableCell className="text-center">{item.course.course_unit}</TableCell>
-                              <TableCell className="text-right font-semibold">
-                                {formatCurrency(item.price, data.currency)}
-                              </TableCell>
-                            </TableRow>
-                          ))}
+                          {data.allocated_courses.map((item) => {
+                            const conversion = courseConversions.find(
+                              (conv) => conv.allocation_id === item.allocation_id
+                            );
+                            const courseCurrency = item.currency || "NGN";
+                            const needsConversion = conversion?.needsConversion || false;
+                            
+                            return (
+                              <TableRow key={item.allocation_id}>
+                                <TableCell className="font-medium">{item.course.course_code}</TableCell>
+                                <TableCell>{item.course.title}</TableCell>
+                                <TableCell className="text-center">{item.course.course_unit}</TableCell>
+                                <TableCell className="text-right">
+                                  <div className="flex flex-col items-end gap-1">
+                                    {needsConversion ? (
+                                      <>
+                                        <div className="font-semibold">
+                                          {formatCurrency(conversion?.convertedPrice || 0, currency)}
+                                        </div>
+                                        <div className="text-xs text-muted-foreground line-through">
+                                          {formatCurrency(item.price, courseCurrency)}
+                                        </div>
+                                      </>
+                                    ) : (
+                                      <div className="font-semibold">
+                                        {formatCurrency(item.price, courseCurrency)}
+                                      </div>
+                                    )}
+                                  </div>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })}
                         </TableBody>
                       </Table>
                     </div>
@@ -452,9 +582,20 @@ export default function AllocatedCoursesPage() {
               <p>You are about to register for {data?.course_count || 0} course(s).</p>
               <div className="bg-muted p-4 rounded-lg space-y-2">
                 <div className="flex justify-between">
-                  <span className="font-medium">Total Cost:</span>
-                  <span className="font-bold">{formatCurrency(data?.total_amount || 0, currency)}</span>
+                  <span className="font-medium">Total Cost ({currency}):</span>
+                  <span className="font-bold">{formatCurrency(totalAmountInStudentCurrency, currency)}</span>
                 </div>
+                {hasCurrencyConversion && (
+                  <div className="text-xs text-muted-foreground bg-amber-50 p-2 rounded border border-amber-200">
+                    <div className="flex items-center gap-1 mb-1">
+                      <ArrowRightLeft className="h-3 w-3 text-amber-600" />
+                      <span className="font-semibold text-amber-900">Currency Conversion Applied</span>
+                    </div>
+                    <p className="text-amber-800">
+                      Exchange rate: 1 USD = {getExchangeRate().toLocaleString()} NGN
+                    </p>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="font-medium">Wallet Balance:</span>
                   <span className="font-bold">{formatCurrency(walletBalance, currency)}</span>
@@ -462,7 +603,7 @@ export default function AllocatedCoursesPage() {
                 <div className="flex justify-between border-t pt-2">
                   <span className="font-medium">Remaining Balance:</span>
                   <span className="font-bold">
-                    {formatCurrency(walletBalance - (data?.total_amount || 0), currency)}
+                    {formatCurrency(walletBalance - totalAmountInStudentCurrency, currency)}
                   </span>
                 </div>
               </div>
@@ -472,7 +613,12 @@ export default function AllocatedCoursesPage() {
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={registering}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel 
+              onClick={() => setConfirmDialogOpen(false)} 
+              disabled={registering}
+            >
+              Cancel
+            </AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmRegistration} disabled={registering}>
               {registering ? "Processing..." : "Confirm Registration"}
             </AlertDialogAction>

@@ -267,9 +267,6 @@ const AllCoursesPage = () => {
                 Owned
               </Badge>
             )}
-            <Badge className="bg-blue-600 text-white text-xs px-2 py-0.5">
-              Marketplace
-            </Badge>
           </div>
         </div>
 
@@ -289,8 +286,8 @@ const AllCoursesPage = () => {
             </p>
           )}
           <div className="mt-2 flex items-center gap-2">
-            <span className="text-sm font-medium text-blue-700">
-              {displayCurrency === "NGN" ? "₦" : displayCurrency}{course.price.toLocaleString()}
+            <span className="text-lg font-bold text-primary">
+              {displayCurrency === "NGN" ? "₦" : "$"}{course.price.toLocaleString()}
             </span>
           </div>
         </CardContent>

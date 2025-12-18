@@ -237,7 +237,7 @@ export default function AllocatedCoursesPage() {
             {/* Left Sidebar Skeleton */}
             <div className="space-y-4">
               {/* Semester Info Skeleton */}
-              <Card>
+              <Card className="pt-3">
                 <CardHeader className="pb-3">
                   <Skeleton className="h-4 w-40" />
                 </CardHeader>
@@ -252,7 +252,7 @@ export default function AllocatedCoursesPage() {
               </Card>
 
               {/* Total Amount Skeleton */}
-              <Card>
+              <Card className="border-primary pt-3">
                 <CardHeader className="pb-3">
                   <Skeleton className="h-4 w-32" />
                 </CardHeader>
@@ -264,7 +264,7 @@ export default function AllocatedCoursesPage() {
             </div>
 
             {/* Right Side - Courses Table Skeleton */}
-            <Card>
+            <Card className="pt-3">
               <CardHeader className="pb-3">
                 <Skeleton className="h-5 w-40" />
                 <Skeleton className="h-3 w-56 mt-1" />
@@ -332,6 +332,14 @@ export default function AllocatedCoursesPage() {
                     <p className="text-xs text-muted-foreground">Wallet Balance</p>
                     <p className="text-2xl font-bold text-primary">
                       {formatCurrency(walletBalance, currency)}
+                    </p>
+                  </div>
+                  
+                  {/* Total Units */}
+                  <div className="pb-3 border-b">
+                    <p className="text-xs text-muted-foreground">Total Units to be Registered</p>
+                    <p className="text-2xl font-bold">
+                      {data.allocated_courses?.reduce((sum, item) => sum + (item.course?.course_unit || 0), 0) || 0} 
                     </p>
                   </div>
                   

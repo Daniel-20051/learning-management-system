@@ -37,7 +37,7 @@ import Navbar from "@/Components/navbar";
 import { toast } from "sonner";
 
 const formatCurrency = (amount: number, currency: string = "NGN") => {
-  const symbol = currency === "NGN" ? "₦" : currency;
+  const symbol = currency === "NGN" ? "₦" : currency === "USD" ? "$" : currency;
   return `${symbol}${amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 };
 
@@ -227,8 +227,11 @@ export default function WalletPage() {
       return;
     }
 
-    if (amountNum < 100) {
-      toast.error("Minimum amount is ₦100");
+    // Dynamic minimum amount based on currency
+    const minAmount = currency === "USD" ? 5 : 100;
+    if (amountNum < minAmount) {
+      const minAmountFormatted = formatCurrency(minAmount, currency);
+      toast.error(`Minimum amount is ${minAmountFormatted}`);
       return;
     }
 
@@ -564,7 +567,7 @@ export default function WalletPage() {
               Add Money to Wallet
             </DialogTitle>
             <DialogDescription>
-              Enter the amount you want to add to your wallet. Minimum amount is ₦100.
+              Enter the amount you want to add to your wallet. Minimum amount is {formatCurrency(currency === "USD" ? 5 : 100, currency)}.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
@@ -572,7 +575,7 @@ export default function WalletPage() {
               <label className="text-sm font-medium mb-2 block">Amount</label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">
-                  {currency === "NGN" ? "₦" : currency}
+                  {currency === "NGN" ? "₦" : currency === "USD" ? "$" : currency}
                 </span>
                 <Input
                   type="number"
@@ -580,7 +583,7 @@ export default function WalletPage() {
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   className="pl-8"
-                  min="100"
+                  min={currency === "USD" ? "5" : "100"}
                   step="0.01"
                 />
               </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import {
   Dialog,
   DialogContent,
@@ -9,9 +9,39 @@ import {
 } from "@/Components/ui/dialog";
 import { Button } from "@/Components/ui/button";
 import { Badge } from "@/Components/ui/badge";
-import { Loader2, ShoppingCart, AlertCircle, CheckCircle2, Wallet } from "lucide-react";
+import { Loader2, ShoppingCart, AlertCircle, CheckCircle2, Wallet, ArrowRightLeft } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+
+// Currency conversion utility
+// TODO: Replace with actual API endpoint when ready
+const getExchangeRate = (): number => {
+  return 1500; // Placeholder rate: 1 USD = 1500 NGN
+};
+
+const convertCurrency = (
+  amount: number,
+  fromCurrency: string,
+  toCurrency: string
+): number => {
+  if (fromCurrency === toCurrency) {
+    return amount;
+  }
+
+  const rate = getExchangeRate();
+
+  // USD to NGN: multiply by rate
+  if (fromCurrency === "USD" && toCurrency === "NGN") {
+    return amount * rate;
+  }
+
+  // NGN to USD: divide by rate
+  if (fromCurrency === "NGN" && toCurrency === "USD") {
+    return amount / rate;
+  }
+
+  return amount;
+};
 
 interface Course {
   id: number;
@@ -42,6 +72,32 @@ const PurchaseCourseDialog = ({
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [currency, setCurrency] = useState<string>("NGN");
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
+
+  // Calculate currency conversion if needed
+  const currencyConversion = useMemo(() => {
+    if (!course) return null;
+
+    const courseCurrency = course.currency || "NGN";
+    const studentCurrency = currency;
+
+    // Check if conversion is needed
+    if (courseCurrency === studentCurrency) {
+      return null; // No conversion needed
+    }
+
+    const originalPrice = course.price;
+    const convertedPrice = convertCurrency(originalPrice, courseCurrency, studentCurrency);
+    const exchangeRate = getExchangeRate();
+
+    return {
+      originalPrice,
+      originalCurrency: courseCurrency,
+      convertedPrice,
+      convertedCurrency: studentCurrency,
+      exchangeRate,
+      needsConversion: true,
+    };
+  }, [course, currency]);
 
   const fetchWalletBalance = useCallback(async () => {
     setIsLoadingWallet(true);
@@ -81,8 +137,11 @@ const PurchaseCourseDialog = ({
   const handleInitiatePayment = async () => {
     if (!course) return;
 
+    // Calculate the amount to debit (converted price if conversion is needed)
+    const amountToDebit = currencyConversion?.convertedPrice ?? course.price;
+
     // Verify wallet balance before proceeding
-    if (walletBalance < course.price) {
+    if (walletBalance < amountToDebit) {
       toast.error("Insufficient wallet balance. Please top up your wallet to continue.");
       return;
     }
@@ -151,9 +210,14 @@ const PurchaseCourseDialog = ({
   if (!course) return null;
 
   const courseCurrency = course.currency || currency;
-  const currencySymbol = courseCurrency === "NGN" ? "₦" : courseCurrency;
-  const remainingBalance = walletBalance - course.price;
-  const hasInsufficientBalance = walletBalance < course.price;
+  const studentCurrency = currency;
+  const studentCurrencySymbol = studentCurrency === "NGN" ? "₦" : "$";
+  const courseCurrencySymbol = courseCurrency === "NGN" ? "₦" : "$";
+  
+  // Calculate the amount to debit (converted price if conversion is needed)
+  const amountToDebit = currencyConversion?.convertedPrice ?? course.price;
+  const remainingBalance = walletBalance - amountToDebit;
+  const hasInsufficientBalance = walletBalance < amountToDebit;
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -172,9 +236,8 @@ const PurchaseCourseDialog = ({
           <div className="space-y-4">
             {/* Course Info */}
             <div className="p-4 bg-slate-50 rounded-lg space-y-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center">
                 <Badge variant="outline">{course.course_code}</Badge>
-                <Badge className="bg-blue-600 text-white">Marketplace</Badge>
               </div>
               <h3 className="font-semibold text-lg">{course.title}</h3>
               <p className="text-sm text-muted-foreground">
@@ -193,28 +256,71 @@ const PurchaseCourseDialog = ({
                 <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
               ) : (
                 <span className={`text-sm font-semibold ${hasInsufficientBalance ? "text-red-600" : "text-green-600"}`}>
-                  {currencySymbol}
+                  {studentCurrencySymbol}
                   {walletBalance.toLocaleString()}
                 </span>
               )}
             </div>
 
+            {/* Currency Conversion Display */}
+            {!isLoadingWallet && currencyConversion && currencyConversion.needsConversion && (
+              <div className="p-4 bg-amber-50 rounded-lg border border-amber-200 space-y-3">
+                <div className="flex items-center gap-2">
+                  <ArrowRightLeft className="h-4 w-4 text-amber-600" />
+                  <span className="text-sm font-semibold text-amber-900">Currency Conversion</span>
+                </div>
+                <div className="space-y-2 text-sm">
+                  <div className="flex items-center justify-between">
+                    <span className="text-amber-800">Course Price ({currencyConversion.originalCurrency}):</span>
+                    <span className="font-medium text-amber-900">
+                      {courseCurrencySymbol}
+                      {currencyConversion.originalPrice.toLocaleString()}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs text-amber-700">
+                    <span>Exchange Rate:</span>
+                    <span>
+                      1 {currencyConversion.originalCurrency} = {currencyConversion.exchangeRate.toLocaleString()} {currencyConversion.convertedCurrency}
+                    </span>
+                  </div>
+                  <div className="pt-2 border-t border-amber-200 flex items-center justify-between">
+                    <span className="font-semibold text-amber-900">Amount to Debit ({currencyConversion.convertedCurrency}):</span>
+                    <span className="font-bold text-lg text-amber-900">
+                      {studentCurrencySymbol}
+                      {currencyConversion.convertedPrice.toLocaleString(undefined, {
+                        minimumFractionDigits: 2,
+                        maximumFractionDigits: 2,
+                      })}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Price Display */}
-            <div className="flex items-center justify-between p-4 border rounded-lg">
-              <span className="text-sm font-medium">Total Amount:</span>
-              <span className="text-2xl font-bold text-primary">
-                {currencySymbol}
-                {course.price.toLocaleString()}
-              </span>
-            </div>
+            {!isLoadingWallet && (
+              <div className="flex items-center justify-between p-4 border rounded-lg">
+                <span className="text-sm font-medium">Total Amount:</span>
+                <span className="text-2xl font-bold text-primary">
+                  {studentCurrencySymbol}
+                  {amountToDebit.toLocaleString(undefined, {
+                    minimumFractionDigits: currencyConversion ? 2 : 0,
+                    maximumFractionDigits: currencyConversion ? 2 : 0,
+                  })}
+                </span>
+              </div>
+            )}
 
             {/* Remaining Balance */}
             {!isLoadingWallet && (
               <div className="flex items-center justify-between p-3 bg-slate-50 rounded-lg">
                 <span className="text-sm font-medium">Balance After Purchase:</span>
                 <span className={`text-sm font-semibold ${remainingBalance < 0 ? "text-red-600" : "text-muted-foreground"}`}>
-                  {currencySymbol}
-                  {remainingBalance.toLocaleString()}
+                  {studentCurrencySymbol}
+                  {remainingBalance.toLocaleString(undefined, {
+                    minimumFractionDigits: currencyConversion ? 2 : 0,
+                    maximumFractionDigits: currencyConversion ? 2 : 0,
+                  })}
                 </span>
               </div>
             )}
@@ -224,8 +330,11 @@ const PurchaseCourseDialog = ({
               <div className="flex items-start gap-2 p-3 bg-red-50 rounded-lg border border-red-200">
                 <AlertCircle className="h-4 w-4 text-red-600 mt-0.5 flex-shrink-0" />
                 <p className="text-xs text-red-800">
-                  Insufficient wallet balance. You need {currencySymbol}
-                  {(course.price - walletBalance).toLocaleString()} more to purchase this course.
+                  Insufficient wallet balance. You need {studentCurrencySymbol}
+                  {(amountToDebit - walletBalance).toLocaleString(undefined, {
+                    minimumFractionDigits: currencyConversion ? 2 : 0,
+                    maximumFractionDigits: currencyConversion ? 2 : 0,
+                  })} more to purchase this course.
                 </p>
               </div>
             )}

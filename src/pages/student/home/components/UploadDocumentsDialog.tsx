@@ -105,7 +105,6 @@ export default function UploadDocumentsDialog({
     rejection_reason: string | null;
     reviewed_at: string | null;
   }>>({});
-  const [loadingDocuments, setLoadingDocuments] = useState(false);
   const { setUser } = useAuth();
 
   const authApi = new AuthApi();
@@ -120,8 +119,7 @@ export default function UploadDocumentsDialog({
 
   const loadExistingDocuments = async () => {
     try {
-      setLoadingDocuments(true);
-      const response = await authApi.getKycDocuments();
+      const response: any = await authApi.getKycDocuments();
       if (response?.data?.success && response?.data?.data?.documents) {
         // Transform the documents object to match our state structure
         const documents: Record<string, {
@@ -158,8 +156,6 @@ export default function UploadDocumentsDialog({
     } catch (err: any) {
       console.error("Error loading documents:", err);
       // Don't show error, just continue
-    } finally {
-      setLoadingDocuments(false);
     }
   };
 
@@ -192,7 +188,7 @@ export default function UploadDocumentsDialog({
       // Save school information
       try {
         setUploading(true);
-        const response = await authApi.updateSchoolInformation({
+        const response: any = await authApi.updateSchoolInformation({
           school1: schoolInfo.school1 || undefined,
           school1_date: schoolInfo.school1_date || undefined,
           school2: schoolInfo.school2 || undefined,
@@ -263,7 +259,7 @@ export default function UploadDocumentsDialog({
         setUploading(true);
         setUploadProgress(0);
 
-        const response = await authApi.uploadKycDocument(
+        const response: any = await authApi.uploadKycDocument(
           currentDocument.documentType,
           currentFile,
           (progress) => {
@@ -707,7 +703,6 @@ export default function UploadDocumentsDialog({
                           handleFileSelect(file);
                         }
                       }}
-                      disabled={uploading}
                     />
                     <div className="space-y-4">
                       <div className="flex justify-center">

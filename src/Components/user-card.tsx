@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   DropdownMenu,
@@ -6,6 +6,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/Components/ui/dropdown-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+} from "@/Components/ui/dialog";
 import { LogOut, User, Award, Settings, Video, BookOpen, Loader2, Library, GraduationCap, Wallet, Receipt } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
@@ -15,9 +20,19 @@ interface UserCardProps {
 
 const UserCard = ({ sidebar }: UserCardProps) => {
   const [isOpen, setIsOpen] = useState(false);
+  const [showLogoutDialog, setShowLogoutDialog] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
   const { user, isAdmin, logout } = useAuth();
+
+  const handleLogoutClick = () => {
+    // Close the dropdown menu first
+    setIsOpen(false);
+    // Show the logout dialog after a small delay to allow dropdown to close
+    setTimeout(() => {
+      setShowLogoutDialog(true);
+    }, 100);
+  };
 
   const handleLogout = async () => {
     try {
@@ -35,6 +50,14 @@ const UserCard = ({ sidebar }: UserCardProps) => {
     // Note: Not using finally block here because window.location.href causes
     // a hard navigation that will reload the page, making state updates unnecessary
   };
+
+  // Trigger logout when dialog opens
+  useEffect(() => {
+    if (showLogoutDialog && !isLoggingOut) {
+      handleLogout();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showLogoutDialog]);
 
   return (
     <div className="flex items-center gap-3">
@@ -152,20 +175,28 @@ const UserCard = ({ sidebar }: UserCardProps) => {
           </DropdownMenuItem>
           <DropdownMenuItem
             className="cursor-pointer py-3 text-red-600 focus:text-red-600"
-            onClick={handleLogout}
-            disabled={isLoggingOut}
+            onClick={handleLogoutClick}
           >
-            {isLoggingOut ? (
-              <Loader2 className="mr-3 h-5 w-5 animate-spin" />
-            ) : (
-              <LogOut className="mr-3 h-5 w-5" />
-            )}
-            <span className="text-base">
-              {isLoggingOut ? "Logging out..." : "Log out"}
-            </span>
+            <LogOut className="mr-3 h-5 w-5" />
+            <span className="text-base">Log out</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
+
+      {/* Logout Dialog */}
+      <Dialog open={showLogoutDialog} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-md [&>button]:hidden">
+          <div className="flex flex-col items-center justify-center py-8 space-y-4">
+            <Loader2 className="h-12 w-12 animate-spin text-primary" />
+            <DialogDescription className="text-center text-lg font-medium">
+              Logging out...
+            </DialogDescription>
+            <p className="text-sm text-muted-foreground text-center">
+              Please wait while we log you out.
+            </p>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

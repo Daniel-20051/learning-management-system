@@ -154,17 +154,26 @@ const Home = () => {
   }, [user]);
 
   // Check document statuses for alert messages
+  // Exclude optional fields (resume_cv and other_file) from the check
   const documentStatusInfo = useMemo(() => {
-    if (!kycDocuments) return { hasRejected: false, hasPending: false, allApproved: false };
+    if (!kycDocuments) return { hasRejected: false, hasPending: false, allApproved: false, allNull: false };
     
-    const documentStatuses = Object.values(kycDocuments);
-    const hasRejected = documentStatuses.some((doc) => doc.status === "rejected");
-    const hasPending = documentStatuses.some((doc) => doc.status === "pending");
-    // Check if all documents are approved (have status "approved" and a URL)
-    const allApproved = documentStatuses.length > 0 && 
-      documentStatuses.every((doc) => doc.status === "approved" && doc.url !== null);
+    // Filter out optional fields
+    const requiredDocumentTypes = ["birth_certificate", "ref_letter", "valid_id", "certificate_file"];
+    const requiredDocuments = Object.entries(kycDocuments)
+      .filter(([key]) => requiredDocumentTypes.includes(key))
+      .map(([, value]) => value);
     
-    return { hasRejected, hasPending, allApproved };
+    const hasRejected = requiredDocuments.some((doc) => doc.status === "rejected");
+    const hasPending = requiredDocuments.some((doc) => doc.status === "pending");
+    // Check if all required documents are approved (have status "approved" and a URL)
+    const allApproved = requiredDocuments.length > 0 && 
+      requiredDocuments.every((doc) => doc.status === "approved" && doc.url !== null);
+    // Check if all required documents are null (not uploaded yet)
+    const allNull = requiredDocuments.length > 0 && 
+      requiredDocuments.every((doc) => doc.status === null && doc.url === null);
+    
+    return { hasRejected, hasPending, allApproved, allNull };
   }, [kycDocuments]);
 
   // Basic stat placeholders to match the dashboard vibe
@@ -347,8 +356,8 @@ const Home = () => {
           </Card>
         </div>
 
-        {/* Account Verification Alert - Show for pending/inactive accounts or if documents are pending/rejected, but not if all are approved */}
-        {(!isAccountActive || documentStatusInfo.hasRejected || documentStatusInfo.hasPending) && !documentStatusInfo.allApproved && (
+        {/* Account Verification Alert - Show for pending/inactive accounts or if documents are pending/rejected/null, but not if all are approved */}
+        {(!isAccountActive || documentStatusInfo.hasRejected || documentStatusInfo.hasPending || documentStatusInfo.allNull) && !documentStatusInfo.allApproved && (
           <Alert className="bg-blue-50 flex items-center border-blue-200">
             <AlertCircle className="h-4 w-4 text-blue-600" />
             <AlertTitle className="text-blue-900 flex flex-1">
@@ -358,6 +367,8 @@ const Home = () => {
                     ? "There are some rejected documents. Please check and update your documents."
                     : documentStatusInfo.hasPending
                     ? "Documents are under review."
+                    : documentStatusInfo.allNull
+                    ? "Complete application process"
                     : !isAccountActive
                     ? "Verify your account to gain admission into degree awarding programs."
                     : "Some of your documents are under review or have been rejected. Please check and update your documents."}

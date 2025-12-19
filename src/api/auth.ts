@@ -308,6 +308,10 @@ export class AuthApi {
     phone: string;
     level: string;
     program_id: number;
+    currency: string;
+    referral_code: string;
+    designated_institute: number;
+    foreign_student: number;
   }) {
     try {
       const response = await axios.post(`${BASE_URL}/api/auth/register/student`, data);

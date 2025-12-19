@@ -6,7 +6,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/Components/ui/alert";
 import { Skeleton } from "@/Components/ui/skeleton";
 import { Button } from "@/Components/ui/button";
 import { Input } from "@/Components/ui/input";
-import { Phone, GraduationCap, Wallet, Edit2, X, Check } from "lucide-react";
+import { Phone, GraduationCap, Wallet, Edit2, X, Check, FileText, ExternalLink } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -53,6 +53,7 @@ interface StudentProfile {
   application_fee?: string | null;
   date?: string;
   currency?: string | null;
+  profile_image?: string | null;
 }
 
 type ProfileApiResponse =
@@ -317,6 +318,26 @@ export default function ProfilePage() {
     { label: "Faculty", value: facultyName || profile?.facaulty_id || null },
     { label: "Application Code", value: profile?.application_code },
   ];
+
+  // Function to open document in new window
+  const handleOpenDocument = (url: string) => {
+    window.open(url, "_blank", "noopener,noreferrer");
+  };
+
+  // Get available documents
+  const availableDocuments = useMemo(() => {
+    if (!profile) return [];
+    const docs = [
+      { name: "Certificate File", url: profile.certificate_file },
+      { name: "Birth Certificate", url: profile.birth_certificate },
+      { name: "Reference Letter", url: profile.ref_letter },
+      { name: "Valid ID", url: profile.valid_id },
+      { name: "Resume/CV", url: profile.resume_cv },
+      { name: "Other File", url: profile.other_file },
+      { name: "Profile Image", url: profile.profile_image },
+    ];
+    return docs.filter((doc) => doc.url !== null && doc.url !== undefined && doc.url !== "");
+  }, [profile]);
 
   return (
     <div className="flex flex-col min-h-screen bg-muted">
@@ -631,6 +652,38 @@ export default function ProfilePage() {
             </dl>
           </div>
         </section>
+
+        {/* Documents Section */}
+        {!loading && availableDocuments.length > 0 && (
+          <section className="w-full border bg-card rounded-lg p-5 mt-5">
+            <h3 className="text-base font-semibold mb-4 text-muted-foreground flex items-center gap-2">
+              <FileText className="w-4 h-4" />
+              Documents
+            </h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {availableDocuments.map((doc, index) => (
+                <div
+                  key={index}
+                  className="flex items-center justify-between p-3 border rounded-lg hover:bg-muted/50 transition-colors"
+                >
+                  <div className="flex items-center gap-2 flex-1 min-w-0">
+                    <FileText className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                    <span className="text-sm font-medium truncate">{doc.name}</span>
+                  </div>
+                  <Button
+                    onClick={() => handleOpenDocument(doc.url!)}
+                    variant="outline"
+                    size="sm"
+                    className="ml-2 flex-shrink-0"
+                  >
+                    <ExternalLink className="w-3 h-3 mr-1" />
+                    Open Document
+                  </Button>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </main>
     </div>
   );

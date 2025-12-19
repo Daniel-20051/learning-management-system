@@ -33,7 +33,7 @@ interface UploadDocumentsDialogProps {
   onUploadSuccess?: () => void;
 }
 
-interface DocumentStep {
+interface DocumentField {
   id: string;
   label: string;
   documentType: string;
@@ -41,34 +41,72 @@ interface DocumentStep {
   required: boolean;
 }
 
+interface DocumentStep {
+  id: string;
+  label: string;
+  fields: DocumentField[];
+}
+
 const documentSteps: DocumentStep[] = [
   {
-    id: "certificate",
-    label: "Certificate",
-    documentType: "certificate_file",
-    description: "Upload certificate of most recent school",
-    required: true,
+    id: "certificates",
+    label: "Certificates",
+    fields: [
+      {
+        id: "certificate",
+        label: "Academic Certificate",
+        documentType: "certificate_file",
+        description: "Upload certificate of most recent school",
+        required: true,
+      },
+      {
+        id: "birth",
+        label: "Birth Certificate",
+        documentType: "birth_certificate",
+        description: "Upload your birth certificate or age declaration",
+        required: true,
+      },
+    ],
   },
   {
-    id: "birth",
-    label: "Birth Certificate",
-    documentType: "birth_certificate",
-    description: "Upload your birth certificate or age declaration",
-    required: true,
+    id: "identification",
+    label: "Identification & Reference",
+    fields: [
+      {
+        id: "reference",
+        label: "Reference Letter",
+        documentType: "ref_letter",
+        description: "Upload a reference letter from a recognized institution or professional",
+        required: true,
+      },
+      {
+        id: "id",
+        label: "Valid ID",
+        documentType: "valid_id",
+        description: "Upload a valid means of identification (National ID, Driver's License, or International Passport)",
+        required: true,
+      },
+    ],
   },
   {
-    id: "id",
-    label: "Valid ID",
-    documentType: "valid_id",
-    description: "Upload a valid means of identification (National ID, Driver's License, or International Passport)",
-    required: true,
-  },
-  {
-    id: "reference",
-    label: "Reference Letter",
-    documentType: "ref_letter",
-    description: "Upload a reference letter from a recognized institution or professional",
-    required: true,
+    id: "optional",
+    label: "Additional Documents (Optional)",
+    fields: [
+      {
+        id: "resume",
+        label: "Resume/CV",
+        documentType: "resume_cv",
+        description: "Upload your curriculum vitae or resume",
+        required: false,
+      },
+      {
+        id: "other",
+        label: "Other Supporting Documents",
+        documentType: "other_file",
+        description: "Upload any other relevant documents",
+        required: false,
+      },
+    ],
   },
 ];
 
@@ -95,9 +133,10 @@ export default function UploadDocumentsDialog({
     school: "",
     school_date: "",
   });
-  const [currentFile, setCurrentFile] = useState<File | null>(null);
+  const [currentFiles, setCurrentFiles] = useState<Record<string, File | null>>({});
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadingField, setUploadingField] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [uploadedDocuments, setUploadedDocuments] = useState<Record<string, {
     url: string | null;
@@ -159,8 +198,8 @@ export default function UploadDocumentsDialog({
     }
   };
 
-  const handleFileSelect = (file: File | null) => {
-    setCurrentFile(file);
+  const handleFileSelect = (documentType: string, file: File | null) => {
+    setCurrentFiles((prev) => ({ ...prev, [documentType]: file }));
     setError(null);
   };
 
@@ -216,105 +255,111 @@ export default function UploadDocumentsDialog({
       return;
     }
 
-    // Document steps: Upload current document before proceeding
+    // Document steps: Upload all files in current step before proceeding
     const documentIndex = currentStep - 1;
-    const currentDocument = documentSteps[documentIndex];
-    const documentData = uploadedDocuments[currentDocument.documentType];
-    const isAlreadyUploaded = documentData?.url !== null;
-    const isPending = documentData?.status === "pending";
-    const isApproved = documentData?.status === "approved";
+    const currentStepData = documentSteps[documentIndex];
+    
+    // Check if all required fields are uploaded or have files selected
+    const requiredFields = currentStepData.fields.filter(f => f.required);
+    const missingRequired = requiredFields.some(field => {
+      const docData = uploadedDocuments[field.documentType];
+      const hasFile = currentFiles[field.documentType] !== null;
+      return !docData?.url && !hasFile;
+    });
 
-    // If document is approved, prevent uploading replacement
-    if (isApproved && currentFile) {
-      setError("This document is approved and cannot be replaced.");
+    if (missingRequired) {
+      const missingFields = requiredFields
+        .filter(f => !uploadedDocuments[f.documentType]?.url && !currentFiles[f.documentType])
+        .map(f => f.label)
+        .join(", ");
+      setError(`Please upload: ${missingFields}`);
       return;
     }
 
-    // If document is already uploaded and no new file is selected, proceed
-    if (isAlreadyUploaded && !currentFile) {
-      // Move to next step
-      if (currentStep < totalSteps - 1) {
-        setCurrentStep(currentStep + 1);
-      } else {
-        // All steps completed
-        handleComplete();
-      }
-      return;
-    }
+    // Upload all files that are selected
+    const filesToUpload = Object.entries(currentFiles).filter(([docType, file]) => 
+      file !== null && currentStepData.fields.some(f => f.documentType === docType)
+    );
 
-    // If document is pending, allow proceeding but don't allow new upload
-    if (isPending && currentFile) {
-      setError("This document is under review. You cannot upload a new document until the review is complete.");
-      return;
-    }
+    if (filesToUpload.length > 0) {
+      // Upload files sequentially
+      for (const [documentType, file] of filesToUpload) {
+        if (!file) continue;
 
-    if (!currentFile && currentDocument.required && !isAlreadyUploaded) {
-      setError(`Please upload ${currentDocument.label.toLowerCase()}`);
-      return;
-    }
+        const field = currentStepData.fields.find(f => f.documentType === documentType);
+        if (!field) continue;
 
-    // If file is selected, upload it
-    if (currentFile) {
-      try {
-        setUploading(true);
-        setUploadProgress(0);
-
-        const response: any = await authApi.uploadKycDocument(
-          currentDocument.documentType,
-          currentFile,
-          (progress) => {
-            setUploadProgress(progress);
-          }
-        );
-
-        if (response?.data?.success) {
-          toast.success(`${currentDocument.label} uploaded successfully`);
-          setUploadedDocuments((prev) => ({
-            ...prev,
-            [currentDocument.documentType]: {
-              url: response.data.data.file_url,
-              status: "pending",
-              rejection_reason: null,
-              reviewed_at: null,
-            },
-          }));
-          setCurrentFile(null);
-          
-          // Move to next step
-          if (currentStep < totalSteps - 1) {
-            setCurrentStep(currentStep + 1);
-          } else {
-            // All steps completed
-            handleComplete();
-          }
-        } else {
-          throw new Error(response?.data?.message || "Failed to upload document");
+        const docData = uploadedDocuments[documentType];
+        if (docData?.status === "approved") {
+          setError(`${field.label} is approved and cannot be replaced.`);
+          return;
         }
-      } catch (err: any) {
-        const errorMessage =
-          err?.response?.data?.message ||
-          err?.message ||
-          "Failed to upload document. Please try again.";
-        setError(errorMessage);
-        toast.error(errorMessage);
-      } finally {
-        setUploading(false);
-        setUploadProgress(0);
+
+        if (docData?.status === "pending" && file) {
+          setError(`${field.label} is under review. You cannot upload a new document until the review is complete.`);
+          return;
+        }
+
+        try {
+          setUploading(true);
+          setUploadingField(documentType);
+          setUploadProgress(0);
+
+          const response: any = await authApi.uploadKycDocument(
+            documentType,
+            file,
+            (progress) => {
+              setUploadProgress(progress);
+            }
+          );
+
+          if (response?.data?.success) {
+            toast.success(`${field.label} uploaded successfully`);
+            setUploadedDocuments((prev) => ({
+              ...prev,
+              [documentType]: {
+                url: response.data.data.file_url,
+                status: "pending",
+                rejection_reason: null,
+                reviewed_at: null,
+              },
+            }));
+            setCurrentFiles((prev) => ({ ...prev, [documentType]: null }));
+          } else {
+            throw new Error(response?.data?.message || `Failed to upload ${field.label}`);
+          }
+        } catch (err: any) {
+          const errorMessage =
+            err?.response?.data?.message ||
+            err?.message ||
+            `Failed to upload ${field.label}. Please try again.`;
+          setError(errorMessage);
+          toast.error(errorMessage);
+          setUploading(false);
+          setUploadProgress(0);
+          setUploadingField(null);
+          return;
+        }
       }
+
+      setUploading(false);
+      setUploadProgress(0);
+      setUploadingField(null);
+    }
+
+    // Move to next step after all uploads complete
+    if (currentStep < totalSteps - 1) {
+      setCurrentStep(currentStep + 1);
+      setCurrentFiles({});
     } else {
-      // No file to upload, just proceed to next step
-      if (currentStep < totalSteps - 1) {
-        setCurrentStep(currentStep + 1);
-      } else {
-        handleComplete();
-      }
+      handleComplete();
     }
   };
 
   const handlePrevious = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
-      setCurrentFile(null);
+      setCurrentFiles({});
       setError(null);
     }
   };
@@ -345,7 +390,7 @@ export default function UploadDocumentsDialog({
       
       // Reset and close
       setCurrentStep(0);
-      setCurrentFile(null);
+      setCurrentFiles({});
       setUploadProgress(0);
       setError(null);
       onOpenChange(false);
@@ -357,7 +402,7 @@ export default function UploadDocumentsDialog({
   const handleClose = () => {
     if (!uploading) {
       setCurrentStep(0);
-      setCurrentFile(null);
+      setCurrentFiles({});
       setError(null);
       setUploadProgress(0);
       onOpenChange(false);
@@ -375,15 +420,20 @@ export default function UploadDocumentsDialog({
   if (isSchoolInfoStep) {
     canProceed = !!(schoolInfo.school1.trim() || schoolInfo.school2.trim() || schoolInfo.school.trim());
   } else if (currentDocument) {
-    const documentData = uploadedDocuments[currentDocument.documentType];
-    const isAlreadyUploaded = documentData?.url !== null;
-    const isApproved = documentData?.status === "approved";
-    // Can proceed if: not required, or file selected, or already uploaded (including pending/approved status)
-    // But cannot proceed if trying to upload when approved
-    canProceed = !currentDocument.required || currentFile !== null || isAlreadyUploaded;
-    if (isApproved && currentFile) {
-      canProceed = false;
-    }
+    // Check all required fields in current step
+    const requiredFields = currentDocument.fields.filter(f => f.required);
+    canProceed = requiredFields.every(field => {
+      const docData = uploadedDocuments[field.documentType];
+      const hasFile = currentFiles[field.documentType] !== null;
+      const isUploaded = docData?.url !== null;
+      
+      // Cannot proceed if trying to upload when approved
+      if (docData?.status === "approved" && hasFile) {
+        return false;
+      }
+      
+      return isUploaded || hasFile;
+    });
   }
 
   return (
@@ -394,7 +444,7 @@ export default function UploadDocumentsDialog({
           <DialogDescription>
             {isSchoolInfoStep
               ? "Step 1: Provide your previous school information"
-              : `Step ${currentStep + 1} of ${totalSteps}: Upload ${currentDocument?.label}`}
+              : `Step ${currentStep + 1} of ${totalSteps}: ${currentDocument?.label}`}
           </DialogDescription>
         </DialogHeader>
 
@@ -543,78 +593,58 @@ export default function UploadDocumentsDialog({
               </div>
             </div>
           ) : currentDocument ? (
-            /* Document Upload */
-            <div className="space-y-4">
+            /* Document Upload - Multiple fields per step */
+            <div className="space-y-6">
               <div>
                 <h3 className="text-lg font-semibold mb-1">
                   {currentDocument.label}
-                  {currentDocument.required && (
-                    <span className="text-red-500 ml-1">*</span>
-                  )}
                 </h3>
-                <p className="text-sm text-muted-foreground">
-                  {currentDocument.description}
-                </p>
-                {(() => {
-                  const documentData = uploadedDocuments[currentDocument.documentType];
-                  if (!documentData?.url) return null;
-                  
-                  if (documentData.status === "pending") {
-                    return (
-                      <Alert className="mt-2 bg-amber-50 border-amber-200">
-                        <AlertCircle className="h-4 w-4 text-amber-600" />
-                        <AlertDescription className="text-amber-800">
-                          Document is under review.
-                        </AlertDescription>
-                      </Alert>
-                    );
-                  } else if (documentData.status === "approved") {
-                    return (
-                      <Alert className="mt-2 bg-green-50 border-green-200">
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                        <AlertDescription className="text-green-800">
-                          Document approved.
-                        </AlertDescription>
-                      </Alert>
-                    );
-                  } else if (documentData.status === "rejected") {
-                    return (
-                      <Alert className="mt-2 bg-red-50 border-red-200">
-                        <AlertCircle className="h-4 w-4 text-red-600" />
-                        <AlertDescription className="text-red-800">
-                          Document rejected: {documentData.rejection_reason || "Please upload a new document."}
-                        </AlertDescription>
-                      </Alert>
-                    );
-                  } else {
-                    return (
-                      <Alert className="mt-2 bg-green-50 border-green-200">
-                        <CheckCircle2 className="h-4 w-4 text-green-600" />
-                        <AlertDescription className="text-green-800">
-                          Document already uploaded. You can upload a new one to replace it.
-                        </AlertDescription>
-                      </Alert>
-                    );
-                  }
-                })()}
               </div>
 
-              {/* File Upload Area */}
-              <div className={`border-2 border-dashed rounded-lg p-8 text-center ${
-                (() => {
-                  const documentData = uploadedDocuments[currentDocument.documentType];
-                  return documentData?.status === "approved" ? "opacity-50 pointer-events-none" : "";
-                })()
-              }`}>
-                {(() => {
-                  const documentData = uploadedDocuments[currentDocument.documentType];
-                  const isPending = documentData?.status === "pending";
-                  const isApproved = documentData?.status === "approved";
-                  
-                  // If approved, show message and disable upload
-                  if (isApproved) {
-                    return (
-                      <div className="space-y-4">
+              {/* Render each field in the current step */}
+              {currentDocument.fields.map((field) => {
+                const documentData = uploadedDocuments[field.documentType];
+                const currentFile = currentFiles[field.documentType];
+                const isPending = documentData?.status === "pending";
+                const isApproved = documentData?.status === "approved";
+                const isRejected = documentData?.status === "rejected";
+                const isUploadingThis = uploadingField === field.documentType;
+
+                return (
+                  <div key={field.id} className="space-y-2">
+                    <div>
+                      <h4 className="text-sm font-semibold mb-1">
+                        {field.label}
+                        {field.required && (
+                          <span className="text-red-500 ml-1">*</span>
+                        )}
+                      </h4>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {field.description}
+                      </p>
+                      {isApproved && (
+                        <Alert className="mt-2 bg-green-50 border-green-200">
+                          <CheckCircle2 className="h-4 w-4 text-green-600" />
+                          <AlertDescription className="text-green-800">
+                            Document approved.
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                      {isRejected && (
+                        <Alert className="mt-2 bg-red-50 border-red-200">
+                          <AlertCircle className="h-4 w-4 text-red-600" />
+                          <AlertDescription className="text-red-800">
+                            Document rejected: {documentData.rejection_reason || "Please upload a new document."}
+                          </AlertDescription>
+                        </Alert>
+                      )}
+                    </div>
+
+                    {/* File Upload Area */}
+                    <div className={`border-2 border-dashed rounded-lg p-6 text-center ${
+                      isApproved ? "opacity-50 pointer-events-none" : ""
+                    }`}>
+                      {isApproved ? (
                         <div className="flex items-center justify-center">
                           <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
                             <CheckCircle2 className="h-8 w-8 text-green-600" />
@@ -626,14 +656,7 @@ export default function UploadDocumentsDialog({
                             </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  }
-                  
-                  // If pending, show message but still allow navigation
-                  if (isPending) {
-                    return (
-                      <div className="space-y-4">
+                      ) : isPending && !currentFile ? (
                         <div className="flex items-center justify-center">
                           <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
                             <File className="h-8 w-8 text-amber-600" />
@@ -645,84 +668,89 @@ export default function UploadDocumentsDialog({
                             </div>
                           </div>
                         </div>
-                      </div>
-                    );
-                  }
-                  
-                  return currentFile ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-center">
-                        <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-                          <File className="h-8 w-8 text-primary" />
-                          <div className="text-left">
-                            <p className="font-medium text-sm">{currentFile.name}</p>
-                            <p className="text-xs text-muted-foreground">
-                              {currentFile.size / 1024 / 1024 > 1
-                                ? `${(currentFile.size / 1024 / 1024).toFixed(2)} MB`
-                                : `${(currentFile.size / 1024).toFixed(2)} KB`}
-                            </p>
+                      ) : currentFile ? (
+                        <div className="flex items-center justify-center">
+                          <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
+                            <File className="h-8 w-8 text-primary" />
+                            <div className="text-left">
+                              <p className="font-medium text-sm">{currentFile.name}</p>
+                              <p className="text-xs text-muted-foreground">
+                                {currentFile.size / 1024 / 1024 > 1
+                                  ? `${(currentFile.size / 1024 / 1024).toFixed(2)} MB`
+                                  : `${(currentFile.size / 1024).toFixed(2)} KB`}
+                              </p>
+                            </div>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleFileSelect(field.documentType, null)}
+                              disabled={uploading}
+                              className="ml-2"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleFileSelect(null)}
+                        </div>
+                      ) : (
+                        <label className="cursor-pointer">
+                          <input
+                            type="file"
+                            className="hidden"
+                            accept=".pdf,.jpg,.jpeg,.png"
                             disabled={uploading}
-                            className="ml-2"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
+                            onChange={(e) => {
+                              const file = e.target.files?.[0] || null;
+                              if (file) {
+                                // Validate file size (10MB max)
+                                if (file.size > 10 * 1024 * 1024) {
+                                  setError("File size must be less than 10MB");
+                                  return;
+                                }
+                                // Validate file type
+                                const validTypes = [
+                                  "application/pdf",
+                                  "image/jpeg",
+                                  "image/jpg",
+                                  "image/png",
+                                ];
+                                if (!validTypes.includes(file.type)) {
+                                  setError("Only PDF, JPG, and PNG files are allowed");
+                                  return;
+                                }
+                                handleFileSelect(field.documentType, file);
+                              }
+                            }}
+                          />
+                          <div className="space-y-4">
+                            <div className="flex justify-center">
+                              <div className="h-12 w-12 rounded-full bg-primary/10 flex items-center justify-center">
+                                <Upload className="h-6 w-6 text-primary" />
+                              </div>
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium">
+                                Click to upload or drag and drop
+                              </p>
+                              <p className="text-xs text-muted-foreground mt-1">
+                                PDF, JPG, PNG (Max 10MB)
+                              </p>
+                            </div>
+                          </div>
+                        </label>
+                      )}
+                      {isUploadingThis && (
+                        <div className="mt-4 space-y-2">
+                          <div className="flex items-center justify-between text-xs">
+                            <span className="text-muted-foreground">Uploading...</span>
+                            <span className="font-medium">{uploadProgress}%</span>
+                          </div>
+                          <Progress value={uploadProgress} className="h-1.5" />
                         </div>
-                      </div>
+                      )}
                     </div>
-                  ) : (
-                    <label className="cursor-pointer">
-                    <input
-                      type="file"
-                      className="hidden"
-                      accept=".pdf,.jpg,.jpeg,.png"
-                      disabled={uploading}
-                      onChange={(e) => {
-                        const file = e.target.files?.[0] || null;
-                        if (file) {
-                          // Validate file size (10MB max)
-                          if (file.size > 10 * 1024 * 1024) {
-                            setError("File size must be less than 10MB");
-                            return;
-                          }
-                          // Validate file type
-                          const validTypes = [
-                            "application/pdf",
-                            "image/jpeg",
-                            "image/jpg",
-                            "image/png",
-                          ];
-                          if (!validTypes.includes(file.type)) {
-                            setError("Only PDF, JPG, and PNG files are allowed");
-                            return;
-                          }
-                          handleFileSelect(file);
-                        }
-                      }}
-                    />
-                    <div className="space-y-4">
-                      <div className="flex justify-center">
-                        <div className="h-16 w-16 rounded-full bg-primary/10 flex items-center justify-center">
-                          <Upload className="h-8 w-8 text-primary" />
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium">
-                          Click to upload or drag and drop
-                        </p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          PDF, JPG, PNG (Max 10MB)
-                        </p>
-                      </div>
-                    </div>
-                  </label>
-                  );
-                })()}
-              </div>
+                  </div>
+                );
+              })}
             </div>
           ) : null}
 
@@ -733,7 +761,7 @@ export default function UploadDocumentsDialog({
             </Alert>
           )}
 
-          {uploading && (
+          {uploading && !uploadingField && (
             <div className="space-y-2">
               <div className="flex items-center justify-between text-sm">
                 <span className="text-muted-foreground">

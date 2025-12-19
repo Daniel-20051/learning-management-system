@@ -25,6 +25,10 @@ export default function RegisterPage() {
     lname: "",
     phone: "",
     program_id: "",
+    currency: "",
+    referral_code: "",
+    designated_institute: "",
+    foreign_student: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
@@ -66,7 +70,9 @@ export default function RegisterPage() {
     try {
       // Validate all fields
       if (!formData.email || !formData.password || !formData.fname || 
-          !formData.lname || !formData.phone || !formData.program_id) {
+          !formData.lname || !formData.phone || !formData.program_id || 
+          !formData.currency || !formData.referral_code || 
+          !formData.designated_institute || !formData.foreign_student) {
         toast.error("Please fill in all required fields");
         setIsLoading(false);
         return;
@@ -80,6 +86,10 @@ export default function RegisterPage() {
         phone: formData.phone,
         level: "100", // Default to 100 level for new students
         program_id: parseInt(formData.program_id),
+        currency: formData.currency,
+        referral_code: formData.referral_code,
+        designated_institute: parseInt(formData.designated_institute),
+        foreign_student: formData.foreign_student === "yes" ? 1 : 0,
       });
 
       if (response && response.data) {
@@ -234,6 +244,70 @@ export default function RegisterPage() {
                       ))}
                     </SelectContent>
                   </Select>
+                </div>
+
+                {/* Currency and Referral Code Row */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="currency" className="text-sm">Currency</Label>
+                    <Select
+                      value={formData.currency}
+                      onValueChange={(value) => handleChange("currency", value)}
+                      required
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Select currency" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="USD">USD</SelectItem>
+                        <SelectItem value="NGN">NGN</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="referral_code" className="text-sm">Referral Code</Label>
+                    <Input
+                      id="referral_code"
+                      type="text"
+                      placeholder="Enter referral code"
+                      required
+                      value={formData.referral_code}
+                      onChange={(e) => handleChange("referral_code", e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
+                </div>
+
+                {/* Designated Institute and Foreign Student Row */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="designated_institute" className="text-sm">Designated Institute</Label>
+                    <Input
+                      id="designated_institute"
+                      type="number"
+                      placeholder="Enter designated institute ID"
+                      required
+                      value={formData.designated_institute}
+                      onChange={(e) => handleChange("designated_institute", e.target.value)}
+                      className="h-9"
+                    />
+                  </div>
+                  <div className="grid gap-1.5">
+                    <Label htmlFor="foreign_student" className="text-sm">Foreign Student</Label>
+                    <Select
+                      value={formData.foreign_student}
+                      onValueChange={(value) => handleChange("foreign_student", value)}
+                      required
+                    >
+                      <SelectTrigger className="h-9">
+                        <SelectValue placeholder="Select option" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="no">No (Local)</SelectItem>
+                        <SelectItem value="yes">Yes (Foreign)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
 
                 {/* Submit Button */}

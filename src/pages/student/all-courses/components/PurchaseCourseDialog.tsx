@@ -12,32 +12,27 @@ import { Badge } from "@/Components/ui/badge";
 import { Loader2, ShoppingCart, AlertCircle, CheckCircle2, Wallet, ArrowRightLeft } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { WalletApi } from "@/api/wallet";
 
 // Currency conversion utility
-// TODO: Replace with actual API endpoint when ready
-const getExchangeRate = (): number => {
-  return 1500; // Placeholder rate: 1 USD = 1500 NGN
-};
-
 const convertCurrency = (
   amount: number,
   fromCurrency: string,
-  toCurrency: string
+  toCurrency: string,
+  exchangeRate: number
 ): number => {
   if (fromCurrency === toCurrency) {
     return amount;
   }
 
-  const rate = getExchangeRate();
-
   // USD to NGN: multiply by rate
   if (fromCurrency === "USD" && toCurrency === "NGN") {
-    return amount * rate;
+    return amount * exchangeRate;
   }
 
   // NGN to USD: divide by rate
   if (fromCurrency === "NGN" && toCurrency === "USD") {
-    return amount / rate;
+    return amount / exchangeRate;
   }
 
   return amount;
@@ -67,11 +62,13 @@ const PurchaseCourseDialog = ({
   onPurchaseSuccess,
 }: PurchaseCourseDialogProps) => {
   const navigate = useNavigate();
+  const walletApi = new WalletApi();
   const [isProcessing, setIsProcessing] = useState(false);
   const [paymentStep, setPaymentStep] = useState<"initiate" | "processing" | "success" | "error">("initiate");
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [currency, setCurrency] = useState<string>("NGN");
   const [isLoadingWallet, setIsLoadingWallet] = useState(true);
+  const [exchangeRate, setExchangeRate] = useState<number>(1500); // Default fallback rate
 
   // Calculate currency conversion if needed
   const currencyConversion = useMemo(() => {
@@ -86,8 +83,7 @@ const PurchaseCourseDialog = ({
     }
 
     const originalPrice = course.price;
-    const convertedPrice = convertCurrency(originalPrice, courseCurrency, studentCurrency);
-    const exchangeRate = getExchangeRate();
+    const convertedPrice = convertCurrency(originalPrice, courseCurrency, studentCurrency, exchangeRate);
 
     return {
       originalPrice,
@@ -97,7 +93,7 @@ const PurchaseCourseDialog = ({
       exchangeRate,
       needsConversion: true,
     };
-  }, [course, currency]);
+  }, [course, currency, exchangeRate]);
 
   const fetchWalletBalance = useCallback(async () => {
     setIsLoadingWallet(true);
@@ -122,16 +118,30 @@ const PurchaseCourseDialog = ({
     }
   }, []);
 
-  // Fetch wallet balance when dialog opens
+  // Fetch exchange rate
+  const fetchExchangeRate = useCallback(async () => {
+    try {
+      const response = await walletApi.GetExchangeRate();
+      if (response?.data?.exchange_rate) {
+        setExchangeRate(response.data.exchange_rate);
+      }
+    } catch (err: any) {
+      console.error("Error fetching exchange rate:", err);
+      // Keep default rate of 1500 if API fails
+    }
+  }, []);
+
+  // Fetch wallet balance and exchange rate when dialog opens
   useEffect(() => {
     if (open) {
       fetchWalletBalance();
+      fetchExchangeRate();
     } else {
       // Reset state when dialog closes
       setPaymentStep("initiate");
       setIsLoadingWallet(true);
     }
-  }, [open, fetchWalletBalance]);
+  }, [open, fetchWalletBalance, fetchExchangeRate]);
 
   // This would typically integrate with Flutterwave or another payment gateway
   const handleInitiatePayment = async () => {
@@ -164,16 +174,7 @@ const PurchaseCourseDialog = ({
 
       if (isSuccess) {
         setPaymentStep("success");
-        const successMessage = response.message || purchaseData?.message || "Course purchased successfully!";
-        toast.success(successMessage);
-        
-        // Log transaction details if available
-        if (purchaseData?.transaction) {
-          console.log("Transaction details:", purchaseData.transaction);
-          if (purchaseData.transaction.note) {
-            toast.info(purchaseData.transaction.note);
-          }
-        }
+        toast.success("Success");
         
         if (onPurchaseSuccess) {
           onPurchaseSuccess();
@@ -338,17 +339,6 @@ const PurchaseCourseDialog = ({
                 </p>
               </div>
             )}
-
-            {/* Info Message */}
-            {!hasInsufficientBalance && (
-              <div className="flex items-start gap-2 p-3 bg-blue-50 rounded-lg">
-                <AlertCircle className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
-                <p className="text-xs text-blue-800">
-                  This is a WPU marketplace course. 100% of the revenue goes to WPU.
-                  The amount will be debited from your wallet balance.
-                </p>
-              </div>
-            )}
           </div>
         )}
 
@@ -367,10 +357,7 @@ const PurchaseCourseDialog = ({
               <CheckCircle2 className="h-8 w-8 text-green-600" />
             </div>
             <div className="text-center space-y-2">
-              <h3 className="font-semibold text-lg">Purchase Successful!</h3>
-              <p className="text-sm text-muted-foreground">
-                You have been enrolled in this course. Redirecting...
-              </p>
+              <h3 className="font-semibold text-lg">Success</h3>
             </div>
           </div>
         )}

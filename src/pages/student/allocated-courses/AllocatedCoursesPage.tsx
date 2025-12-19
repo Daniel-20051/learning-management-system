@@ -2,6 +2,7 @@ import { useEffect, useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { CoursesApi } from "@/api/courses";
 import { AuthApi } from "@/api/auth";
+import { WalletApi } from "@/api/wallet";
 import { Button } from "@/Components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Alert, AlertDescription, AlertTitle } from "@/Components/ui/alert";
@@ -38,30 +39,24 @@ import {
 } from "@/Components/ui/alert-dialog";
 
 // Currency conversion utility
-// TODO: Replace with actual API endpoint when ready
-const getExchangeRate = (): number => {
-  return 1500; // Placeholder rate: 1 USD = 1500 NGN
-};
-
 const convertCurrency = (
   amount: number,
   fromCurrency: string,
-  toCurrency: string
+  toCurrency: string,
+  exchangeRate: number
 ): number => {
   if (fromCurrency === toCurrency) {
     return amount;
   }
 
-  const rate = getExchangeRate();
-
   // USD to NGN: multiply by rate
   if (fromCurrency === "USD" && toCurrency === "NGN") {
-    return amount * rate;
+    return amount * exchangeRate;
   }
 
   // NGN to USD: divide by rate
   if (fromCurrency === "NGN" && toCurrency === "USD") {
-    return amount / rate;
+    return amount / exchangeRate;
   }
 
   return amount;
@@ -133,6 +128,7 @@ export default function AllocatedCoursesPage() {
   const navigate = useNavigate();
   const coursesApi = new CoursesApi();
   const authApi = new AuthApi();
+  const walletApi = new WalletApi();
   
   const [loading, setLoading] = useState(true);
   const [registering, setRegistering] = useState(false);
@@ -141,6 +137,7 @@ export default function AllocatedCoursesPage() {
   const [confirmDialogOpen, setConfirmDialogOpen] = useState(false);
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [currency, setCurrency] = useState<string>("NGN");
+  const [exchangeRate, setExchangeRate] = useState<number>(1500); // Default fallback rate
 
   // Calculate currency conversions for all courses
   const courseConversions = useMemo(() => {
@@ -161,7 +158,7 @@ export default function AllocatedCoursesPage() {
         };
       }
       
-      const convertedPrice = convertCurrency(course.price, courseCurrency, studentCurrency);
+      const convertedPrice = convertCurrency(course.price, courseCurrency, studentCurrency, exchangeRate);
       
       return {
         allocation_id: course.allocation_id,
@@ -172,7 +169,7 @@ export default function AllocatedCoursesPage() {
         needsConversion: true,
       };
     });
-  }, [data?.allocated_courses, currency]);
+  }, [data?.allocated_courses, currency, exchangeRate]);
 
   // Calculate total amount in student's currency
   const totalAmountInStudentCurrency = useMemo(() => {
@@ -186,10 +183,10 @@ export default function AllocatedCoursesPage() {
         return sum + course.price;
       }
       
-      const convertedPrice = convertCurrency(course.price, courseCurrency, studentCurrency);
+      const convertedPrice = convertCurrency(course.price, courseCurrency, studentCurrency, exchangeRate);
       return sum + convertedPrice;
     }, 0);
-  }, [data?.allocated_courses, currency]);
+  }, [data?.allocated_courses, currency, exchangeRate]);
 
   // Check if any course needs conversion
   const hasCurrencyConversion = useMemo(() => {
@@ -201,7 +198,20 @@ export default function AllocatedCoursesPage() {
 
   useEffect(() => {
     fetchData();
+    fetchExchangeRate();
   }, []);
+
+  const fetchExchangeRate = async () => {
+    try {
+      const response = await walletApi.GetExchangeRate();
+      if (response?.data?.exchange_rate) {
+        setExchangeRate(response.data.exchange_rate);
+      }
+    } catch (err: any) {
+      console.error("Error fetching exchange rate:", err);
+      // Keep default rate of 1500 if API fails
+    }
+  };
 
   const fetchData = async () => {
     try {
@@ -278,7 +288,7 @@ export default function AllocatedCoursesPage() {
         
         // Navigate to home after short delay
         setTimeout(() => {
-          navigate("/home");
+          navigate("/");
         }, 2000);
       } else {
         // Show the actual error message from backend (non-axios error response)
@@ -452,7 +462,7 @@ export default function AllocatedCoursesPage() {
                       <AlertDescription className="text-xs text-amber-900">
                         <div className="space-y-1">
                           <p className="font-semibold">Currency Conversion Applied</p>
-                          <p>Some courses are priced in different currencies. All prices have been converted to {currency} using the current exchange rate (1 USD = {getExchangeRate().toLocaleString()} NGN).</p>
+                          <p>Some courses are priced in different currencies. All prices have been converted to {currency} using the current exchange rate (1 USD = {exchangeRate.toLocaleString()} NGN).</p>
                         </div>
                       </AlertDescription>
                     </Alert>
@@ -592,7 +602,7 @@ export default function AllocatedCoursesPage() {
                       <span className="font-semibold text-amber-900">Currency Conversion Applied</span>
                     </div>
                     <p className="text-amber-800">
-                      Exchange rate: 1 USD = {getExchangeRate().toLocaleString()} NGN
+                      Exchange rate: 1 USD = {exchangeRate.toLocaleString()} NGN
                     </p>
                   </div>
                 )}

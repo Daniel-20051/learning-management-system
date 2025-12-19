@@ -14,7 +14,7 @@ const CourseTypeFilter = ({
   className,
 }: CourseTypeFilterProps) => {
   const filters: { label: string; value: CourseType }[] = [
-    { label: "Allocated Courses", value: "allocated" },
+    { label: "Registered Courses", value: "allocated" },
     { label: "Marketplace", value: "marketplace" },
   ];
 

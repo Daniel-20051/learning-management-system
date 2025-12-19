@@ -3,13 +3,32 @@ import { BASE_URL, getAuthHeaders, handleApiError } from './base';
 
 export interface WalletTransaction {
   id: number;
-  transaction_type: 'credit' | 'debit';
+  type: 'Credit' | 'Debit';
   amount: number;
-  purpose: string;
+  currency: string;
+  service_name: string;
+  ref: string;
+  date: string;
+  semester?: string | null;
+  academic_year?: string | null;
+  balance: number;
+  // Legacy fields for backward compatibility
+  transaction_type?: 'credit' | 'debit';
+  purpose?: string;
   reference_id?: string | null;
   description?: string | null;
-  created_at: string;
-  updated_at: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+export interface WalletTransactionsFilters {
+  type?: 'Credit' | 'Debit';
+  semester?: string;
+  academic_year?: string;
+  start_date?: string;
+  end_date?: string;
+  page?: number;
+  limit?: number;
 }
 
 export interface WalletTransactionsResponse {
@@ -18,10 +37,23 @@ export interface WalletTransactionsResponse {
   message?: string;
   data?: {
     transactions: WalletTransaction[];
-    total: number;
-    page: number;
-    limit: number;
+    pagination: {
+      total: number;
+      page: number;
+      limit: number;
+      totalPages: number;
+    };
+    summary: {
+      currency: string;
+      total_credits: number;
+      total_debits: number;
+    };
   };
+  // Legacy structure support
+  transactions?: WalletTransaction[];
+  total?: number;
+  page?: number;
+  limit?: number;
 }
 
 export interface AddMoneyPayload {
@@ -63,16 +95,50 @@ export interface FundWalletResponse {
   };
 }
 
+export interface ExchangeRateResponse {
+  success?: boolean;
+  status?: boolean;
+  message?: string;
+  data?: {
+    exchange_rate: number;
+    from_currency: string;
+    to_currency: string;
+    description: string;
+  };
+}
+
 export class WalletApi {
   /**
-   * Get wallet transaction history
-   * @param page Page number (default: 1)
-   * @param limit Number of transactions per page (default: 20)
+   * Get wallet transaction history with filtering and pagination
+   * @param filters Filter options including page, limit, type, semester, academic_year, start_date, end_date
    */
-  async GetTransactions(page: number = 1, limit: number = 20): Promise<WalletTransactionsResponse> {
+  async GetTransactions(filters: WalletTransactionsFilters = {}): Promise<WalletTransactionsResponse> {
     try {
+      const params = new URLSearchParams();
+      
+      // Add pagination params
+      params.append('page', String(filters.page || 1));
+      params.append('limit', String(filters.limit || 50));
+      
+      // Add filter params if provided
+      if (filters.type) {
+        params.append('type', filters.type);
+      }
+      if (filters.semester) {
+        params.append('semester', filters.semester);
+      }
+      if (filters.academic_year) {
+        params.append('academic_year', filters.academic_year);
+      }
+      if (filters.start_date) {
+        params.append('start_date', filters.start_date);
+      }
+      if (filters.end_date) {
+        params.append('end_date', filters.end_date);
+      }
+      
       const response = await axios.get(
-        `${BASE_URL}/api/wallet/transactions?page=${page}&limit=${limit}`,
+        `${BASE_URL}/api/wallet/transactions?${params.toString()}`,
         {
           headers: getAuthHeaders()
         }
@@ -141,12 +207,30 @@ export class WalletApi {
       throw err;
     }
   }
+
+  /**
+   * Get exchange rate from API
+   */
+  async GetExchangeRate(): Promise<ExchangeRateResponse> {
+    try {
+      const response = await axios.get(
+        `${BASE_URL}/api/wallet/rate`,
+        {
+          headers: getAuthHeaders()
+        }
+      );
+      return response.data as ExchangeRateResponse;
+    } catch (err: any) {
+      handleApiError(err, "getting exchange rate");
+      throw err;
+    }
+  }
 }
 
 // Export standalone function for backward compatibility
-export async function GetWalletTransactions(page: number = 1, limit: number = 20) {
+export async function GetWalletTransactions(filters: WalletTransactionsFilters = {}) {
   const api = new WalletApi();
-  return api.GetTransactions(page, limit);
+  return api.GetTransactions(filters);
 }
 
 export async function AddMoneyToWallet(payload: AddMoneyPayload) {

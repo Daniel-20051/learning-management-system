@@ -1,6 +1,6 @@
 import { useEffect, useState, useRef } from "react";
 import { WalletApi } from "@/api/wallet";
-import type { WalletTransaction } from "@/api/wallet";
+import type { WalletTransaction, WalletTransactionsFilters } from "@/api/wallet";
 import { AuthApi } from "@/api/auth";
 import { useAuth } from "@/context/AuthContext";
 import { Button } from "@/Components/ui/button";
@@ -17,6 +17,13 @@ import {
   DialogTitle,
 } from "@/Components/ui/dialog";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/Components/ui/select";
+import {
   Table,
   TableBody,
   TableCell,
@@ -32,6 +39,10 @@ import {
   Loader2,
   AlertCircle,
   CheckCircle2,
+  Filter,
+  X,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import Navbar from "@/Components/navbar";
 import { toast } from "sonner";
@@ -74,8 +85,21 @@ export default function WalletPage() {
   const [amount, setAmount] = useState("");
   const [isAddingMoney, setIsAddingMoney] = useState(false);
   const [page, setPage] = useState(1);
-  const [hasMore, setHasMore] = useState(true);
+  const [totalPages, setTotalPages] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [summary, setSummary] = useState<{
+    currency: string;
+    total_credits: number;
+    total_debits: number;
+  } | null>(null);
   const [isFunding, setIsFunding] = useState(false);
+  const [filters, setFilters] = useState<WalletTransactionsFilters>({
+    page: 1,
+    limit: 50,
+  });
+  const [showFilters, setShowFilters] = useState(false);
+  const [availableAcademicYears, setAvailableAcademicYears] = useState<string[]>([]);
+  const [loadingAcademicYears, setLoadingAcademicYears] = useState(false);
   const flutterwaveLoaded = useRef(false);
   const { user } = useAuth();
 
@@ -85,6 +109,7 @@ export default function WalletPage() {
   useEffect(() => {
     fetchWalletData();
     fetchTransactions();
+    fetchAcademicYears();
     loadFlutterwaveScript();
     
     // Handle Flutterwave redirect (in case callback doesn't fire)
@@ -150,22 +175,55 @@ export default function WalletPage() {
     }
   };
 
-  const fetchTransactions = async (pageNum: number = 1, append: boolean = false) => {
+  const fetchAcademicYears = async () => {
+    try {
+      setLoadingAcademicYears(true);
+      const response = await authApi.Getsessions();
+      const items = response?.data?.data ?? response?.data ?? [];
+
+      if (Array.isArray(items) && items.length > 0) {
+        // Build unique academic year list from API
+        const uniqueYears = Array.from(
+          new Set(items.map((it: any) => it.academic_year).filter(Boolean))
+        ) as string[];
+        setAvailableAcademicYears(uniqueYears.sort().reverse()); // Sort descending (newest first)
+      }
+    } catch (err: any) {
+      console.error("Error fetching academic years:", err);
+    } finally {
+      setLoadingAcademicYears(false);
+    }
+  };
+
+  const fetchTransactions = async (filterParams?: WalletTransactionsFilters) => {
     try {
       setLoadingTransactions(true);
-      const response = await walletApi.GetTransactions(pageNum, 20);
-      // Handle both WalletTransactionsResponse structure and direct data structure
-      const transactionsData = response.data?.transactions || 
-                               (response as any).transactions ||
-                               (response as any).data?.transactions;
+      const currentFilters = filterParams || filters;
+      const response = await walletApi.GetTransactions(currentFilters);
       
-      if (transactionsData && Array.isArray(transactionsData)) {
-        if (append) {
-          setTransactions((prev) => [...prev, ...transactionsData]);
-        } else {
+      // Handle new response structure
+      if (response.data) {
+        const { transactions: transactionsData, pagination, summary: summaryData } = response.data;
+        
+        if (transactionsData && Array.isArray(transactionsData)) {
+          setTransactions(transactionsData);
+          
+          if (pagination) {
+            setPage(pagination.page);
+            setTotalPages(pagination.totalPages);
+            setTotal(pagination.total);
+          }
+          
+          if (summaryData) {
+            setSummary(summaryData);
+          }
+        }
+      } else {
+        // Fallback for legacy structure
+        const transactionsData = (response as any).transactions || (response as any).data?.transactions;
+        if (transactionsData && Array.isArray(transactionsData)) {
           setTransactions(transactionsData);
         }
-        setHasMore(transactionsData.length === 20);
       }
     } catch (err: any) {
       console.error("Error fetching transactions:", err);
@@ -198,7 +256,7 @@ export default function WalletPage() {
         
         // Refresh wallet balance and transactions
         await fetchWalletData();
-        await fetchTransactions(1, false);
+        await fetchTransactions({ ...filters, page: 1 });
       } else {
         throw new Error((data as any)?.message || response.message || "Failed to fund wallet");
       }
@@ -371,10 +429,22 @@ export default function WalletPage() {
     }
   };
 
-  const loadMoreTransactions = () => {
-    const nextPage = page + 1;
-    setPage(nextPage);
-    fetchTransactions(nextPage, true);
+  const handleFilterChange = (key: keyof WalletTransactionsFilters, value: any) => {
+    const newFilters = { ...filters, [key]: value === "all" ? undefined : value, page: 1 };
+    setFilters(newFilters);
+    fetchTransactions(newFilters);
+  };
+
+  const clearFilters = () => {
+    const clearedFilters = { page: 1, limit: 50 };
+    setFilters(clearedFilters);
+    fetchTransactions(clearedFilters);
+  };
+
+  const handlePageChange = (newPage: number) => {
+    const newFilters = { ...filters, page: newPage };
+    setFilters(newFilters);
+    fetchTransactions(newFilters);
   };
 
   return (
@@ -427,10 +497,119 @@ export default function WalletPage() {
         {/* Transaction History */}
         <div className="border bg-card rounded-lg">
           <div className="p-6 border-b">
-            <h2 className="text-xl font-semibold text-foreground">Transaction History</h2>
-            <p className="text-sm text-muted-foreground mt-1">
-              View all your wallet transactions
-            </p>
+            <div className="flex items-center justify-between">
+              <div>
+                <h2 className="text-xl font-semibold text-foreground">Transaction History</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  View all your wallet transactions
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowFilters(!showFilters)}
+                className="gap-2"
+              >
+                <Filter className="h-4 w-4" />
+                Filters
+              </Button>
+            </div>
+
+            {/* Filters */}
+            {showFilters && (
+              <div className="mt-4 p-4 bg-muted rounded-lg space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Type</label>
+                    <Select
+                      value={filters.type || "all"}
+                      onValueChange={(value) => handleFilterChange("type", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Types" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Types</SelectItem>
+                        <SelectItem value="Credit">Credit</SelectItem>
+                        <SelectItem value="Debit">Debit</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Semester</label>
+                    <Select
+                      value={filters.semester || "all"}
+                      onValueChange={(value) => handleFilterChange("semester", value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="All Semesters" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Semesters</SelectItem>
+                        <SelectItem value="1ST">1ST</SelectItem>
+                        <SelectItem value="2ND">2ND</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Academic Year</label>
+                    <Select
+                      value={filters.academic_year || "all"}
+                      onValueChange={(value) => handleFilterChange("academic_year", value)}
+                      disabled={loadingAcademicYears}
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder={loadingAcademicYears ? "Loading..." : "All Academic Years"} />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="all">All Academic Years</SelectItem>
+                        {availableAcademicYears.map((year) => (
+                          <SelectItem key={year} value={year}>
+                            {year}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <label className="text-sm font-medium mb-2 block">Actions</label>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={clearFilters}
+                      className="w-full gap-2"
+                    >
+                      <X className="h-4 w-4" />
+                      Clear Filters
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Summary */}
+            {summary && (
+              <div className="mt-4 grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                  <p className="text-sm text-green-700 font-medium">Total Credits</p>
+                  <p className="text-lg font-bold text-green-900">
+                    {formatCurrency(summary.total_credits, summary.currency)}
+                  </p>
+                </div>
+                <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+                  <p className="text-sm text-red-700 font-medium">Total Debits</p>
+                  <p className="text-lg font-bold text-red-900">
+                    {formatCurrency(summary.total_debits, summary.currency)}
+                  </p>
+                </div>
+                <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm text-blue-700 font-medium">Net Balance</p>
+                  <p className="text-lg font-bold text-blue-900">
+                    {formatCurrency(summary.total_credits - summary.total_debits, summary.currency)}
+                  </p>
+                </div>
+              </div>
+            )}
           </div>
 
           {loadingTransactions && transactions.length === 0 ? (
@@ -460,97 +639,155 @@ export default function WalletPage() {
                   <TableHeader>
                     <TableRow>
                       <TableHead>Type</TableHead>
-                      <TableHead>Description</TableHead>
+                      <TableHead>Service</TableHead>
                       <TableHead>Amount</TableHead>
+                      <TableHead>Balance</TableHead>
                       <TableHead>Date</TableHead>
+                      <TableHead>Semester/Year</TableHead>
                       <TableHead>Reference</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {transactions.map((transaction) => (
-                      <TableRow key={transaction.id}>
-                        <TableCell>
-                          <div className="flex items-center gap-2">
-                            {transaction.transaction_type === "credit" ? (
-                              <ArrowDownCircle className="h-4 w-4 text-green-600" />
-                            ) : (
-                              <ArrowUpCircle className="h-4 w-4 text-red-600" />
-                            )}
-                            <Badge
-                              variant={
-                                transaction.transaction_type === "credit"
-                                  ? "default"
-                                  : "secondary"
-                              }
-                              className={
-                                transaction.transaction_type === "credit"
-                                  ? "bg-green-100 text-green-800 hover:bg-green-100"
-                                  : "bg-red-100 text-red-800 hover:bg-red-100"
-                              }
-                            >
-                              {transaction.transaction_type === "credit"
-                                ? "Credit"
-                                : "Debit"}
-                            </Badge>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <div>
-                            <p className="font-medium text-foreground">
-                              {transaction.purpose || "Transaction"}
-                            </p>
-                            {transaction.description && (
-                              <p className="text-sm text-muted-foreground">
-                                {transaction.description}
+                    {transactions.map((transaction) => {
+                      const transactionType = transaction.type || transaction.transaction_type;
+                      const isCredit = transaction.type === "Credit" || transaction.transaction_type === "credit";
+                      const transactionCurrency = transaction.currency || currency;
+                      const transactionDate = transaction.date || transaction.created_at || "";
+                      
+                      return (
+                        <TableRow key={transaction.id}>
+                          <TableCell>
+                            <div className="flex items-center gap-2">
+                              {isCredit ? (
+                                <ArrowDownCircle className="h-4 w-4 text-green-600" />
+                              ) : (
+                                <ArrowUpCircle className="h-4 w-4 text-red-600" />
+                              )}
+                              <Badge
+                                variant={isCredit ? "default" : "secondary"}
+                                className={
+                                  isCredit
+                                    ? "bg-green-100 text-green-800 hover:bg-green-100"
+                                    : "bg-red-100 text-red-800 hover:bg-red-100"
+                                }
+                              >
+                                {transactionType || "Unknown"}
+                              </Badge>
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <div>
+                              <p className="font-medium text-foreground">
+                                {transaction.service_name || transaction.purpose || "Transaction"}
                               </p>
+                              {transaction.description && (
+                                <p className="text-sm text-muted-foreground">
+                                  {transaction.description}
+                                </p>
+                              )}
+                            </div>
+                          </TableCell>
+                          <TableCell>
+                            <span
+                              className={`font-semibold ${
+                                isCredit ? "text-green-600" : "text-red-600"
+                              }`}
+                            >
+                              {isCredit ? "+" : "-"}
+                              {formatCurrency(transaction.amount, transactionCurrency)}
+                            </span>
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {formatCurrency(transaction.balance || 0, transactionCurrency)}
+                          </TableCell>
+                          <TableCell className="text-muted-foreground">
+                            {formatDate(transactionDate)}
+                          </TableCell>
+                          <TableCell>
+                            {transaction.semester || transaction.academic_year ? (
+                              <div className="text-sm">
+                                {transaction.semester && (
+                                  <Badge variant="outline" className="mr-1">
+                                    {transaction.semester}
+                                  </Badge>
+                                )}
+                                {transaction.academic_year && (
+                                  <span className="text-muted-foreground">
+                                    {transaction.academic_year}
+                                  </span>
+                                )}
+                              </div>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
                             )}
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <span
-                            className={`font-semibold ${
-                              transaction.transaction_type === "credit"
-                                ? "text-green-600"
-                                : "text-red-600"
-                            }`}
-                          >
-                            {transaction.transaction_type === "credit" ? "+" : "-"}
-                            {formatCurrency(transaction.amount, currency)}
-                          </span>
-                        </TableCell>
-                        <TableCell className="text-muted-foreground">
-                          {formatDate(transaction.created_at)}
-                        </TableCell>
-                        <TableCell>
-                          {transaction.reference_id ? (
-                            <code className="text-xs bg-muted px-2 py-1 rounded">
-                              {transaction.reference_id}
-                            </code>
-                          ) : (
-                            <span className="text-muted-foreground">—</span>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
+                          </TableCell>
+                          <TableCell>
+                            {transaction.ref || transaction.reference_id ? (
+                              <code className="text-xs bg-muted px-2 py-1 rounded">
+                                {transaction.ref || transaction.reference_id}
+                              </code>
+                            ) : (
+                              <span className="text-muted-foreground">—</span>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })}
                   </TableBody>
                 </Table>
               </div>
-              {hasMore && (
-                <div className="p-4 border-t text-center">
-                  <Button
-                    variant="outline"
-                    onClick={loadMoreTransactions}
-                    disabled={loadingTransactions}
-                  >
-                    {loadingTransactions ? (
-                      <>
-                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                        Loading...
-                      </>
-                    ) : (
-                      "Load More"
-                    )}
-                  </Button>
+              {/* Pagination */}
+              {totalPages > 1 && (
+                <div className="p-4 border-t flex items-center justify-between">
+                  <div className="text-sm text-muted-foreground">
+                    Showing page {page} of {totalPages} ({total} total transactions)
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(page - 1)}
+                      disabled={page === 1 || loadingTransactions}
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                      Previous
+                    </Button>
+                    <div className="flex items-center gap-1">
+                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
+                        let pageNum;
+                        if (totalPages <= 5) {
+                          pageNum = i + 1;
+                        } else if (page <= 3) {
+                          pageNum = i + 1;
+                        } else if (page >= totalPages - 2) {
+                          pageNum = totalPages - 4 + i;
+                        } else {
+                          pageNum = page - 2 + i;
+                        }
+                        return (
+                          <Button
+                            key={pageNum}
+                            variant={page === pageNum ? "default" : "outline"}
+                            size="sm"
+                            onClick={() => handlePageChange(pageNum)}
+                            disabled={loadingTransactions}
+                            className="w-10"
+                          >
+                            {pageNum}
+                          </Button>
+                        );
+                      })}
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handlePageChange(page + 1)}
+                      disabled={page === totalPages || loadingTransactions}
+                    >
+                      Next
+                      <ChevronRight className="h-4 w-4" />
+                    </Button>
+                  </div>
                 </div>
               )}
             </>

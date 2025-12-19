@@ -222,7 +222,7 @@ function App() {
               </Routes>
             </BrowserRouter>
           )}
-          <Toaster />
+          <Toaster position="top-right" />
           {/* Provide chat threads globally and mount trigger */}
           <ChatProvider enabled={isLoggedIn}>
             <div className="fixed bottom-4 right-4 z-50">

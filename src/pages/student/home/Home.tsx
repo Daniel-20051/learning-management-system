@@ -7,14 +7,18 @@ import NoticeSlider from "./components/NoticeSlider";
 import NoticeDetailsDialog from "./components/NoticeDetailsDialog";
 import UnpaidCoursesAlert from "./components/UnpaidCoursesAlert";
 import CourseTypeFilter from "./components/CourseTypeFilter";
+import UploadDocumentsDialog from "./components/UploadDocumentsDialog";
 import { Api } from "../../../api/index";
+import { AuthApi } from "../../../api/auth";
 import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent } from "@/Components/ui/card";
 import { Badge } from "@/Components/ui/badge";
 import { Input } from "@/Components/ui/input";
+import { Button } from "@/Components/ui/button";
+import { Alert, AlertTitle } from "@/Components/ui/alert";
 import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
-import { BookOpen, CheckCircle2, Clock, Search } from "lucide-react";
+import { BookOpen, CheckCircle2, Clock, Search, AlertCircle, Upload, Loader2 } from "lucide-react";
 import type { Notice } from "@/api/notices";
 import { useNavigate } from "react-router-dom";
 
@@ -27,6 +31,10 @@ const Home = () => {
   const { selectedSession, selectedSemester, setSessionAndSemester } =
     useSession();
 
+  // Check if user account is active (not pending or inactive)
+  // If status is undefined/null, allow access (backward compatibility)
+  const isAccountActive = !user?.status || (user.status !== "pending" && user.status !== "inactive");
+
   const [courses, setCourses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [searchQuery, setSearchQuery] = useState<string>("");
@@ -34,7 +42,16 @@ const Home = () => {
   const [selectedNotice, setSelectedNotice] = useState<Notice | null>(null);
   const [isNoticeDialogOpen, setIsNoticeDialogOpen] = useState(false);
   const [showUnpaidAlert, setShowUnpaidAlert] = useState(true);
-  const [courseType, setCourseType] = useState<CourseType>("allocated");
+  const [uploadDocumentsDialogOpen, setUploadDocumentsDialogOpen] = useState(false);
+  const [kycDocuments, setKycDocuments] = useState<Record<string, {
+    url: string | null;
+    status: string | null;
+    rejection_reason: string | null;
+    reviewed_at: string | null;
+  }> | null>(null);
+  const [loadingKycDocuments, setLoadingKycDocuments] = useState(false);
+  // Default to marketplace if account is not active
+  const [courseType, setCourseType] = useState<CourseType>(isAccountActive ? "allocated" : "marketplace");
 
   // Derive first name from authenticated user
   const userFirstName = useMemo(() => {
@@ -95,6 +112,61 @@ const Home = () => {
     });
   }, [paidCourses, searchQuery]);
 
+  // Fetch KYC documents on component mount
+  useEffect(() => {
+    const fetchKycDocuments = async () => {
+      if (!user || user.role !== "student") return;
+      
+      try {
+        setLoadingKycDocuments(true);
+        const authApi = new AuthApi();
+        const response: any = await authApi.getKycDocuments();
+        
+        if (response?.data?.success && response?.data?.data?.documents) {
+          // Transform the documents object to match our state structure
+          const documents: Record<string, {
+            url: string | null;
+            status: string | null;
+            rejection_reason: string | null;
+            reviewed_at: string | null;
+          }> = {};
+          
+          Object.entries(response.data.data.documents).forEach(([key, value]: [string, any]) => {
+            documents[key] = {
+              url: value?.url || null,
+              status: value?.status || null,
+              rejection_reason: value?.rejection_reason || null,
+              reviewed_at: value?.reviewed_at || null,
+            };
+          });
+          
+          setKycDocuments(documents);
+        }
+      } catch (err: any) {
+        console.error("Error loading KYC documents:", err);
+        // Don't show error, just continue
+      } finally {
+        setLoadingKycDocuments(false);
+      }
+    };
+
+    fetchKycDocuments();
+  }, [user]);
+
+  // Check document statuses for alert messages
+  const documentStatusInfo = useMemo(() => {
+    if (!kycDocuments) return { hasRejected: false, hasPending: false, allApproved: false };
+    
+    const documentStatuses = Object.values(kycDocuments);
+    const hasRejected = documentStatuses.some((doc) => doc.status === "rejected");
+    const hasPending = documentStatuses.some((doc) => doc.status === "pending");
+    // Check if all documents are approved (have status "approved" and a URL)
+    const allApproved = documentStatuses.length > 0 && 
+      documentStatuses.every((doc) => doc.status === "approved" && doc.url !== null);
+    
+    return { hasRejected, hasPending, allApproved };
+  }, [kycDocuments]);
+
   // Basic stat placeholders to match the dashboard vibe
   const totalCourses = paidCourses.length || 0;
   const completedCourses = 0;
@@ -123,6 +195,13 @@ const Home = () => {
 
     fetchNotices();
   }, []);
+
+  // Force marketplace if account is not active
+  useEffect(() => {
+    if (!isAccountActive && courseType === "allocated") {
+      setCourseType("marketplace");
+    }
+  }, [isAccountActive, courseType]);
 
   // Fetch courses when course type, session/semester changes
   useEffect(() => {
@@ -174,6 +253,21 @@ const Home = () => {
     setSelectedNotice(notice);
     setIsNoticeDialogOpen(true);
   };
+
+  // Show loader while fetching KYC documents (only for students)
+  if (user?.role === "student" && loadingKycDocuments) {
+    return (
+      <div className="flex flex-col min-h-screen bg-muted">
+        <Navbar sidebar={false} />
+        <div className="flex-1 flex items-center justify-center p-4 md:p-6 lg:p-8">
+          <div className="flex flex-col items-center gap-4">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+            <p className="text-muted-foreground">Loading your courses...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -253,6 +347,35 @@ const Home = () => {
           </Card>
         </div>
 
+        {/* Account Verification Alert - Show for pending/inactive accounts or if documents are pending/rejected, but not if all are approved */}
+        {(!isAccountActive || documentStatusInfo.hasRejected || documentStatusInfo.hasPending) && !documentStatusInfo.allApproved && (
+          <Alert className="bg-blue-50 flex items-center border-blue-200">
+            <AlertCircle className="h-4 w-4 text-blue-600" />
+            <AlertTitle className="text-blue-900 flex flex-1">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <p>
+                  {documentStatusInfo.hasRejected
+                    ? "There are some rejected documents. Please check and update your documents."
+                    : documentStatusInfo.hasPending
+                    ? "Documents are under review."
+                    : !isAccountActive
+                    ? "Verify your account to gain admission into degree awarding programs."
+                    : "Some of your documents are under review or have been rejected. Please check and update your documents."}
+                </p>
+                <Button
+                  onClick={() => setUploadDocumentsDialogOpen(true)}
+                  className=" text-white gap-2 place-self-end"
+                  size="sm"
+                >
+                  <Upload className="h-4 w-4" />
+                  Upload Documents
+                </Button>
+              </div>
+              </AlertTitle>
+           
+          </Alert>
+        )}
+
         {/* Unpaid Courses Alert - Only for allocated courses */}
         {courseType === "allocated" && unpaidCourses.length > 0 && showUnpaidAlert && (
           <UnpaidCoursesAlert
@@ -270,7 +393,14 @@ const Home = () => {
               <div className="flex items-center gap-3">
                 <CourseTypeFilter
                   activeType={courseType}
-                  onTypeChange={setCourseType}
+                  onTypeChange={(type) => {
+                    // Prevent switching to allocated if account is not active
+                    if (type === "allocated" && !isAccountActive) {
+                      return;
+                    }
+                    setCourseType(type);
+                  }}
+                  showRegisteredCourses={isAccountActive}
                 />
                 {courseType === "allocated" && (
                   <SessionSemesterDialog
@@ -370,6 +500,41 @@ const Home = () => {
         notice={selectedNotice}
         open={isNoticeDialogOpen}
         onOpenChange={setIsNoticeDialogOpen}
+      />
+
+      {/* Upload Documents Dialog */}
+      <UploadDocumentsDialog
+        open={uploadDocumentsDialogOpen}
+        onOpenChange={setUploadDocumentsDialogOpen}
+        onUploadSuccess={async () => {
+          // Refresh KYC documents after upload
+          try {
+            const authApi = new AuthApi();
+            const response: any = await authApi.getKycDocuments();
+            
+            if (response?.data?.success && response?.data?.data?.documents) {
+              const documents: Record<string, {
+                url: string | null;
+                status: string | null;
+                rejection_reason: string | null;
+                reviewed_at: string | null;
+              }> = {};
+              
+              Object.entries(response.data.data.documents).forEach(([key, value]: [string, any]) => {
+                documents[key] = {
+                  url: value?.url || null,
+                  status: value?.status || null,
+                  rejection_reason: value?.rejection_reason || null,
+                  reviewed_at: value?.reviewed_at || null,
+                };
+              });
+              
+              setKycDocuments(documents);
+            }
+          } catch (err: any) {
+            console.error("Error refreshing KYC documents:", err);
+          }
+        }}
       />
     </div>
   );

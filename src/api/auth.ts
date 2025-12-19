@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { setAccessToken, removeAccessToken } from '../lib/cookies';
+import { setAccessToken, removeAccessToken, getAccessToken } from '../lib/cookies';
 import { BASE_URL } from './base';
 
 export class AuthApi {
@@ -194,6 +194,111 @@ export class AuthApi {
     }
   }
 
+  // Method to upload a single KYC document
+  async uploadKycDocument(
+    documentType: string,
+    file: File,
+    onProgress?: (progress: number) => void
+  ) {
+    try {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error("No access token found. Please login again.");
+      }
+
+      const formData = new FormData();
+      formData.append("document_type", documentType);
+      formData.append("file", file);
+
+      const response = await axios.post(
+        `${BASE_URL}/api/student/kyc/documents`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+          onUploadProgress: (progressEvent: any) => {
+            if (progressEvent.total && onProgress) {
+              const progress = Math.round(
+                (progressEvent.loaded * 100) / progressEvent.total
+              );
+              onProgress(progress);
+            }
+          },
+        } as any
+      );
+
+      return response;
+    } catch (err: any) {
+      console.error("Error uploading KYC document:", err);
+      if (err.response?.status === 401) {
+        removeAccessToken();
+      }
+      throw err;
+    }
+  }
+
+  // Method to get KYC documents
+  async getKycDocuments() {
+    try {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error("No access token found. Please login again.");
+      }
+
+      const response = await axios.get(`${BASE_URL}/api/student/kyc/documents`, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      return response;
+    } catch (err: any) {
+      console.error("Error fetching KYC documents:", err);
+      if (err.response?.status === 401) {
+        removeAccessToken();
+      }
+      throw err;
+    }
+  }
+
+  // Method to update school information
+  async updateSchoolInformation(data: {
+    school1?: string;
+    school1_date?: string;
+    school2?: string;
+    school2_date?: string;
+    school?: string;
+    school_date?: string;
+  }) {
+    try {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error("No access token found. Please login again.");
+      }
+
+      const response = await axios.put(
+        `${BASE_URL}/api/student/kyc/schools`,
+        data,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+        }
+      );
+
+      return response;
+    } catch (err: any) {
+      console.error("Error updating school information:", err);
+      if (err.response?.status === 401) {
+        removeAccessToken();
+      }
+      throw err;
+    }
+  }
+
   // Method to register a new student
   async RegisterStudent(data: {
     email: string;
@@ -264,6 +369,3 @@ export class AuthApi {
     }
   }
 }
-
-// Import getAccessToken for use in this file
-import { getAccessToken } from '../lib/cookies';

@@ -57,6 +57,7 @@ export function LoginForm({
               apiResponse.data?.user?.lastName
               : apiResponse.data?.user?.fullName,
           role: apiResponse.data?.user?.userType,
+          status: apiResponse.data?.user?.status || apiResponse.data?.status,
         };
 
         setIsLoggedIn(true);

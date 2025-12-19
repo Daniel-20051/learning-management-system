@@ -24,6 +24,10 @@ const UserCard = ({ sidebar }: UserCardProps) => {
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const navigate = useNavigate();
   const { user, isAdmin, logout } = useAuth();
+  
+  // Check if user account is active (not pending or inactive)
+  // If status is undefined/null, allow access (backward compatibility)
+  const isAccountActive = !user?.status || (user.status !== "pending" && user.status !== "inactive");
 
   const handleLogoutClick = () => {
     // Close the dropdown menu first
@@ -112,7 +116,7 @@ const UserCard = ({ sidebar }: UserCardProps) => {
               <span className="text-base">Wallet</span>
             </DropdownMenuItem>
           )}
-          {!isAdmin && (
+          {!isAdmin && isAccountActive && (
             <DropdownMenuItem
               className="cursor-pointer py-3"
               onClick={() => navigate("/school-fees")}
@@ -148,7 +152,7 @@ const UserCard = ({ sidebar }: UserCardProps) => {
               <span className="text-base">Marketplace</span>
             </DropdownMenuItem>
           )}
-          {!isAdmin && (
+          {!isAdmin && isAccountActive && (
             <DropdownMenuItem
               className="cursor-pointer py-3"
               onClick={() => navigate("/allocated-courses")}

@@ -6,17 +6,27 @@ interface CourseTypeFilterProps {
   activeType: CourseType;
   onTypeChange: (type: CourseType) => void;
   className?: string;
+  showRegisteredCourses?: boolean;
 }
 
 const CourseTypeFilter = ({
   activeType,
   onTypeChange,
   className,
+  showRegisteredCourses = true,
 }: CourseTypeFilterProps) => {
-  const filters: { label: string; value: CourseType }[] = [
+  const allFilters: { label: string; value: CourseType }[] = [
     { label: "Registered Courses", value: "allocated" },
     { label: "Marketplace", value: "marketplace" },
   ];
+  
+  const filters = allFilters.filter((filter) => {
+    // Hide "Registered Courses" if showRegisteredCourses is false
+    if (filter.value === "allocated" && !showRegisteredCourses) {
+      return false;
+    }
+    return true;
+  });
 
   return (
     <div

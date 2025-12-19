@@ -14,6 +14,7 @@ interface User {
   role: "staff" | "student" | "super_admin";
   permissions?: any;
   userType?: string;
+  status?: string;
 }
 
 interface AuthContextType {

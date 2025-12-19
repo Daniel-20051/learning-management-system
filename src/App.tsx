@@ -41,6 +41,10 @@ import StaffProfilePage from "./pages/admin/profile/StaffProfilePage";
 
 function App() {
   const { isLoggedIn, isAdmin, isInitializing, user } = useAuth();
+  
+  // Check if user account is active (not pending or inactive)
+  // If status is undefined/null, allow access (backward compatibility)
+  const isAccountActive = !user?.status || (user.status !== "pending" && user.status !== "inactive");
 
   useEffect(() => {
     if (isLoggedIn && user?.id) {
@@ -170,7 +174,7 @@ function App() {
                 <Route
                   path="/allocated-courses"
                   element={
-                    isLoggedIn ? (
+                    isLoggedIn && isAccountActive ? (
                       <AllocatedCoursesPage />
                     ) : (
                       <Navigate to="/" replace />
@@ -190,7 +194,7 @@ function App() {
                 <Route
                   path="/school-fees"
                   element={
-                    isLoggedIn ? (
+                    isLoggedIn && isAccountActive ? (
                       <SchoolFeesPage />
                     ) : (
                       <Navigate to="/" replace />

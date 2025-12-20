@@ -239,6 +239,49 @@ export class AuthApi {
     }
   }
 
+  // Method to upload profile image
+  async uploadProfileImage(
+    file: File,
+    onProgress?: (progress: number) => void
+  ) {
+    try {
+      const token = getAccessToken();
+      if (!token) {
+        throw new Error("No access token found. Please login again.");
+      }
+
+      const formData = new FormData();
+      formData.append("file", file);
+
+      const response = await axios.post(
+        `${BASE_URL}/api/student/kyc/profile-image`,
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+          onUploadProgress: (progressEvent: any) => {
+            if (progressEvent.total && onProgress) {
+              const progress = Math.round(
+                (progressEvent.loaded * 100) / progressEvent.total
+              );
+              onProgress(progress);
+            }
+          },
+        } as any
+      );
+
+      return response;
+    } catch (err: any) {
+      console.error("Error uploading profile image:", err);
+      if (err.response?.status === 401) {
+        removeAccessToken();
+      }
+      throw err;
+    }
+  }
+
   // Method to get KYC documents
   async getKycDocuments() {
     try {

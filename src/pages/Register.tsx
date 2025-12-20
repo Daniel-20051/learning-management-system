@@ -4,17 +4,9 @@ import { Input } from "@/Components/ui/input";
 import { Label } from "@/Components/ui/label";
 import { useState, useEffect } from "react";
 import { Api } from "@/api";
-import type { MarketplaceProgram } from "@/api/marketplace";
 import { Eye, EyeOff } from "lucide-react";
 import { toast } from "sonner";
 import { Link, useNavigate } from "react-router-dom";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/Components/ui/select";
 
 export default function RegisterPage() {
   const navigate = useNavigate();
@@ -24,35 +16,52 @@ export default function RegisterPage() {
     fname: "",
     lname: "",
     phone: "",
-    program_id: "",
     currency: "",
-    referral_code: "",
-    designated_institute: "",
     foreign_student: "",
   });
   const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
-  const [programs, setPrograms] = useState<MarketplaceProgram[]>([]);
-  const [isLoadingPrograms, setIsLoadingPrograms] = useState(false);
+  const [isDetectingLocation, setIsDetectingLocation] = useState(true);
 
   const api = new Api();
 
   useEffect(() => {
-    fetchPrograms();
+    detectUserLocation();
   }, []);
 
-  const fetchPrograms = async () => {
-    setIsLoadingPrograms(true);
+  const detectUserLocation = async () => {
     try {
-      const response = await api.GetMarketplacePrograms();
-      if (response.data && response.data.data) {
-        setPrograms(response.data.data);
+      setIsDetectingLocation(true);
+      // Using ip-api.com free service (no API key required)
+      const response = await fetch("https://ip-api.com/json/?fields=country,countryCode");
+      const data = await response.json();
+      
+      if (data && data.country) {
+        const isNigeria = data.country === "Nigeria" || data.countryCode === "NG";
+        
+        setFormData((prev) => ({
+          ...prev,
+          currency: isNigeria ? "NGN" : "USD",
+          foreign_student: isNigeria ? "no" : "yes",
+        }));
+      } else {
+        // Default to Nigeria if detection fails
+        setFormData((prev) => ({
+          ...prev,
+          currency: "NGN",
+          foreign_student: "no",
+        }));
       }
     } catch (error) {
-      console.error("Error fetching programs:", error);
-      toast.error("Failed to load programs. Please refresh the page.");
+      console.error("Error detecting location:", error);
+      // Default to Nigeria if detection fails
+      setFormData((prev) => ({
+        ...prev,
+        currency: "NGN",
+        foreign_student: "no",
+      }));
     } finally {
-      setIsLoadingPrograms(false);
+      setIsDetectingLocation(false);
     }
   };
 
@@ -68,12 +77,17 @@ export default function RegisterPage() {
     setIsLoading(true);
 
     try {
-      // Validate all fields
+      // Validate all fields (currency and foreign_student are auto-set, but check if location detection completed)
       if (!formData.email || !formData.password || !formData.fname || 
-          !formData.lname || !formData.phone || !formData.program_id || 
-          !formData.currency || !formData.referral_code || 
-          !formData.designated_institute || !formData.foreign_student) {
+          !formData.lname || !formData.phone) {
         toast.error("Please fill in all required fields");
+        setIsLoading(false);
+        return;
+      }
+
+      // Ensure location detection has completed
+      if (isDetectingLocation || !formData.currency || !formData.foreign_student) {
+        toast.error("Please wait while we detect your location...");
         setIsLoading(false);
         return;
       }
@@ -85,10 +99,10 @@ export default function RegisterPage() {
         lname: formData.lname,
         phone: formData.phone,
         level: "100", // Default to 100 level for new students
-        program_id: parseInt(formData.program_id),
+        program_id: 0, // Default value
         currency: formData.currency,
-        referral_code: formData.referral_code,
-        designated_institute: parseInt(formData.designated_institute),
+        referral_code: "", // Default value
+        designated_institute: 0, // Default value
         foreign_student: formData.foreign_student === "yes" ? 1 : 0,
       });
 
@@ -221,93 +235,6 @@ export default function RegisterPage() {
                     onChange={(e) => handleChange("phone", e.target.value)}
                     className="h-9"
                   />
-                </div>
-
-                {/* Program */}
-                <div className="grid gap-1.5">
-                  <Label htmlFor="program_id" className="text-sm">Program</Label>
-                  <Select
-                    value={formData.program_id}
-                    onValueChange={(value) => handleChange("program_id", value)}
-                    required
-                    disabled={isLoadingPrograms}
-                  >
-                    <SelectTrigger className="h-9">
-                      <SelectValue placeholder={isLoadingPrograms ? "Loading programs..." : "Select program"} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {programs.map((program) => (
-                        <SelectItem key={program.id} value={String(program.id)}>
-                          {program.title}
-                          {program.faculty && ` (${program.faculty.name})`}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                {/* Currency and Referral Code Row */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="currency" className="text-sm">Currency</Label>
-                    <Select
-                      value={formData.currency}
-                      onValueChange={(value) => handleChange("currency", value)}
-                      required
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Select currency" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="USD">USD</SelectItem>
-                        <SelectItem value="NGN">NGN</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="referral_code" className="text-sm">Referral Code</Label>
-                    <Input
-                      id="referral_code"
-                      type="text"
-                      placeholder="Enter referral code"
-                      required
-                      value={formData.referral_code}
-                      onChange={(e) => handleChange("referral_code", e.target.value)}
-                      className="h-9"
-                    />
-                  </div>
-                </div>
-
-                {/* Designated Institute and Foreign Student Row */}
-                <div className="grid grid-cols-2 gap-3">
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="designated_institute" className="text-sm">Designated Institute</Label>
-                    <Input
-                      id="designated_institute"
-                      type="number"
-                      placeholder="Enter designated institute ID"
-                      required
-                      value={formData.designated_institute}
-                      onChange={(e) => handleChange("designated_institute", e.target.value)}
-                      className="h-9"
-                    />
-                  </div>
-                  <div className="grid gap-1.5">
-                    <Label htmlFor="foreign_student" className="text-sm">Foreign Student</Label>
-                    <Select
-                      value={formData.foreign_student}
-                      onValueChange={(value) => handleChange("foreign_student", value)}
-                      required
-                    >
-                      <SelectTrigger className="h-9">
-                        <SelectValue placeholder="Select option" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="no">No (Local)</SelectItem>
-                        <SelectItem value="yes">Yes (Foreign)</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
                 </div>
 
                 {/* Submit Button */}

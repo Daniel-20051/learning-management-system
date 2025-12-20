@@ -98,6 +98,7 @@ export default function ProfilePage() {
   const [facultyName, setFacultyName] = useState<string | null>(null);
   const [loadingProgramName, setLoadingProgramName] = useState(false);
   const [loadingFacultyName, setLoadingFacultyName] = useState(false);
+  const [profileImageUrl, setProfileImageUrl] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     fname: "",
     mname: "",
@@ -164,7 +165,22 @@ export default function ProfilePage() {
         }
       }
     };
+
+    const fetchProfileImage = async () => {
+      try {
+        const authApi = new AuthApi();
+        const response: any = await authApi.getKycDocuments();
+        if (response?.data?.success && response?.data?.data?.profile_image?.url) {
+          setProfileImageUrl(response.data.data.profile_image.url);
+        }
+      } catch (err: any) {
+        // Silently fail - profile image is optional
+        console.error("Error fetching profile image:", err);
+      }
+    };
+
     fetchProfile();
+    fetchProfileImage();
     return () => {
       isMounted = false;
     };
@@ -292,6 +308,17 @@ export default function ProfilePage() {
         setProfile(userData);
       }
 
+      // Refresh profile image
+      try {
+        const kycResponse: any = await authApi.getKycDocuments();
+        if (kycResponse?.data?.success && kycResponse?.data?.data?.profile_image?.url) {
+          setProfileImageUrl(kycResponse.data.data.profile_image.url);
+        }
+      } catch (err: any) {
+        // Silently fail - profile image is optional
+        console.error("Error refreshing profile image:", err);
+      }
+
       setUpdateSuccess(true);
       setIsEditing(false);
     } catch (err: any) {
@@ -397,9 +424,13 @@ export default function ProfilePage() {
         <section className="w-full border bg-card rounded-lg px-4 md:px-7 py-5 md:py-7 mb-5 flex flex-col md:flex-row items-start gap-6 md:gap-8 min-h-[160px]">
           <div className="w-full md:w-auto flex md:block justify-center md:justify-start">
             <img
-              src={"/assets/avatar.png"}
+              src={profileImageUrl || "/assets/avatar.png"}
               alt="Profile Picture"
               className="rounded-full w-20 h-20 border border-border bg-muted object-cover"
+              onError={(e) => {
+                // Fallback to default avatar if image fails to load
+                e.currentTarget.src = "/assets/avatar.png";
+              }}
             />
           </div>
           <div className="flex flex-col gap-1 flex-1 text-center md:text-left">

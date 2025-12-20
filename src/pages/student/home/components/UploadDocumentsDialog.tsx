@@ -49,6 +49,19 @@ interface DocumentStep {
 
 const documentSteps: DocumentStep[] = [
   {
+    id: "profile_image",
+    label: "Passport",
+    fields: [
+      {
+        id: "profile_image",
+        label: "Passport Photo",
+        documentType: "profile_image",
+        description: "Upload your passport-sized photograph",
+        required: true,
+      },
+    ],
+  },
+  {
     id: "certificates",
     label: "Certificates",
     fields: [
@@ -159,7 +172,7 @@ export default function UploadDocumentsDialog({
   const loadExistingDocuments = async () => {
     try {
       const response: any = await authApi.getKycDocuments();
-      if (response?.data?.success && response?.data?.data?.documents) {
+      if (response?.data?.success && response?.data?.data) {
         // Transform the documents object to match our state structure
         const documents: Record<string, {
           url: string | null;
@@ -168,14 +181,27 @@ export default function UploadDocumentsDialog({
           reviewed_at: string | null;
         }> = {};
         
-        Object.entries(response.data.data.documents).forEach(([key, value]: [string, any]) => {
-          documents[key] = {
-            url: value?.url || null,
-            status: value?.status || null,
-            rejection_reason: value?.rejection_reason || null,
-            reviewed_at: value?.reviewed_at || null,
+        // Load documents
+        if (response.data.data.documents) {
+          Object.entries(response.data.data.documents).forEach(([key, value]: [string, any]) => {
+            documents[key] = {
+              url: value?.url || null,
+              status: value?.status || null,
+              rejection_reason: value?.rejection_reason || null,
+              reviewed_at: value?.reviewed_at || null,
+            };
+          });
+        }
+        
+        // Also load profile_image if it exists separately (not in documents object)
+        if (response.data.data.profile_image && !documents.profile_image) {
+          documents.profile_image = {
+            url: response.data.data.profile_image?.url || null,
+            status: response.data.data.profile_image?.status || null,
+            rejection_reason: response.data.data.profile_image?.rejection_reason || null,
+            reviewed_at: response.data.data.profile_image?.reviewed_at || null,
           };
-        });
+        }
         
         setUploadedDocuments(documents);
         
@@ -264,12 +290,42 @@ export default function UploadDocumentsDialog({
     const missingRequired = requiredFields.some(field => {
       const docData = uploadedDocuments[field.documentType];
       const hasFile = currentFiles[field.documentType] !== null;
-      return !docData?.url && !hasFile;
+      
+      // If document is approved, it's considered uploaded (can proceed)
+      if (docData?.status === "approved") {
+        return false; // Not missing
+      }
+      
+      // For profile_image, "uploaded" status means it's uploaded
+      if (field.documentType === "profile_image" && docData?.status === "uploaded") {
+        return false; // Not missing
+      }
+      
+      // Document is considered uploaded if it has a URL (regardless of status)
+      // Check that docData exists and has a non-empty URL
+      const isUploaded = docData && docData.url && typeof docData.url === 'string' && docData.url.trim() !== "";
+      return !isUploaded && !hasFile;
     });
 
     if (missingRequired) {
       const missingFields = requiredFields
-        .filter(f => !uploadedDocuments[f.documentType]?.url && !currentFiles[f.documentType])
+        .filter(f => {
+          const docData = uploadedDocuments[f.documentType];
+          
+          // If document is approved, it's not missing
+          if (docData?.status === "approved") {
+            return false;
+          }
+          
+          // For profile_image, "uploaded" status means it's uploaded
+          if (f.documentType === "profile_image" && docData?.status === "uploaded") {
+            return false;
+          }
+          
+          // Check that docData exists and has a non-empty URL
+          const isUploaded = docData && docData.url && typeof docData.url === 'string' && docData.url.trim() !== "";
+          return !isUploaded && !currentFiles[f.documentType];
+        })
         .map(f => f.label)
         .join(", ");
       setError(`Please upload: ${missingFields}`);
@@ -305,21 +361,37 @@ export default function UploadDocumentsDialog({
           setUploadingField(documentType);
           setUploadProgress(0);
 
-          const response: any = await authApi.uploadKycDocument(
-            documentType,
-            file,
-            (progress) => {
-              setUploadProgress(progress);
-            }
-          );
+          let response: any;
+          
+          // Use profile image endpoint for profile_image, otherwise use KYC documents endpoint
+          if (documentType === "profile_image") {
+            response = await authApi.uploadProfileImage(
+              file,
+              (progress) => {
+                setUploadProgress(progress);
+              }
+            );
+          } else {
+            response = await authApi.uploadKycDocument(
+              documentType,
+              file,
+              (progress) => {
+                setUploadProgress(progress);
+              }
+            );
+          }
 
           if (response?.data?.success) {
             toast.success(`${field.label} uploaded successfully`);
+            
+            // Profile image might return different response structure
+            const fileUrl = response.data.data?.file_url || response.data.data?.url || response.data.data?.profile_image;
+            
             setUploadedDocuments((prev) => ({
               ...prev,
               [documentType]: {
-                url: response.data.data.file_url,
-                status: "pending",
+                url: fileUrl,
+                status: documentType === "profile_image" ? "uploaded" : "pending",
                 rejection_reason: null,
                 reviewed_at: null,
               },
@@ -425,13 +497,22 @@ export default function UploadDocumentsDialog({
     canProceed = requiredFields.every(field => {
       const docData = uploadedDocuments[field.documentType];
       const hasFile = currentFiles[field.documentType] !== null;
-      const isUploaded = docData?.url !== null;
       
-      // Cannot proceed if trying to upload when approved
-      if (docData?.status === "approved" && hasFile) {
-        return false;
+      // If document is approved, always allow proceeding (no need to upload again)
+      if (docData?.status === "approved") {
+        return true;
       }
       
+      // For profile_image, "uploaded" status means it's uploaded (can proceed)
+      if (field.documentType === "profile_image" && docData?.status === "uploaded") {
+        return true;
+      }
+      
+      // Document is considered uploaded if it has a URL (regardless of status - pending or rejected)
+      // Check that docData exists and has a non-empty URL
+      const isUploaded = docData && docData.url && typeof docData.url === 'string' && docData.url.trim() !== "";
+      
+      // Can proceed if document is uploaded (any status) OR a file is selected
       return isUploaded || hasFile;
     });
   }
@@ -608,6 +689,8 @@ export default function UploadDocumentsDialog({
                 const isPending = documentData?.status === "pending";
                 const isApproved = documentData?.status === "approved";
                 const isRejected = documentData?.status === "rejected";
+                // For profile_image, "uploaded" status means it's been uploaded (treat similar to approved for display)
+                const isUploaded = field.documentType === "profile_image" && documentData?.status === "uploaded";
                 const isUploadingThis = uploadingField === field.documentType;
 
                 return (
@@ -622,11 +705,11 @@ export default function UploadDocumentsDialog({
                       <p className="text-xs text-muted-foreground mb-2">
                         {field.description}
                       </p>
-                      {isApproved && (
+                      {(isApproved || isUploaded) && (
                         <Alert className="mt-2 bg-green-50 border-green-200">
                           <CheckCircle2 className="h-4 w-4 text-green-600" />
                           <AlertDescription className="text-green-800">
-                            Document approved.
+                            {isUploaded ? "Photo uploaded." : "Document approved."}
                           </AlertDescription>
                         </Alert>
                       )}
@@ -642,61 +725,126 @@ export default function UploadDocumentsDialog({
 
                     {/* File Upload Area */}
                     <div className={`border-2 border-dashed rounded-lg p-6 text-center ${
-                      isApproved ? "opacity-50 pointer-events-none" : ""
+                      (isApproved || isUploaded) ? "opacity-50 pointer-events-none" : ""
                     }`}>
-                      {isApproved ? (
+                      {(isApproved || isUploaded) ? (
                         <div className="flex items-center justify-center">
-                          <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-                            <CheckCircle2 className="h-8 w-8 text-green-600" />
-                            <div className="text-left">
-                              <p className="font-medium text-sm">Document approved</p>
-                              <p className="text-xs text-muted-foreground">
-                                This document has been approved and cannot be replaced
-                              </p>
+                          {field.documentType === "profile_image" && documentData?.url ? (
+                            <div className="flex flex-col items-center gap-3 p-4 bg-muted rounded-lg">
+                              <img 
+                                src={documentData.url} 
+                                alt="Profile photo" 
+                                className="w-32 h-32 object-cover rounded-lg border-2 border-green-200"
+                              />
+                              <div className="text-center">
+                                <div className="flex items-center justify-center gap-2 mb-1">
+                                  <CheckCircle2 className="h-4 w-4 text-green-600" />
+                                  <p className="font-medium text-sm">{isUploaded ? "Photo uploaded" : "Document approved"}</p>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  {isUploaded ? "This photo has been uploaded" : "This document has been approved and cannot be replaced"}
+                                </p>
+                              </div>
                             </div>
-                          </div>
+                          ) : (
+                            <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
+                              <CheckCircle2 className="h-8 w-8 text-green-600" />
+                              <div className="text-left">
+                                <p className="font-medium text-sm">Document approved</p>
+                                <p className="text-xs text-muted-foreground">
+                                  This document has been approved and cannot be replaced
+                                </p>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ) : isPending && !currentFile ? (
                         <div className="flex items-center justify-center">
-                          <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-                            <File className="h-8 w-8 text-amber-600" />
-                            <div className="text-left">
-                              <p className="font-medium text-sm">Document is under review</p>
-                              <p className="text-xs text-muted-foreground">
-                                You can proceed to other steps while this document is being reviewed
-                              </p>
+                          {field.documentType === "profile_image" && documentData?.url ? (
+                            <div className="flex flex-col items-center gap-3 p-4 bg-muted rounded-lg">
+                              <img 
+                                src={documentData.url} 
+                                alt="Profile photo" 
+                                className="w-32 h-32 object-cover rounded-lg border-2 border-amber-200"
+                              />
+                              <div className="text-center">
+                                <div className="flex items-center justify-center gap-2 mb-1">
+                                  <File className="h-4 w-4 text-amber-600" />
+                                  <p className="font-medium text-sm">Document is under review</p>
+                                </div>
+                                <p className="text-xs text-muted-foreground">
+                                  You can proceed to other steps while this document is being reviewed
+                                </p>
+                              </div>
                             </div>
-                          </div>
+                          ) : (
+                            <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
+                              <File className="h-8 w-8 text-amber-600" />
+                              <div className="text-left">
+                                <p className="font-medium text-sm">Document is under review</p>
+                                <p className="text-xs text-muted-foreground">
+                                  You can proceed to other steps while this document is being reviewed
+                                </p>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       ) : currentFile ? (
                         <div className="flex items-center justify-center">
-                          <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
-                            <File className="h-8 w-8 text-primary" />
-                            <div className="text-left">
-                              <p className="font-medium text-sm">{currentFile.name}</p>
-                              <p className="text-xs text-muted-foreground">
-                                {currentFile.size / 1024 / 1024 > 1
-                                  ? `${(currentFile.size / 1024 / 1024).toFixed(2)} MB`
-                                  : `${(currentFile.size / 1024).toFixed(2)} KB`}
-                              </p>
+                          {field.documentType === "profile_image" && currentFile.type.startsWith("image/") ? (
+                            <div className="flex flex-col items-center gap-3 p-4 bg-muted rounded-lg">
+                              <img 
+                                src={URL.createObjectURL(currentFile)} 
+                                alt="Selected profile photo" 
+                                className="w-32 h-32 object-cover rounded-lg border-2 border-primary"
+                              />
+                              <div className="text-center">
+                                <p className="font-medium text-sm">{currentFile.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {currentFile.size / 1024 / 1024 > 1
+                                    ? `${(currentFile.size / 1024 / 1024).toFixed(2)} MB`
+                                    : `${(currentFile.size / 1024).toFixed(2)} KB`}
+                                </p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleFileSelect(field.documentType, null)}
+                                disabled={uploading}
+                              >
+                                <X className="h-4 w-4 mr-2" />
+                                Remove
+                              </Button>
                             </div>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleFileSelect(field.documentType, null)}
-                              disabled={uploading}
-                              className="ml-2"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
+                          ) : (
+                            <div className="flex items-center gap-3 p-4 bg-muted rounded-lg">
+                              <File className="h-8 w-8 text-primary" />
+                              <div className="text-left">
+                                <p className="font-medium text-sm">{currentFile.name}</p>
+                                <p className="text-xs text-muted-foreground">
+                                  {currentFile.size / 1024 / 1024 > 1
+                                    ? `${(currentFile.size / 1024 / 1024).toFixed(2)} MB`
+                                    : `${(currentFile.size / 1024).toFixed(2)} KB`}
+                                </p>
+                              </div>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleFileSelect(field.documentType, null)}
+                                disabled={uploading}
+                                className="ml-2"
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          )}
                         </div>
                       ) : (
                         <label className="cursor-pointer">
                           <input
                             type="file"
                             className="hidden"
-                            accept=".pdf,.jpg,.jpeg,.png"
+                            accept={field.documentType === "profile_image" ? "image/jpeg,image/jpg,image/png" : ".pdf,.jpg,.jpeg,.png"}
                             disabled={uploading}
                             onChange={(e) => {
                               const file = e.target.files?.[0] || null;
@@ -707,15 +855,25 @@ export default function UploadDocumentsDialog({
                                   return;
                                 }
                                 // Validate file type
-                                const validTypes = [
-                                  "application/pdf",
-                                  "image/jpeg",
-                                  "image/jpg",
-                                  "image/png",
-                                ];
-                                if (!validTypes.includes(file.type)) {
-                                  setError("Only PDF, JPG, and PNG files are allowed");
-                                  return;
+                                if (field.documentType === "profile_image") {
+                                  // Only images for profile photo
+                                  const validImageTypes = ["image/jpeg", "image/jpg", "image/png"];
+                                  if (!validImageTypes.includes(file.type)) {
+                                    setError("Only JPG and PNG images are allowed for profile photo");
+                                    return;
+                                  }
+                                } else {
+                                  // PDF and images for other documents
+                                  const validTypes = [
+                                    "application/pdf",
+                                    "image/jpeg",
+                                    "image/jpg",
+                                    "image/png",
+                                  ];
+                                  if (!validTypes.includes(file.type)) {
+                                    setError("Only PDF, JPG, and PNG files are allowed");
+                                    return;
+                                  }
                                 }
                                 handleFileSelect(field.documentType, file);
                               }

@@ -4,7 +4,8 @@ import {
   hasValidToken,
   getUserData,
   getLoginState,
-  clearAllAuthCookies
+  clearAllAuthCookies,
+  setUserData
 } from "../lib/cookies";
 
 interface User {
@@ -108,9 +109,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
                 };
                 setUser(updatedUser);
                 // Update cookie with profile image
-                const { setUserData } = await import("../lib/cookies");
                 setUserData(updatedUser);
-                console.log("Profile image fetched and updated:", profileImageUrl);
               } else {
                 setUser(savedUser);
               }

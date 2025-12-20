@@ -129,12 +129,6 @@ export default function WalletPage() {
         const amount = parseFloat(storedAmount);
         localStorage.removeItem(`payment_amount_${txRef}`);
         
-        console.log("Payment successful via redirect. Funding wallet:", {
-          tx_ref: txRef,
-          transaction_id: transactionId || '',
-          amount: amount
-        });
-        
         handleFundWallet(txRef, transactionId || '', amount);
       }
     }
@@ -369,7 +363,6 @@ export default function WalletPage() {
           logo: "/assets/logo.png",
         },
         callback: async (response: any) => {
-          console.log("Flutterwave callback triggered:", response);
           setIsAddingMoney(false); // Reset loading state
           
           // Check multiple possible response formats
@@ -389,12 +382,6 @@ export default function WalletPage() {
               response?.data?.transaction_id?.toString() || 
               "";
             
-            console.log("Payment successful. Funding wallet with:", {
-              tx_ref: responseTxRef,
-              transaction_id: transactionId,
-              amount: paymentAmount
-            });
-            
             // Payment successful, verify and fund wallet using Flutterwave response
             try {
               await handleFundWallet(responseTxRef, transactionId, paymentAmount);
@@ -404,14 +391,12 @@ export default function WalletPage() {
               setAddMoneyDialogOpen(true);
             }
           } else {
-            console.log("Payment not successful:", response);
             toast.error("Payment was not successful. Please try again.");
             // Reopen dialog if payment failed
             setAddMoneyDialogOpen(true);
           }
         },
         onclose: () => {
-          console.log("Flutterwave modal closed");
           setIsAddingMoney(false);
           // Reopen dialog if user closes Flutterwave modal
           setAddMoneyDialogOpen(true);

@@ -61,9 +61,6 @@ export function LoginForm({
           profileImage: apiResponse.data?.user?.profileImage || null,
         };
 
-        console.log("Login response user data:", apiResponse.data?.user);
-        console.log("Profile image URL:", user.profileImage);
-
         setIsLoggedIn(true);
         setUser(user);
         setLoginState(true);

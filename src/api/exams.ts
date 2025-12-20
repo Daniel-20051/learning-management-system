@@ -19,7 +19,6 @@ export class ExamsApi {
       const response = await axios.get(`${BASE_URL}/api/exams?course_id=${courseId}&page=${page}&limit=${limit}`, {
         headers: getAuthHeaders()
       });
-      console.log(response)
       return response;
     } catch (err: any) {
       return handleApiError(err, "getting exams");
@@ -204,12 +203,9 @@ export class ExamsApi {
         headers: getAuthHeaders()
       });
       
-      console.log(response);
       return response;
     } catch (err: any) {
       console.error("Error during getting attempt for grading:", err);
-      console.log("Error response data:", err.response?.data);
-      console.log("Error response status:", err.response?.status);
       if (err.response?.status === 401) {
         // Handle 401 error
       }
@@ -318,7 +314,6 @@ export class ExamsApi {
           'Content-Type': 'application/json'
         }
       });
-      console.log(response);
       return response;
     } catch (err: any) {
       return handleApiError(err, "submitting exam answer");
@@ -331,7 +326,6 @@ export class ExamsApi {
       const response = await axios.post(`${BASE_URL}/api/exams/student/exams/attempts/${attemptId}/submit`, {}, {
         headers: getAuthHeaders()
       });
-      console.log(response);
       return response;
     } catch (err: any) {
       return handleApiError(err, "submitting exam");

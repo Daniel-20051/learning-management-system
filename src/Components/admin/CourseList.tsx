@@ -43,7 +43,6 @@ const CourseList = ({
   };
 
   const handleVideoCallSuccess = (callData: any) => {
-    console.log('Video call created successfully:', callData);
     // Navigate to meeting page with the callId as parameter
     const callId = callData?.callId || callData?.streamCallId;
     if (callId) {

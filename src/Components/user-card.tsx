@@ -25,13 +25,6 @@ const UserCard = ({ sidebar }: UserCardProps) => {
   const navigate = useNavigate();
   const { user, isAdmin, logout } = useAuth();
   
-  // Debug: Log user data to verify profileImage is available
-  useEffect(() => {
-    if (user) {
-      console.log("UserCard - User data:", user);
-      console.log("UserCard - Profile image:", user.profileImage);
-    }
-  }, [user]);
   
   // Check if user account is active (not pending or inactive)
   // If status is undefined/null, allow access (backward compatibility)

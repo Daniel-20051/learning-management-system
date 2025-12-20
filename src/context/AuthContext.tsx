@@ -15,6 +15,7 @@ interface User {
   permissions?: any;
   userType?: string;
   status?: string;
+  profileImage?: string | null;
 }
 
 interface AuthContextType {
@@ -79,26 +80,62 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   }, [isLoggedIn]);
 
   useEffect(() => {
-    try {
-      const savedUser = getUserData();
-      const savedIsLoggedIn = getLoginState();
-      const hasToken = hasValidToken();
+    const initializeAuth = async () => {
+      try {
+        const savedUser = getUserData();
+        const savedIsLoggedIn = getLoginState();
+        const hasToken = hasValidToken();
 
-      // Check if user is logged in and has a valid token
-      if (savedIsLoggedIn && savedUser && hasToken) {
-        setIsLoggedIn(true);
-        setUser(savedUser);
-      } else if (savedIsLoggedIn && !hasToken) {
-        // Token expired, logout user
+        // Check if user is logged in and has a valid token
+        if (savedIsLoggedIn && savedUser && hasToken) {
+          setIsLoggedIn(true);
+          
+          // If profileImage is missing, try to fetch it from the API
+          if (!savedUser.profileImage) {
+            try {
+              const { AuthApi } = await import("../api/auth");
+              const authApi = new AuthApi();
+              const profileResponse: any = await authApi.getUserProfile();
+              const profileData = profileResponse?.data?.data?.user || profileResponse?.data?.user;
+              
+              // Handle both camelCase and snake_case field names
+              const profileImageUrl = profileData?.profileImage || profileData?.profile_image;
+              
+              if (profileImageUrl) {
+                const updatedUser = {
+                  ...savedUser,
+                  profileImage: profileImageUrl,
+                };
+                setUser(updatedUser);
+                // Update cookie with profile image
+                const { setUserData } = await import("../lib/cookies");
+                setUserData(updatedUser);
+                console.log("Profile image fetched and updated:", profileImageUrl);
+              } else {
+                setUser(savedUser);
+              }
+            } catch (err) {
+              console.error("Error fetching profile image:", err);
+              // Still set user even if profile fetch fails
+              setUser(savedUser);
+            }
+          } else {
+            setUser(savedUser);
+          }
+        } else if (savedIsLoggedIn && !hasToken) {
+          // Token expired, logout user
+          logout();
+        }
+      } catch (error) {
+        // Ignore cookie errors and start unauthenticated
         logout();
+      } finally {
+        setIsInitializing(false);
       }
-    } catch (error) {
-      // Ignore cookie errors and start unauthenticated
-      logout();
-    } finally {
-      setIsInitializing(false);
-    }
-  }, []);
+    };
+
+    initializeAuth();
+  }, [logout]);
 
   // Proactively detect token removal/expiry without requiring a page refresh
   useEffect(() => {

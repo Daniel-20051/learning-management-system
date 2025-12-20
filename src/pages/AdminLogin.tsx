@@ -57,6 +57,7 @@ export default function AdminLoginPage() {
           role: adminData.role === "super_admin" ? "super_admin" : "admin",
           permissions: adminData.permissions,
           userType: "admin",
+          profileImage: adminData.profileImage || null,
         };
 
         // Store user data

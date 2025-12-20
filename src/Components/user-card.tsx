@@ -25,6 +25,14 @@ const UserCard = ({ sidebar }: UserCardProps) => {
   const navigate = useNavigate();
   const { user, isAdmin, logout } = useAuth();
   
+  // Debug: Log user data to verify profileImage is available
+  useEffect(() => {
+    if (user) {
+      console.log("UserCard - User data:", user);
+      console.log("UserCard - Profile image:", user.profileImage);
+    }
+  }, [user]);
+  
   // Check if user account is active (not pending or inactive)
   // If status is undefined/null, allow access (backward compatibility)
   const isAccountActive = !user?.status || (user.status !== "pending" && user.status !== "inactive");
@@ -70,9 +78,12 @@ const UserCard = ({ sidebar }: UserCardProps) => {
           <div className="flex items-center gap-3 cursor-pointer">
             {sidebar && (
               <img
-                className="w-13 bg-primary h-13 rounded-full"
-                src="/assets/avatar.png"
+                className="w-13 bg-primary h-13 rounded-full object-cover"
+                src={user?.profileImage || "/assets/avatar.png"}
                 alt=""
+                onError={(e) => {
+                  e.currentTarget.src = "/assets/avatar.png";
+                }}
               />
             )}
             <div className="hidden sm:block">
@@ -84,17 +95,23 @@ const UserCard = ({ sidebar }: UserCardProps) => {
             {/* Mobile: Show only avatar */}
             <div className="sm:hidden">
               <img
-                className="w-10 h-10 bg-primary rounded-full"
-                src="/assets/avatar.png"
+                className="w-10 h-10 bg-primary rounded-full object-cover"
+                src={user?.profileImage || "/assets/avatar.png"}
                 alt="User Avatar"
+                onError={(e) => {
+                  e.currentTarget.src = "/assets/avatar.png";
+                }}
               />
             </div>
             {/* Desktop: Show avatar when not in sidebar */}
             {!sidebar && (
               <img
-                className="hidden sm:block w-13 bg-primary h-13 rounded-full"
-                src="/assets/avatar.png"
+                className="hidden sm:block w-13 bg-primary h-13 rounded-full object-cover"
+                src={user?.profileImage || "/assets/avatar.png"}
                 alt=""
+                onError={(e) => {
+                  e.currentTarget.src = "/assets/avatar.png";
+                }}
               />
             )}
           </div>

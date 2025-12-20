@@ -413,6 +413,8 @@ export class Api extends AuthApi {
     state_origin?: string;
     lcda?: string;
     currency?: string;
+    program_id?: number;
+    facaulty_id?: number;
   }) {
     return super.updateStudentProfile(data);
   }

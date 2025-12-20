@@ -170,6 +170,8 @@ export class AuthApi {
     state_origin?: string;
     lcda?: string;
     currency?: string;
+    program_id?: number;
+    facaulty_id?: number;
   }) {
     try {
       const token = getAccessToken();

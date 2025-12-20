@@ -47,7 +47,7 @@ export function LoginForm({
         // Note: Auth token is now handled by the API layer and stored in cookies automatically
 
         const user = {
-          id: apiResponse.data?.user?.id,
+          id: String(apiResponse.data?.user?.id),
           email: apiResponse.data?.user?.email,
           matricNumber: apiResponse.data?.user?.matricNumber,
           name:
@@ -58,7 +58,11 @@ export function LoginForm({
               : apiResponse.data?.user?.fullName,
           role: apiResponse.data?.user?.userType,
           status: apiResponse.data?.user?.status || apiResponse.data?.status,
+          profileImage: apiResponse.data?.user?.profileImage || null,
         };
+
+        console.log("Login response user data:", apiResponse.data?.user);
+        console.log("Profile image URL:", user.profileImage);
 
         setIsLoggedIn(true);
         setUser(user);

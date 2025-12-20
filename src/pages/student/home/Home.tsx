@@ -8,21 +8,33 @@ import NoticeDetailsDialog from "./components/NoticeDetailsDialog";
 import UnpaidCoursesAlert from "./components/UnpaidCoursesAlert";
 import CourseTypeFilter from "./components/CourseTypeFilter";
 import UploadDocumentsDialog from "./components/UploadDocumentsDialog";
+import PurchaseCourseDialog from "../all-courses/components/PurchaseCourseDialog";
 import { Api } from "../../../api/index";
 import { AuthApi } from "../../../api/auth";
 import { useEffect, useMemo, useState } from "react";
-import { Card, CardContent } from "@/Components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardFooter } from "@/Components/ui/card";
 import { Badge } from "@/Components/ui/badge";
 import { Input } from "@/Components/ui/input";
 import { Button } from "@/Components/ui/button";
 import { Alert, AlertTitle } from "@/Components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/Components/ui/alert-dialog";
 import { useAuth } from "@/context/AuthContext";
 import { useSession } from "@/context/SessionContext";
 import { BookOpen, CheckCircle2, Clock, Search, AlertCircle, Upload, Loader2 } from "lucide-react";
 import type { Notice } from "@/api/notices";
 import { useNavigate } from "react-router-dom";
+import { toast } from "sonner";
 
-type CourseType = "allocated" | "marketplace";
+type CourseType = "allocated" | "marketplace" | "degree_programs" | "my_courses" | "certificate_courses";
 
 const Home = () => {
   const api = new Api();
@@ -31,18 +43,22 @@ const Home = () => {
   const { selectedSession, selectedSemester, setSessionAndSemester } =
     useSession();
 
-  // Check if user account is active (not pending or inactive)
-  // If status is undefined/null, allow access (backward compatibility)
-  const isAccountActive = !user?.status || (user.status !== "pending" && user.status !== "inactive");
+  // Check if user account is active - specifically check for status === "active"
+  const isAccountActive = user?.status === "active";
+  const isPendingUser = user?.status === "pending";
 
   const [courses, setCourses] = useState<any[]>([]);
+  const [programs, setPrograms] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoadingPrograms, setIsLoadingPrograms] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>("");
   const [notices, setNotices] = useState<Notice[]>([]);
   const [selectedNotice, setSelectedNotice] = useState<Notice | null>(null);
   const [isNoticeDialogOpen, setIsNoticeDialogOpen] = useState(false);
   const [showUnpaidAlert, setShowUnpaidAlert] = useState(true);
   const [uploadDocumentsDialogOpen, setUploadDocumentsDialogOpen] = useState(false);
+  const [purchaseDialogOpen, setPurchaseDialogOpen] = useState(false);
+  const [selectedCourseForPurchase, setSelectedCourseForPurchase] = useState<any>(null);
   const [kycDocuments, setKycDocuments] = useState<Record<string, {
     url: string | null;
     status: string | null;
@@ -50,8 +66,14 @@ const Home = () => {
     reviewed_at: string | null;
   }> | null>(null);
   const [loadingKycDocuments, setLoadingKycDocuments] = useState(false);
-  // Default to marketplace if account is not active
-  const [courseType, setCourseType] = useState<CourseType>(isAccountActive ? "allocated" : "marketplace");
+  const [userProgramId, setUserProgramId] = useState<number | null>(null);
+  const [isApplyingToProgram, setIsApplyingToProgram] = useState(false);
+  const [confirmApplyDialogOpen, setConfirmApplyDialogOpen] = useState(false);
+  const [selectedProgramForApply, setSelectedProgramForApply] = useState<any>(null);
+  // Default based on user status
+  const [courseType, setCourseType] = useState<CourseType>(
+    isPendingUser ? "degree_programs" : (isAccountActive ? "allocated" : "marketplace")
+  );
 
   // Derive first name from authenticated user
   const userFirstName = useMemo(() => {
@@ -60,11 +82,36 @@ const Home = () => {
     return fullName.split(" ")[0];
   }, [user?.name]);
 
+  // Get heading text based on course type
+  const getHeadingText = useMemo(() => {
+    if (isPendingUser) {
+      switch (courseType) {
+        case "degree_programs":
+          return "Degree Programs";
+        case "my_courses":
+          return "My Courses";
+        case "certificate_courses":
+          return "Certificate Courses";
+        default:
+          return "My Courses";
+      }
+    } else {
+      switch (courseType) {
+        case "allocated":
+          return "My Courses";
+        case "marketplace":
+          return "Marketplace Courses";
+        default:
+          return "My Courses";
+      }
+    }
+  }, [courseType, isPendingUser]);
+
   // Separate paid and unpaid courses (only for allocated courses)
   // Only show courses where paid === true (strict check)
   const { paidCourses, unpaidCourses } = useMemo(() => {
-    // For marketplace courses, show all courses (they're already purchased)
-    if (courseType === "marketplace") {
+    // For marketplace, my_courses, and certificate_courses, show all courses
+    if (courseType === "marketplace" || courseType === "my_courses" || courseType === "certificate_courses") {
       return { paidCourses: courses, unpaidCourses: [] };
     }
 
@@ -111,6 +158,34 @@ const Home = () => {
       );
     });
   }, [paidCourses, searchQuery]);
+
+  // Fetch user profile to get program_id
+  useEffect(() => {
+    const fetchUserProfile = async () => {
+      if (!user || user.role !== "student") return;
+      
+      try {
+        const authApi = new AuthApi();
+        const response: any = await authApi.getUserProfile();
+        const userData = response?.data?.data?.user || response?.data?.user;
+        
+        if (userData?.program_id) {
+          setUserProgramId(userData.program_id);
+          // If user has program_id and is on degree_programs, switch to my_courses
+          if (isPendingUser && courseType === "degree_programs") {
+            setCourseType("my_courses");
+          }
+        } else {
+          setUserProgramId(null);
+        }
+      } catch (err: any) {
+        console.error("Error loading user profile:", err);
+        setUserProgramId(null);
+      }
+    };
+
+    fetchUserProfile();
+  }, [user, isPendingUser, courseType]);
 
   // Fetch KYC documents on component mount
   useEffect(() => {
@@ -185,6 +260,61 @@ const Home = () => {
     setSessionAndSemester(session, semester);
   };
 
+  // Handle applying to a program
+  const handleApplyToProgram = async (program: any) => {
+    try {
+      setIsApplyingToProgram(true);
+
+      // First, fetch the current user profile to preserve existing data
+      const authApi = new AuthApi();
+      const profileResponse: any = await authApi.getUserProfile();
+      const userData = profileResponse?.data?.data?.user || profileResponse?.data?.user;
+
+      if (!userData) {
+        throw new Error("Unable to fetch user profile");
+      }
+
+      // Update profile with the program_id and faculty_id
+      await authApi.updateStudentProfile({
+        fname: userData.fname || "",
+        lname: userData.lname || "",
+        mname: userData.mname || undefined,
+        phone: userData.phone || undefined,
+        address: userData.address || undefined,
+        dob: userData.dob || undefined,
+        country: userData.country || undefined,
+        state_origin: userData.state_origin || undefined,
+        lcda: userData.lcda || undefined,
+        currency: userData.currency || undefined,
+        program_id: program.id,
+        facaulty_id: program.faculty_id || undefined,
+      });
+
+      // Update local state
+      setUserProgramId(program.id);
+
+      // Switch away from degree_programs view if currently on it
+      if (courseType === "degree_programs") {
+        setCourseType("my_courses");
+      }
+
+      // Show success message
+      toast.success(`Successfully applied to ${program.title}! Please upload your documents to continue.`);
+
+      // Open the upload documents modal
+      setUploadDocumentsDialogOpen(true);
+    } catch (error: any) {
+      console.error("Error applying to program:", error);
+      const errorMessage =
+        error?.response?.data?.message ||
+        error?.message ||
+        "Failed to apply to program. Please try again.";
+      toast.error(errorMessage);
+    } finally {
+      setIsApplyingToProgram(false);
+    }
+  };
+
   // Fetch notices on component mount
   useEffect(() => {
     const fetchNotices = async () => {
@@ -205,12 +335,47 @@ const Home = () => {
     fetchNotices();
   }, []);
 
-  // Force marketplace if account is not active
+  // Force appropriate view based on user status
   useEffect(() => {
-    if (!isAccountActive && courseType === "allocated") {
+    if (isPendingUser && (courseType === "allocated" || courseType === "marketplace")) {
+      // If user has program_id, don't show degree_programs, default to my_courses
+      if (userProgramId !== null) {
+        setCourseType("my_courses");
+      } else {
+        setCourseType("degree_programs");
+      }
+    } else if (!isAccountActive && !isPendingUser && courseType === "allocated") {
       setCourseType("marketplace");
     }
-  }, [isAccountActive, courseType]);
+    // If user has program_id and is on degree_programs view, switch to my_courses
+    if (userProgramId !== null && courseType === "degree_programs") {
+      setCourseType("my_courses");
+    }
+  }, [isAccountActive, isPendingUser, courseType, userProgramId]);
+
+  // Fetch programs for pending users
+  useEffect(() => {
+    const fetchPrograms = async () => {
+      if (isPendingUser && courseType === "degree_programs") {
+        setIsLoadingPrograms(true);
+        try {
+          const response = await api.marketplace.GetMarketplacePrograms();
+          if (response.data && response.data.data) {
+            setPrograms(Array.isArray(response.data.data) ? response.data.data : []);
+          } else {
+            setPrograms([]);
+          }
+        } catch (error) {
+          console.error("Error fetching programs:", error);
+          setPrograms([]);
+        } finally {
+          setIsLoadingPrograms(false);
+        }
+      }
+    };
+
+    fetchPrograms();
+  }, [isPendingUser, courseType]);
 
   // Fetch courses when course type, session/semester changes
   useEffect(() => {
@@ -218,7 +383,31 @@ const Home = () => {
       setIsLoading(true);
       try {
         if (courseType === "marketplace") {
-          // Fetch marketplace courses
+          // For active students, fetch their purchased marketplace courses
+          if (isAccountActive) {
+            const response = await api.marketplace.GetMyCourses();
+            if (response.data) {
+              const coursesData = response.data.data || response.data;
+              if (Array.isArray(coursesData)) {
+                setCourses(coursesData);
+              } else {
+                setCourses([]);
+              }
+            }
+          } else {
+            // For inactive students, fetch marketplace courses available for purchase
+            const response = await api.marketplace.GetMarketplaceCourses({
+              page: 1,
+              limit: 100,
+            });
+            if (response.data && response.data.data) {
+              setCourses(Array.isArray(response.data.data) ? response.data.data : []);
+            } else {
+              setCourses([]);
+            }
+          }
+        } else if (courseType === "my_courses") {
+          // Fetch purchased marketplace courses
           const response = await api.marketplace.GetMyCourses();
           if (response.data) {
             const coursesData = response.data.data || response.data;
@@ -228,6 +417,20 @@ const Home = () => {
               setCourses([]);
             }
           }
+        } else if (courseType === "certificate_courses") {
+          // Fetch marketplace courses available for purchase
+          const response = await api.marketplace.GetMarketplaceCourses({
+            page: 1,
+            limit: 100,
+          });
+          if (response.data && response.data.data) {
+            setCourses(Array.isArray(response.data.data) ? response.data.data : []);
+          } else {
+            setCourses([]);
+          }
+        } else if (courseType === "degree_programs") {
+          // Programs are handled separately
+          setCourses([]);
         } else {
           // Fetch allocated courses (requires session and semester)
           if (selectedSession && selectedSemester) {
@@ -256,7 +459,7 @@ const Home = () => {
     };
 
     fetchCourses();
-  }, [courseType, selectedSession, selectedSemester]);
+  }, [courseType, selectedSession, selectedSemester, isAccountActive]);
 
   const handleNoticeClick = (notice: Notice) => {
     setSelectedNotice(notice);
@@ -357,7 +560,8 @@ const Home = () => {
         </div>
 
         {/* Account Verification Alert - Show for pending/inactive accounts or if documents are pending/rejected/null, but not if all are approved */}
-        {(!isAccountActive || documentStatusInfo.hasRejected || documentStatusInfo.hasPending || documentStatusInfo.allNull) && !documentStatusInfo.allApproved && (
+        {/* Don't show if program_id is null */}
+        {userProgramId !== null && (!isAccountActive || documentStatusInfo.hasRejected || documentStatusInfo.hasPending || documentStatusInfo.allNull) && !documentStatusInfo.allApproved && (
           <Alert className="bg-blue-50 flex items-center border-blue-200">
             <AlertCircle className="h-4 w-4 text-blue-600" />
             <AlertTitle className="text-blue-900 flex flex-1">
@@ -400,7 +604,7 @@ const Home = () => {
         <div className="flex flex-col gap-3 md:gap-4">
           <div className="flex flex-col gap-3 md:gap-4">
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-              <h2 className="text-lg md:text-xl font-semibold">My Courses</h2>
+              <h2 className="text-lg md:text-xl font-semibold">{getHeadingText}</h2>
               <div className="flex items-center gap-3">
                 <CourseTypeFilter
                   activeType={courseType}
@@ -412,6 +616,8 @@ const Home = () => {
                     setCourseType(type);
                   }}
                   showRegisteredCourses={isAccountActive}
+                  isPendingUser={isPendingUser}
+                  hasProgramId={userProgramId !== null}
                 />
                 {courseType === "allocated" && (
                   <SessionSemesterDialog
@@ -421,17 +627,19 @@ const Home = () => {
               </div>
             </div>
 
-            {/* Search Bar */}
-            <div className="relative place-self-end max-w-md">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-              <Input
-                type="text"
-                placeholder="Search courses"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
+            {/* Search Bar - Only show for non-program views */}
+            {courseType !== "degree_programs" && (
+              <div className="relative place-self-end max-w-md">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
+                <Input
+                  type="text"
+                  placeholder="Search courses"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10"
+                />
+              </div>
+            )}
             {courseType === "allocated" && (
               <div className="flex flex-col sm:flex-row sm:items-center gap-2 text-xs md:text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
@@ -451,57 +659,209 @@ const Home = () => {
             )}
           </div>
 
-          {isLoading ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {Array.from({ length: 4 }).map((_, index) => (
-                <CourseCardSkeleton key={index} />
-              ))}
-            </div>
-          ) : filteredCourses.length > 0 ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-              {filteredCourses.map((course: any, index: number) => {
-                // Handle both allocated and marketplace course structures
-                const registration = course.registration || {};
-                
-                return (
-                  <CourseCards
-                    key={course.id || index}
-                    courseCode={course.course_code}
-                    courseTitle={course.title}
-                    courseLevel={course.course_level}
-                    courseUnit={course.course_unit}
-                    academicYear={registration.academic_year || course.academic_year}
-                    courseType={course.course_type}
-                    examFee={course.exam_fee}
-                    courseId={course.id}
-                    registrationId={registration.id || course.registration_id}
-                    instructor={course.instructor}
-                    onUnregister={() => {
-                      // Remove the course from the list after unregistering
-                      setCourses((prev) => prev.filter((c) => c.id !== course.id));
-                    }}
-                  />
-                );
-              })}
-            </div>
-          ) : searchQuery.trim() ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Search className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold text-foreground mb-2">
-                No courses found
-              </h3>
-              <p className="text-sm text-muted-foreground mb-4">
-                No courses match your search for "{searchQuery}"
-              </p>
-              <button
-                onClick={() => setSearchQuery("")}
-                className="text-sm text-primary hover:underline"
-              >
-                Clear search
-              </button>
-            </div>
-          ) : (
-            <EmptyCoursesState />
+          {/* Degree Programs View */}
+          {courseType === "degree_programs" && (
+            <>
+              {isLoadingPrograms ? (
+                <div className="flex items-center justify-center py-12">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              ) : programs.length > 0 ? (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {programs.map((program: any) => (
+                    <Card key={program.id} className="flex flex-col h-full pt-3">
+                      <CardHeader>
+                        <CardTitle className="text-lg font-semibold">
+                          {program.title}
+                        </CardTitle>
+                        {program.faculty && (
+                          <Badge variant="secondary" className="w-fit mt-2">
+                            {program.faculty.name}
+                          </Badge>
+                        )}
+                      </CardHeader>
+                      <CardContent className="flex-1">
+                        <p className="text-sm text-muted-foreground line-clamp-3">
+                          {program.description || "No description available for this program."}
+                        </p>
+                      </CardContent>
+                      <CardFooter>
+                        <Button
+                          className="w-full"
+                          onClick={() => {
+                            setSelectedProgramForApply(program);
+                            setConfirmApplyDialogOpen(true);
+                          }}
+                          disabled={isApplyingToProgram}
+                        >
+                          Apply Now
+                        </Button>
+                      </CardFooter>
+                    </Card>
+                  ))}
+                </div>
+              ) : (
+                <EmptyCoursesState />
+              )}
+            </>
+          )}
+
+          {/* Certificate Courses View (Marketplace for purchase) */}
+          {courseType === "certificate_courses" && (
+            <>
+              {isLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <CourseCardSkeleton key={index} />
+                  ))}
+                </div>
+              ) : filteredCourses.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {filteredCourses.map((course: any, index: number) => {
+                    const isOwned = course.is_owned === true;
+                    return (
+                      <Card key={course.id || index} className="overflow-hidden h-full flex flex-col">
+                        <div className="w-full h-20 bg-gradient-to-br from-slate-700 via-slate-600 to-slate-800 relative">
+                          <div className="absolute top-2.5 left-2.5">
+                            <Badge
+                              variant="secondary"
+                              className="bg-white/20 text-white border-white/20 text-xs px-2 py-0.5"
+                            >
+                              {course.course_code || "N/A"}
+                            </Badge>
+                          </div>
+                          {isOwned && (
+                            <div className="absolute top-2.5 right-2.5">
+                              <Badge className="bg-green-600 text-white text-xs px-2 py-0.5">
+                                Owned
+                              </Badge>
+                            </div>
+                          )}
+                        </div>
+                        <CardHeader className="pb-1 px-4 pt-4">
+                          <CardTitle className="text-base font-semibold leading-tight line-clamp-2">
+                            {course.title}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="pt-0 px-4 pb-2 flex-1">
+                          <p className="text-muted-foreground text-sm">
+                            Level {course.course_level} · {course.course_unit} Unit{course.course_unit !== 1 ? "s" : ""} · {course.semester || ""}
+                          </p>
+                          {course.instructor && (
+                            <p className="text-muted-foreground text-xs mt-1">
+                              Instructor: {course.instructor.name}
+                            </p>
+                          )}
+                          <div className="mt-2 flex items-center gap-2">
+                            <span className="text-lg font-bold text-primary">
+                              {course.currency === "NGN" ? "₦" : "$"}{course.price?.toLocaleString() || "0"}
+                            </span>
+                          </div>
+                        </CardContent>
+                        <CardFooter className="pt-2 px-4 pb-4">
+                          {isOwned ? (
+                            <Button
+                              size="sm"
+                              className="w-full text-sm bg-green-600 hover:bg-green-700"
+                              disabled
+                            >
+                              Already Owned
+                            </Button>
+                          ) : (
+                            <Button
+                              size="sm"
+                              className="w-full text-sm bg-primary"
+                              onClick={() => {
+                                setSelectedCourseForPurchase(course);
+                                setPurchaseDialogOpen(true);
+                              }}
+                            >
+                              Purchase
+                            </Button>
+                          )}
+                        </CardFooter>
+                      </Card>
+                    );
+                  })}
+                </div>
+              ) : searchQuery.trim() ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Search className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    No courses found
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    No courses match your search for "{searchQuery}"
+                  </p>
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Clear search
+                  </button>
+                </div>
+              ) : (
+                <EmptyCoursesState />
+              )}
+            </>
+          )}
+
+          {/* My Courses and Other Views */}
+          {courseType !== "degree_programs" && courseType !== "certificate_courses" && (
+            <>
+              {isLoading ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {Array.from({ length: 4 }).map((_, index) => (
+                    <CourseCardSkeleton key={index} />
+                  ))}
+                </div>
+              ) : filteredCourses.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+                  {filteredCourses.map((course: any, index: number) => {
+                    // Handle both allocated and marketplace course structures
+                    const registration = course.registration || {};
+                    
+                    return (
+                      <CourseCards
+                        key={course.id || index}
+                        courseCode={course.course_code}
+                        courseTitle={course.title}
+                        courseLevel={course.course_level}
+                        courseUnit={course.course_unit}
+                        academicYear={registration.academic_year || course.academic_year}
+                        courseType={course.course_type}
+                        examFee={course.exam_fee}
+                        courseId={course.id}
+                        registrationId={registration.id || course.registration_id}
+                        instructor={course.instructor}
+                        onUnregister={() => {
+                          // Remove the course from the list after unregistering
+                          setCourses((prev) => prev.filter((c) => c.id !== course.id));
+                        }}
+                      />
+                    );
+                  })}
+                </div>
+              ) : searchQuery.trim() ? (
+                <div className="flex flex-col items-center justify-center py-12 text-center">
+                  <Search className="h-12 w-12 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-semibold text-foreground mb-2">
+                    No courses found
+                  </h3>
+                  <p className="text-sm text-muted-foreground mb-4">
+                    No courses match your search for "{searchQuery}"
+                  </p>
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="text-sm text-primary hover:underline"
+                  >
+                    Clear search
+                  </button>
+                </div>
+              ) : (
+                <EmptyCoursesState />
+              )}
+            </>
           )}
         </div>
       </div>
@@ -547,6 +907,115 @@ const Home = () => {
           }
         }}
       />
+
+      {/* Purchase Course Dialog */}
+      <PurchaseCourseDialog
+        open={purchaseDialogOpen}
+        onOpenChange={setPurchaseDialogOpen}
+        course={selectedCourseForPurchase}
+        onPurchaseSuccess={async () => {
+          // Refresh courses after successful purchase
+          try {
+            setIsLoading(true);
+            if (courseType === "certificate_courses") {
+              // Refresh marketplace courses
+              const response = await api.marketplace.GetMarketplaceCourses({
+                page: 1,
+                limit: 100,
+              });
+              if (response.data && response.data.data) {
+                setCourses(Array.isArray(response.data.data) ? response.data.data : []);
+              }
+            } else if (courseType === "my_courses" || (courseType === "marketplace" && isAccountActive)) {
+              // Refresh purchased courses (for my_courses or marketplace for active students)
+              const response = await api.marketplace.GetMyCourses();
+              if (response.data) {
+                const coursesData = response.data.data || response.data;
+                if (Array.isArray(coursesData)) {
+                  setCourses(coursesData);
+                } else {
+                  setCourses([]);
+                }
+              }
+            } else if (courseType === "marketplace" && !isAccountActive) {
+              // Refresh marketplace courses for inactive students
+              const response = await api.marketplace.GetMarketplaceCourses({
+                page: 1,
+                limit: 100,
+              });
+              if (response.data && response.data.data) {
+                setCourses(Array.isArray(response.data.data) ? response.data.data : []);
+              }
+            }
+          } catch (error) {
+            console.error("Error refreshing courses after purchase:", error);
+          } finally {
+            setIsLoading(false);
+          }
+        }}
+      />
+
+      {/* Confirm Apply to Program Dialog */}
+      <AlertDialog open={confirmApplyDialogOpen} onOpenChange={setConfirmApplyDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Confirm Program Application</AlertDialogTitle>
+            <AlertDialogDescription>
+              {selectedProgramForApply && (
+                <>
+                  Are you sure you want to apply for <strong>{selectedProgramForApply.title}</strong>?
+                  {selectedProgramForApply.faculty && (
+                    <>
+                      <br />
+                      <br />
+                      <strong>Faculty:</strong> {selectedProgramForApply.faculty.name}
+                    </>
+                  )}
+                  {selectedProgramForApply.description && (
+                    <>
+                      <br />
+                      <br />
+                      <strong>Description:</strong> {selectedProgramForApply.description}
+                    </>
+                  )}
+                  <br />
+                  <br />
+                  Once you apply, you will be prompted to upload your documents to complete the application process.
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel 
+              disabled={isApplyingToProgram}
+              onClick={() => {
+                setConfirmApplyDialogOpen(false);
+                setSelectedProgramForApply(null);
+              }}
+            >
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={async () => {
+                if (selectedProgramForApply) {
+                  setConfirmApplyDialogOpen(false);
+                  await handleApplyToProgram(selectedProgramForApply);
+                }
+              }}
+              disabled={isApplyingToProgram}
+            >
+              {isApplyingToProgram ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Applying...
+                </>
+              ) : (
+                "Confirm Application"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 };

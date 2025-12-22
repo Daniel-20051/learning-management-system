@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, lazy, Suspense } from "react";
 import {
   Card,
   CardContent,
@@ -29,7 +29,9 @@ import {
 } from "@/Components/ui/alert-dialog";
 import { MoreVertical, Users, UserMinus, Loader2, GraduationCap } from "lucide-react";
 import { toast } from "sonner";
-import ParticipantsDialog from "./ParticipantsDialog";
+
+// Lazy load dialog component
+const ParticipantsDialog = lazy(() => import("./ParticipantsDialog"));
 
 interface Instructor {
   id: number;
@@ -165,14 +167,18 @@ const CourseCards = ({
         </div>
 
         {/* Participants Dialog */}
-        <ParticipantsDialog
-          open={participantsDialogOpen}
-          onOpenChange={setParticipantsDialogOpen}
-          courseId={courseId ?? ""}
-          courseTitle={courseTitle}
-          academicYear={academicYear}
-          semester={selectedSemester ?? undefined}
-        />
+        {participantsDialogOpen && (
+          <Suspense fallback={null}>
+            <ParticipantsDialog
+              open={participantsDialogOpen}
+              onOpenChange={setParticipantsDialogOpen}
+              courseId={courseId ?? ""}
+              courseTitle={courseTitle}
+              academicYear={academicYear}
+              semester={selectedSemester ?? undefined}
+            />
+          </Suspense>
+        )}
 
         {/* Unregister Confirmation Dialog */}
         <AlertDialog open={unregisterDialogOpen} onOpenChange={setUnregisterDialogOpen}>

@@ -1,10 +1,16 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { Api } from "@/api/index";
 import { toast } from "sonner";
 import { QuizTakingInterface } from "./components/QuizTakingInterface";
-import { QuizStartConfirmationModal } from "./components/QuizStartConfirmationModal";
-import { SubmitAttemptConfirmationModal } from "./components/SubmitAttemptConfirmationModal";
+
+// Lazy load modal components (using named exports)
+const QuizStartConfirmationModal = lazy(() => 
+  import("./components/QuizStartConfirmationModal").then(module => ({ default: module.QuizStartConfirmationModal }))
+);
+const SubmitAttemptConfirmationModal = lazy(() => 
+  import("./components/SubmitAttemptConfirmationModal").then(module => ({ default: module.SubmitAttemptConfirmationModal }))
+);
 
 type QuizQuestion = {
   id: number;
@@ -262,30 +268,38 @@ export default function QuizPage() {
         </div>
       </div> */}
 
-      <QuizStartConfirmationModal
-        isOpen={showConfirm}
-        onClose={() => {
-          if (quiz?.course_id) {
-            navigate("/unit/" + quiz.course_id);
-          } else {
-            // Fallback to previous page or home if course_id is not available
-            navigate(-1);
-          }
-        }}
-        onConfirm={handleConfirmStart}
-        quizTitle={quiz.title}
-        durationMinutes={quiz.duration_minutes}
-        attemptsAllowed={quiz.attempts_allowed}
-        isLoading={isStarting}
-      />
+      {showConfirm && (
+        <Suspense fallback={null}>
+          <QuizStartConfirmationModal
+            isOpen={showConfirm}
+            onClose={() => {
+              if (quiz?.course_id) {
+                navigate("/unit/" + quiz.course_id);
+              } else {
+                // Fallback to previous page or home if course_id is not available
+                navigate(-1);
+              }
+            }}
+            onConfirm={handleConfirmStart}
+            quizTitle={quiz.title}
+            durationMinutes={quiz.duration_minutes}
+            attemptsAllowed={quiz.attempts_allowed}
+            isLoading={isStarting}
+          />
+        </Suspense>
+      )}
 
-      <SubmitAttemptConfirmationModal
-        isOpen={showSubmitConfirm}
-        onClose={handleCloseSubmitConfirm}
-        onConfirm={handleSubmitExistingAttempt}
-        isLoading={isSubmitting}
-        attemptId={existingAttemptId || undefined}
-      />
+      {showSubmitConfirm && (
+        <Suspense fallback={null}>
+          <SubmitAttemptConfirmationModal
+            isOpen={showSubmitConfirm}
+            onClose={handleCloseSubmitConfirm}
+            onConfirm={handleSubmitExistingAttempt}
+            isLoading={isSubmitting}
+            attemptId={existingAttemptId || undefined}
+          />
+        </Suspense>
+      )}
     </div>
   );
 }

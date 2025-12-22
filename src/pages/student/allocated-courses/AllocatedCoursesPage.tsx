@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/Com
 import { Alert, AlertDescription, AlertTitle } from "@/Components/ui/alert";
 import { Skeleton } from "@/Components/ui/skeleton";
 import { Badge } from "@/Components/ui/badge";
+import { Checkbox } from "@/Components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -138,6 +139,7 @@ export default function AllocatedCoursesPage() {
   const [walletBalance, setWalletBalance] = useState<number>(0);
   const [currency, setCurrency] = useState<string>("NGN");
   const [exchangeRate, setExchangeRate] = useState<number>(1500); // Default fallback rate
+  const [selectedAllocationIds, setSelectedAllocationIds] = useState<number[]>([]);
 
   // Calculate currency conversions for all courses
   const courseConversions = useMemo(() => {
@@ -171,11 +173,22 @@ export default function AllocatedCoursesPage() {
     });
   }, [data?.allocated_courses, currency, exchangeRate]);
 
-  // Calculate total amount in student's currency
+  // Calculate totals for selected courses only
+  const selectedCourses = useMemo(() => {
+    if (!data?.allocated_courses) return [];
+    return data.allocated_courses.filter(course => 
+      selectedAllocationIds.includes(course.allocation_id)
+    );
+  }, [data?.allocated_courses, selectedAllocationIds]);
+
+  const selectedTotalUnits = useMemo(() => {
+    return selectedCourses.reduce((sum, course) => sum + (course.course?.course_unit || 0), 0);
+  }, [selectedCourses]);
+
   const totalAmountInStudentCurrency = useMemo(() => {
-    if (!data?.allocated_courses) return 0;
+    if (!selectedCourses.length) return 0;
     
-    return data.allocated_courses.reduce((sum, course) => {
+    return selectedCourses.reduce((sum, course) => {
       const courseCurrency = course.currency || "NGN";
       const studentCurrency = currency;
       
@@ -186,15 +199,41 @@ export default function AllocatedCoursesPage() {
       const convertedPrice = convertCurrency(course.price, courseCurrency, studentCurrency, exchangeRate);
       return sum + convertedPrice;
     }, 0);
-  }, [data?.allocated_courses, currency, exchangeRate]);
+  }, [selectedCourses, currency, exchangeRate]);
 
-  // Check if any course needs conversion
+  // Check if any selected course needs conversion
   const hasCurrencyConversion = useMemo(() => {
-    if (!data?.allocated_courses) return false;
-    return data.allocated_courses.some(
+    if (!selectedCourses.length) return false;
+    return selectedCourses.some(
       (course) => (course.currency || "NGN") !== currency
     );
-  }, [data?.allocated_courses, currency]);
+  }, [selectedCourses, currency]);
+
+  // Initialize selected courses when data loads (select all by default)
+  useEffect(() => {
+    if (data?.allocated_courses && selectedAllocationIds.length === 0) {
+      setSelectedAllocationIds(data.allocated_courses.map(course => course.allocation_id));
+    }
+  }, [data?.allocated_courses]);
+
+  const handleCourseToggle = (allocationId: number, courseUnits: number) => {
+    setSelectedAllocationIds(prev => {
+      const isSelected = prev.includes(allocationId);
+      
+      if (isSelected) {
+        // Deselecting - just remove it
+        return prev.filter(id => id !== allocationId);
+      } else {
+        // Selecting - check if adding would exceed 32 units
+        const currentUnits = selectedTotalUnits;
+        if (currentUnits + courseUnits > 32) {
+          toast.error(`Cannot select this course. Maximum of 32 units allowed. Current: ${currentUnits} units, Adding: ${courseUnits} units`);
+          return prev;
+        }
+        return [...prev, allocationId];
+      }
+    });
+  };
 
   useEffect(() => {
     fetchData();
@@ -252,6 +291,12 @@ export default function AllocatedCoursesPage() {
   const handleRegisterClick = () => {
     if (!data?.can_register) return;
     
+    // Check if any courses are selected
+    if (selectedAllocationIds.length === 0) {
+      toast.error("Please select at least one course to register.");
+      return;
+    }
+    
     // Check wallet balance using converted total amount
     if (walletBalance < totalAmountInStudentCurrency) {
       toast.error("Insufficient wallet balance. Please fund your wallet first.");
@@ -266,7 +311,7 @@ export default function AllocatedCoursesPage() {
       setRegistering(true);
       setConfirmDialogOpen(false);
       
-      const response = await coursesApi.RegisterAllocatedCourses();
+      const response = await coursesApi.RegisterAllocatedCourses(selectedAllocationIds);
       
       // Check if response is an error (from handleApiError)
       if (response?.response) {
@@ -281,7 +326,7 @@ export default function AllocatedCoursesPage() {
       
       // Check if it's a successful response
       if (response?.data?.success || response?.data?.status) {
-        toast.success(response?.data?.message || "Successfully registered for all allocated courses!");
+        toast.success(response?.data?.message || `Successfully registered for ${selectedAllocationIds.length} course${selectedAllocationIds.length !== 1 ? 's' : ''}!`);
         
         // Refresh data
         await fetchData();
@@ -436,10 +481,13 @@ export default function AllocatedCoursesPage() {
                   
                   {/* Total Units */}
                   <div className="pb-3 border-b">
-                    <p className="text-xs text-muted-foreground">Total Units to be Registered</p>
+                    <p className="text-xs text-muted-foreground">Total Units Selected</p>
                     <p className="text-2xl font-bold">
-                      {data.allocated_courses?.reduce((sum, item) => sum + (item.course?.course_unit || 0), 0) || 0} 
+                      {selectedTotalUnits} / 32
                     </p>
+                    {selectedTotalUnits > 32 && (
+                      <p className="text-xs text-destructive mt-1">Maximum 32 units allowed</p>
+                    )}
                   </div>
                   
                   {/* Total Cost */}
@@ -468,8 +516,18 @@ export default function AllocatedCoursesPage() {
                     </Alert>
                   )}
 
+                  {/* Show units warning if exceeded */}
+                  {selectedTotalUnits > 32 && (
+                    <Alert variant="destructive" className="mt-2">
+                      <AlertCircle className="h-4 w-4" />
+                      <AlertDescription className="text-xs">
+                        Maximum 32 units allowed. Current selection: {selectedTotalUnits} units. Please deselect some courses.
+                      </AlertDescription>
+                    </Alert>
+                  )}
+
                   {/* Show balance warning if insufficient */}
-                  {walletBalance < totalAmountInStudentCurrency && (
+                  {walletBalance < totalAmountInStudentCurrency && selectedTotalUnits <= 32 && (
                     <Alert variant="destructive" className="mt-2">
                       <AlertCircle className="h-4 w-4" />
                       <AlertDescription className="text-xs">
@@ -481,10 +539,10 @@ export default function AllocatedCoursesPage() {
                   <Button
                     size="default"
                     onClick={handleRegisterClick}
-                    disabled={!data.can_register || registering || walletBalance < totalAmountInStudentCurrency}
+                    disabled={!data.can_register || registering || walletBalance < totalAmountInStudentCurrency || selectedAllocationIds.length === 0 || selectedTotalUnits > 32}
                     className="w-full"
                   >
-                    {registering ? "Registering..." : "Register All Courses"}
+                    {registering ? "Registering..." : `Register ${selectedAllocationIds.length} Course${selectedAllocationIds.length !== 1 ? 's' : ''}`}
                   </Button>
                   {!data.can_register && (
                     <Alert variant="destructive" className="mt-2">
@@ -523,8 +581,40 @@ export default function AllocatedCoursesPage() {
                         </CardTitle>
                         <CardDescription className="text-xs mt-1">
                           {data.course_count} course{data.course_count !== 1 ? 's' : ''} allocated for this semester
+                          {selectedAllocationIds.length > 0 && (
+                            <span className="ml-2">• {selectedAllocationIds.length} selected ({selectedTotalUnits} units)</span>
+                          )}
                         </CardDescription>
                       </div>
+                      {data.allocated_courses.length > 0 && (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            if (selectedAllocationIds.length === data.allocated_courses.length) {
+                              setSelectedAllocationIds([]);
+                            } else {
+                              // Select all that don't exceed 32 units
+                              let totalUnits = 0;
+                              const idsToSelect: number[] = [];
+                              for (const course of data.allocated_courses) {
+                                const units = course.course?.course_unit || 0;
+                                if (totalUnits + units <= 32) {
+                                  idsToSelect.push(course.allocation_id);
+                                  totalUnits += units;
+                                }
+                              }
+                              setSelectedAllocationIds(idsToSelect);
+                              if (idsToSelect.length < data.allocated_courses.length) {
+                                toast.warning(`Selected ${idsToSelect.length} courses (${totalUnits} units). Maximum 32 units allowed.`);
+                              }
+                            }
+                          }}
+                          disabled={registering}
+                        >
+                          {selectedAllocationIds.length === data.allocated_courses.length ? "Deselect All" : "Select All"}
+                        </Button>
+                      )}
                     </div>
                   </CardHeader>
                   <CardContent>
@@ -532,6 +622,7 @@ export default function AllocatedCoursesPage() {
                       <Table>
                         <TableHeader>
                           <TableRow>
+                            <TableHead className="w-[50px]"></TableHead>
                             <TableHead className="w-[120px]">Course Code</TableHead>
                             <TableHead>Course Title</TableHead>
                             <TableHead className="w-[80px] text-center">Units</TableHead>
@@ -545,9 +636,17 @@ export default function AllocatedCoursesPage() {
                             );
                             const courseCurrency = item.currency || "NGN";
                             const needsConversion = conversion?.needsConversion || false;
+                            const isSelected = selectedAllocationIds.includes(item.allocation_id);
                             
                             return (
                               <TableRow key={item.allocation_id}>
+                                <TableCell>
+                                  <Checkbox
+                                    checked={isSelected}
+                                    onCheckedChange={() => handleCourseToggle(item.allocation_id, item.course?.course_unit || 0)}
+                                    disabled={registering}
+                                  />
+                                </TableCell>
                                 <TableCell className="font-medium">{item.course.course_code}</TableCell>
                                 <TableCell>{item.course.title}</TableCell>
                                 <TableCell className="text-center">{item.course.course_unit}</TableCell>
@@ -589,8 +688,42 @@ export default function AllocatedCoursesPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Confirm Course Registration</AlertDialogTitle>
             <AlertDialogDescription className="space-y-4">
-              <p>You are about to register for {data?.course_count || 0} course(s).</p>
+              <p>You are about to register for {selectedAllocationIds.length} course(s).</p>
+              
+              {/* Selected Courses List */}
+              <div className="bg-muted p-3 rounded-lg max-h-60 overflow-y-auto">
+                <p className="text-sm font-semibold mb-2">Selected Courses:</p>
+                <div className="space-y-2">
+                  {selectedCourses.map((course) => {
+                    const conversion = courseConversions.find(
+                      (conv) => conv.allocation_id === course.allocation_id
+                    );
+                    const courseCurrency = course.currency || "NGN";
+                    const needsConversion = conversion?.needsConversion || false;
+                    
+                    return (
+                      <div key={course.allocation_id} className="flex justify-between items-center text-sm border-b pb-2 last:border-0">
+                        <div>
+                          <span className="font-medium">{course.course.course_code}</span>
+                          <span className="text-muted-foreground ml-2">- {course.course.title}</span>
+                          <span className="text-muted-foreground ml-2">({course.course.course_unit} units)</span>
+                        </div>
+                        <div className="font-semibold">
+                          {needsConversion 
+                            ? formatCurrency(conversion?.convertedPrice || 0, currency)
+                            : formatCurrency(course.price, courseCurrency)}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
               <div className="bg-muted p-4 rounded-lg space-y-2">
+                <div className="flex justify-between">
+                  <span className="font-medium">Total Units:</span>
+                  <span className="font-bold">{selectedTotalUnits} / 32</span>
+                </div>
                 <div className="flex justify-between">
                   <span className="font-medium">Total Cost ({currency}):</span>
                   <span className="font-bold">{formatCurrency(totalAmountInStudentCurrency, currency)}</span>

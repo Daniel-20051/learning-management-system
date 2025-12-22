@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, lazy, Suspense } from "react";
 import { useParams, useSearchParams, useNavigate, useLocation } from "react-router-dom";
 import { Card } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
@@ -9,7 +9,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/Components/ui/tabs";
 import { Api } from "@/api";
 import { Loader2, ArrowLeft, Edit, Trash2, Users, BarChart3, ChevronDown, Search, X } from "lucide-react";
 import { toast } from "sonner";
-import GradingDialog from "./components/GradingDialog";
+
+// Lazy load heavy dialog component
+const GradingDialog = lazy(() => import("./components/GradingDialog"));
 
 // Local interface definitions as fallback
 interface Exam {
@@ -716,13 +718,15 @@ const AdminExamDetailsPage = () => {
 
       {/* Grading Dialog */}
       {selectedAttempt && (
-        <GradingDialog
-          open={isGradingDialogOpen}
-          onOpenChange={setIsGradingDialogOpen}
-          attemptId={selectedAttempt}
-          studentName={selectedAttemptData?.student ? `${selectedAttemptData.student.fname} ${selectedAttemptData.student.lname}` : undefined}
-          onGraded={handleGraded}
-        />
+        <Suspense fallback={null}>
+          <GradingDialog
+            open={isGradingDialogOpen}
+            onOpenChange={setIsGradingDialogOpen}
+            attemptId={selectedAttempt}
+            studentName={selectedAttemptData?.student ? `${selectedAttemptData.student.fname} ${selectedAttemptData.student.lname}` : undefined}
+            onGraded={handleGraded}
+          />
+        </Suspense>
       )}
     </div>
   );

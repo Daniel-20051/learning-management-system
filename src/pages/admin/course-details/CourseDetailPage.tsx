@@ -1,5 +1,5 @@
 import { useParams, useNavigate, useLocation } from "react-router-dom";
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import { useState, useEffect, useRef, useMemo, useCallback, lazy, Suspense } from "react";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "@/Components/ui/card";
 import { Button } from "@/Components/ui/button";
@@ -7,11 +7,6 @@ import { Badge } from "@/Components/ui/badge";
 // ModuleCard is not currently used after extraction; keeping UnitsList/QuizzesList
 import UnitsList from "./components/UnitsList";
 import QuizzesList from "./components/QuizzesList";
-import QuizStatsDialog, {
-  type QuizStatsDialogRef,
-} from "./components/QuizStatsDialog";
-import DeleteModuleDialog from "./components/DeleteModuleDialog";
-
 import CourseDetailSkeleton from "./components/CourseDetailSkeleton";
 
 import {
@@ -28,33 +23,30 @@ import { Loader2 } from "lucide-react";
 import { Api } from "@/api";
 import CourseHeader from "@/Components/admin/CourseHeader";
 import CourseStats from "@/Components/admin/CourseStats";
-import EditCourseModal from "./components/EditCourseModal";
-import AddUnitDialog, {
-  type UnitFormData,
-} from "./components/AddUnitDialog";
-import AddModuleDialog, {
-  type AddModuleDialogRef,
-} from "./components/AddModuleDialog";
-import EditUnitDialog from "./components/EditUnitDialog";
-import DeleteUnitDialog from "./components/DeleteUnitDialog";
-import UnitPreviewModal from "./components/UnitPreviewModal";
-import CreateQuizDialog, {
-  type CreateQuizDialogRef,
-  type QuizFormData,
-} from "./components/CreateQuizDialog";
-import AddQuestionsDialog, {
-  type AddQuestionsDialogRef,
-  type Question as AddQuestion,
-} from "./components/AddQuestionsDialog";
-import QuizDetailsDialog, {
-  type QuizDetailsDialogRef,
-} from "./components/QuizDetailsDialog";
-import EditQuizDialog, {
-  type EditQuizDialogRef,
-  type Quiz,
-  type Question as EditQuestion,
-} from "./components/EditQuizDialog";
-import ConfirmDialog from "@/Components/ConfirmDialog";
+
+// Import types for refs (needed for useRef)
+import type { QuizStatsDialogRef } from "./components/QuizStatsDialog";
+import type { AddModuleDialogRef } from "./components/AddModuleDialog";
+import type { CreateQuizDialogRef, QuizFormData } from "./components/CreateQuizDialog";
+import type { AddQuestionsDialogRef, Question as AddQuestion } from "./components/AddQuestionsDialog";
+import type { QuizDetailsDialogRef } from "./components/QuizDetailsDialog";
+import type { EditQuizDialogRef, Quiz, Question as EditQuestion } from "./components/EditQuizDialog";
+import type { UnitFormData } from "./components/AddUnitDialog";
+
+// Lazy load heavy dialog components
+const QuizStatsDialog = lazy(() => import("./components/QuizStatsDialog"));
+const DeleteModuleDialog = lazy(() => import("./components/DeleteModuleDialog"));
+const EditCourseModal = lazy(() => import("./components/EditCourseModal"));
+const AddUnitDialog = lazy(() => import("./components/AddUnitDialog"));
+const AddModuleDialog = lazy(() => import("./components/AddModuleDialog"));
+const EditUnitDialog = lazy(() => import("./components/EditUnitDialog"));
+const DeleteUnitDialog = lazy(() => import("./components/DeleteUnitDialog"));
+const UnitPreviewModal = lazy(() => import("./components/UnitPreviewModal"));
+const CreateQuizDialog = lazy(() => import("./components/CreateQuizDialog"));
+const AddQuestionsDialog = lazy(() => import("./components/AddQuestionsDialog"));
+const QuizDetailsDialog = lazy(() => import("./components/QuizDetailsDialog"));
+const EditQuizDialog = lazy(() => import("./components/EditQuizDialog"));
+const ConfirmDialog = lazy(() => import("@/Components/ConfirmDialog"));
 
 const CourseDetailPage = () => {
   const { courseId } = useParams<{ courseId: string }>();
@@ -665,11 +657,13 @@ const CourseDetailPage = () => {
           </p>
         </div>
         <div className="w-full sm:w-auto">
-          <AddModuleDialog
-            ref={addModuleDialogRef}
-            onAddModule={handleAddModule}
-            isLoading={isAddingModule}
-          />
+          <Suspense fallback={<Button disabled>Add Module</Button>}>
+            <AddModuleDialog
+              ref={addModuleDialogRef}
+              onAddModule={handleAddModule}
+              isLoading={isAddingModule}
+            />
+          </Suspense>
         </div>
       </div>
 
@@ -765,20 +759,22 @@ const CourseDetailPage = () => {
                         </div>
                         <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                           <div className="w-full sm:w-auto">
-                            <AddUnitDialog
-                              moduleTitle={module.title}
-                              moduleId={module.id}
-                              existingUnits={module.units || []}
-                              onAddUnit={handleAddUnit}
-                            >
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                className="shadow-sm w-full"
+                            <Suspense fallback={<Button variant="outline" size="sm" className="shadow-sm w-full" disabled>Add Unit</Button>}>
+                              <AddUnitDialog
+                                moduleTitle={module.title}
+                                moduleId={module.id}
+                                existingUnits={module.units || []}
+                                onAddUnit={handleAddUnit}
                               >
-                                Add Unit
-                              </Button>
-                            </AddUnitDialog>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  className="shadow-sm w-full"
+                                >
+                                  Add Unit
+                                </Button>
+                              </AddUnitDialog>
+                            </Suspense>
                           </div>
                           <div className="w-full sm:w-auto">
                             <Button
@@ -834,109 +830,143 @@ const CourseDetailPage = () => {
         )}
       </div>
 
-      <DeleteModuleDialog
-        open={!!moduleToDelete}
-        moduleTitle={moduleToDelete?.title}
-        onCancel={() => setModuleToDelete(null)}
-        onConfirm={handleDeleteModule}
-        loading={isDeleting}
-      />
+      {moduleToDelete && (
+        <Suspense fallback={null}>
+          <DeleteModuleDialog
+            open={!!moduleToDelete}
+            moduleTitle={moduleToDelete?.title}
+            onCancel={() => setModuleToDelete(null)}
+            onConfirm={handleDeleteModule}
+            loading={isDeleting}
+          />
+        </Suspense>
+      )}
 
       {/* Edit Unit Dialog */}
-      <EditUnitDialog
-        open={isEditUnitOpen}
-        unit={selectedUnit}
-        onClose={closeEditUnit}
-        onSave={handleUpdateUnit}
-      />
+      {isEditUnitOpen && (
+        <Suspense fallback={null}>
+          <EditUnitDialog
+            open={isEditUnitOpen}
+            unit={selectedUnit}
+            onClose={closeEditUnit}
+            onSave={handleUpdateUnit}
+          />
+        </Suspense>
+      )}
 
       {/* Delete Unit Dialog */}
-      <DeleteUnitDialog
-        open={isDeleteUnitOpen}
-        unit={unitToDelete}
-        onClose={closeDeleteUnit}
-        onDelete={handleDeleteUnit}
-      />
+      {isDeleteUnitOpen && (
+        <Suspense fallback={null}>
+          <DeleteUnitDialog
+            open={isDeleteUnitOpen}
+            unit={unitToDelete}
+            onClose={closeDeleteUnit}
+            onDelete={handleDeleteUnit}
+          />
+        </Suspense>
+      )}
 
       {/* Unit Preview Modal */}
-      <UnitPreviewModal
-        open={isPreviewUnitOpen}
-        unit={unitToPreview}
-        onClose={closePreviewUnit}
-      />
+      {isPreviewUnitOpen && (
+        <Suspense fallback={null}>
+          <UnitPreviewModal
+            open={isPreviewUnitOpen}
+            unit={unitToPreview}
+            onClose={closePreviewUnit}
+          />
+        </Suspense>
+      )}
 
       {/* Edit Course Modal */}
-      <EditCourseModal
-        open={isEditingCourse}
-        formData={{
-          title: courseTitle,
-          content: "",
-        }}
-        onChange={() => {}}
-        onCancel={handleCancelEdit}
-        onClose={handleCloseModal}
-        onSave={() => {
-          setIsEditingCourse(false);
-        }}
-      />
+      {isEditingCourse && (
+        <Suspense fallback={null}>
+          <EditCourseModal
+            open={isEditingCourse}
+            formData={{
+              title: courseTitle,
+              content: "",
+            }}
+            onChange={() => {}}
+            onCancel={handleCancelEdit}
+            onClose={handleCloseModal}
+            onSave={() => {
+              setIsEditingCourse(false);
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* Quiz Creation Dialog */}
       {selectedModuleForQuiz && (
-        <CreateQuizDialog
-          ref={quizCreateDialogRef}
-          moduleTitle={selectedModuleForQuiz.title}
-          moduleId={selectedModuleForQuiz.id}
-          onCreateQuiz={handleCreateQuiz}
-          isLoading={isCreatingQuiz}
-          open={isQuizDialogOpen}
-          onOpenChange={setIsQuizDialogOpen}
-        />
+        <Suspense fallback={null}>
+          <CreateQuizDialog
+            ref={quizCreateDialogRef}
+            moduleTitle={selectedModuleForQuiz.title}
+            moduleId={selectedModuleForQuiz.id}
+            onCreateQuiz={handleCreateQuiz}
+            isLoading={isCreatingQuiz}
+            open={isQuizDialogOpen}
+            onOpenChange={setIsQuizDialogOpen}
+          />
+        </Suspense>
       )}
 
       {/* Quiz Stats Dialog */}
-      <QuizStatsDialog ref={quizStatsDialogRef} />
+      <Suspense fallback={null}>
+        <QuizStatsDialog ref={quizStatsDialogRef} />
+      </Suspense>
 
       {/* Add Questions Dialog */}
       {selectedQuizForQuestions && (
-        <AddQuestionsDialog
-          ref={addQuestionsDialogRef}
-          quizTitle={selectedQuizForQuestions.title}
-          quizId={selectedQuizForQuestions.id}
-          existingQuestions={(() => {
-            return (
-              quizzes.find((q) => q.id === selectedQuizForQuestions.id)
-                ?.questions || []
-            );
-          })()}
-          onAddQuestions={handleAddQuestions}
-          isLoading={isAddingQuestions}
-          open={isAddQuestionsDialogOpen}
-          onOpenChange={setIsAddQuestionsDialogOpen}
-        />
+        <Suspense fallback={null}>
+          <AddQuestionsDialog
+            ref={addQuestionsDialogRef}
+            quizTitle={selectedQuizForQuestions.title}
+            quizId={selectedQuizForQuestions.id}
+            existingQuestions={(() => {
+              return (
+                quizzes.find((q) => q.id === selectedQuizForQuestions.id)
+                  ?.questions || []
+              );
+            })()}
+            onAddQuestions={handleAddQuestions}
+            isLoading={isAddingQuestions}
+            open={isAddQuestionsDialogOpen}
+            onOpenChange={setIsAddQuestionsDialogOpen}
+          />
+        </Suspense>
       )}
 
-      <QuizDetailsDialog ref={quizDetailsDialogRef} />
+      <Suspense fallback={null}>
+        <QuizDetailsDialog ref={quizDetailsDialogRef} />
+      </Suspense>
 
       {/* Edit Quiz Dialog */}
-      <EditQuizDialog
-        ref={editQuizDialogRef}
-        onUpdateQuiz={handleUpdateQuiz}
-        isLoading={isEditingQuiz}
-      />
+      <Suspense fallback={null}>
+        <EditQuizDialog
+          ref={editQuizDialogRef}
+          onUpdateQuiz={handleUpdateQuiz}
+          isLoading={isEditingQuiz}
+        />
+      </Suspense>
 
       {/* Delete Quiz Confirm Dialog */}
-      <ConfirmDialog
-        open={!!quizToDelete}
-        title="Delete quiz?"
-        description={`This action cannot be undone. This will permanently delete "${
-          quizToDelete?.title ?? "this quiz"
-        }" and its questions.`}
-        confirmText="Delete"
-        cancelText="Cancel"
-        onConfirm={handleDeleteQuiz}
-        onCancel={closeDeleteQuiz}
-        isProcessing={isDeletingQuiz}
-      />
+      {quizToDelete && (
+        <Suspense fallback={null}>
+          <ConfirmDialog
+            open={!!quizToDelete}
+            title="Delete quiz?"
+            description={`This action cannot be undone. This will permanently delete "${
+              quizToDelete?.title ?? "this quiz"
+            }" and its questions.`}
+            confirmText="Delete"
+            cancelText="Cancel"
+            onConfirm={handleDeleteQuiz}
+            onCancel={closeDeleteQuiz}
+            isProcessing={isDeletingQuiz}
+          />
+        </Suspense>
+      )}
     </div>
   );
 };

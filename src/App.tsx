@@ -2,42 +2,55 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "@/Components/theme-provider";
 import { useAuth } from "@/context/AuthContext";
 import { Toaster } from "sonner";
-import Home from "./pages/student/home/Home";
-import LoginPage from "./pages/Login";
-import RegisterPage from "./pages/Register";
-import RegisterStaffPage from "./pages/RegisterStaff";
-import ForgotPasswordPage from "./pages/ForgotPassword";
-import ResetPasswordPage from "./pages/ResetPassword";
-import AdminLayout from "@/Components/admin/AdminLayout";
-import DashboardPage from "./pages/admin/dashboard/DashboardPage";
-import CoursesPage from "./pages/admin/course/CoursesPage";
-import CourseDetailPage from "./pages/admin/course-details/CourseDetailPage";
-import ResultsPage from "./pages/admin/result/ResultsPage";
-import CourseQuizzesPage from "./pages/admin/quiz/CourseQuizzesPage";
-import AdminDiscussionsListPage from "./pages/admin/discussions/AdminDiscussionsListPage";
-import AdminCourseDiscussionPage from "./pages/admin/discussions/AdminCourseDiscussionPage";
-import VideoLecture from "./pages/admin/video-lecture/VideoLecture";
-import AdminExamsListPage from "./pages/admin/exams/AdminExamsListPage";
-import AdminCourseExamsPage from "./pages/admin/exams/AdminCourseExamsPage";
-import AdminExamDetailsPage from "./pages/admin/exams/AdminExamDetailsPage";
-import QuestionBankPage from "./pages/admin/exams/QuestionBankPage";
-import Unit from "./pages/student/unit/Unit";
 import { SidebarSelectionProvider } from "@/context/SidebarSelectionContext";
 import { SessionProvider } from "@/context/SessionContext";
-import CertificatePage from "./pages/student/certificate/CertificatePage";
-import OnlineClassesPage from "./pages/student/online-classes/OnlineClassesPage";
-import NotFoundPage from "./pages/NotFoundPage";
-import QuizPage from "./pages/student/quiz/QuizPage";
-import ChatDialog from "@/Components/chat/ChatDialog";
 import { ChatProvider } from "@/context/ChatContext";
 import socketService from "@/services/Socketservice";
-import { useEffect } from "react";
-import StudentProfilePage from "./pages/student/profile/ProfilePage";
-import AllCoursesPage from "./pages/student/all-courses/AllCoursesPage";
-import AllocatedCoursesPage from "./pages/student/allocated-courses/AllocatedCoursesPage";
-import WalletPage from "./pages/student/wallet/WalletPage";
-import SchoolFeesPage from "./pages/student/school-fees/SchoolFeesPage";
-import StaffProfilePage from "./pages/admin/profile/StaffProfilePage";
+import { useEffect, Suspense, lazy } from "react";
+import { Loader2 } from "lucide-react";
+
+// Lazy load all route components for better code splitting
+const Home = lazy(() => import("./pages/student/home/Home"));
+const LoginPage = lazy(() => import("./pages/Login"));
+const RegisterPage = lazy(() => import("./pages/Register"));
+const RegisterStaffPage = lazy(() => import("./pages/RegisterStaff"));
+const ForgotPasswordPage = lazy(() => import("./pages/ForgotPassword"));
+const ResetPasswordPage = lazy(() => import("./pages/ResetPassword"));
+const AdminLayout = lazy(() => import("@/Components/admin/AdminLayout"));
+const DashboardPage = lazy(() => import("./pages/admin/dashboard/DashboardPage"));
+const CoursesPage = lazy(() => import("./pages/admin/course/CoursesPage"));
+const CourseDetailPage = lazy(() => import("./pages/admin/course-details/CourseDetailPage"));
+const ResultsPage = lazy(() => import("./pages/admin/result/ResultsPage"));
+const CourseQuizzesPage = lazy(() => import("./pages/admin/quiz/CourseQuizzesPage"));
+const AdminDiscussionsListPage = lazy(() => import("./pages/admin/discussions/AdminDiscussionsListPage"));
+const AdminCourseDiscussionPage = lazy(() => import("./pages/admin/discussions/AdminCourseDiscussionPage"));
+const VideoLecture = lazy(() => import("./pages/admin/video-lecture/VideoLecture"));
+const AdminExamsListPage = lazy(() => import("./pages/admin/exams/AdminExamsListPage"));
+const AdminCourseExamsPage = lazy(() => import("./pages/admin/exams/AdminCourseExamsPage"));
+const AdminExamDetailsPage = lazy(() => import("./pages/admin/exams/AdminExamDetailsPage"));
+const QuestionBankPage = lazy(() => import("./pages/admin/exams/QuestionBankPage"));
+const Unit = lazy(() => import("./pages/student/unit/Unit"));
+const CertificatePage = lazy(() => import("./pages/student/certificate/CertificatePage"));
+const OnlineClassesPage = lazy(() => import("./pages/student/online-classes/OnlineClassesPage"));
+const NotFoundPage = lazy(() => import("./pages/NotFoundPage"));
+const QuizPage = lazy(() => import("./pages/student/quiz/QuizPage"));
+const ChatDialog = lazy(() => import("@/Components/chat/ChatDialog"));
+const StudentProfilePage = lazy(() => import("./pages/student/profile/ProfilePage"));
+const AllCoursesPage = lazy(() => import("./pages/student/all-courses/AllCoursesPage"));
+const AllocatedCoursesPage = lazy(() => import("./pages/student/allocated-courses/AllocatedCoursesPage"));
+const WalletPage = lazy(() => import("./pages/student/wallet/WalletPage"));
+const SchoolFeesPage = lazy(() => import("./pages/student/school-fees/SchoolFeesPage"));
+const StaffProfilePage = lazy(() => import("./pages/admin/profile/StaffProfilePage"));
+
+// Loading fallback component
+const PageLoader = () => (
+  <div className="flex items-center justify-center min-h-screen">
+    <div className="flex flex-col items-center gap-4">
+      <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      <p className="text-muted-foreground">Loading...</p>
+    </div>
+  </div>
+);
 
 function App() {
   const { isLoggedIn, isAdmin, isInitializing, user } = useAuth();
@@ -61,7 +74,8 @@ function App() {
         <ThemeProvider defaultTheme="light">
           {isInitializing ? null : (
             <BrowserRouter>
-              <Routes>
+              <Suspense fallback={<PageLoader />}>
+                <Routes>
                 <Route
                   path="/"
                   element={
@@ -223,15 +237,18 @@ function App() {
                 />
                 <Route path="*" element={<NotFoundPage />} />
 
-              </Routes>
+                </Routes>
+              </Suspense>
             </BrowserRouter>
           )}
           <Toaster position="top-right" />
           {/* Provide chat threads globally and mount trigger */}
           <ChatProvider enabled={isLoggedIn}>
-            <div className="fixed bottom-4 right-4 z-50">
-              <ChatDialog />
-            </div>
+            <Suspense fallback={null}>
+              <div className="fixed bottom-4 right-4 z-50">
+                <ChatDialog />
+              </div>
+            </Suspense>
           </ChatProvider>
         </ThemeProvider>
       </SidebarSelectionProvider>

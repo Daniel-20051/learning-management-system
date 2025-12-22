@@ -4,11 +4,14 @@ import CourseCardSkeleton from "./components/CourseCardSkeleton";
 import EmptyCoursesState from "./components/EmptyCoursesState";
 import SessionSemesterDialog from "../../../Components/SessionSemesterDialog";
 import NoticeSlider from "./components/NoticeSlider";
-import NoticeDetailsDialog from "./components/NoticeDetailsDialog";
 import UnpaidCoursesAlert from "./components/UnpaidCoursesAlert";
 import CourseTypeFilter from "./components/CourseTypeFilter";
-import UploadDocumentsDialog from "./components/UploadDocumentsDialog";
-import PurchaseCourseDialog from "../all-courses/components/PurchaseCourseDialog";
+import { lazy, Suspense } from "react";
+
+// Lazy load heavy dialog components
+const NoticeDetailsDialog = lazy(() => import("./components/NoticeDetailsDialog"));
+const UploadDocumentsDialog = lazy(() => import("./components/UploadDocumentsDialog"));
+const PurchaseCourseDialog = lazy(() => import("../all-courses/components/PurchaseCourseDialog"));
 import { Api } from "../../../api/index";
 import { AuthApi } from "../../../api/auth";
 import { useEffect, useMemo, useState } from "react";
@@ -109,15 +112,14 @@ const Home = () => {
 
   // Separate paid and unpaid courses (only for allocated courses)
   // Only show courses where paid === true (strict check)
-  const { paidCourses, unpaidCourses } = useMemo(() => {
+  const { paidCourses, allCoursesUnpaid } = useMemo(() => {
     // For marketplace, my_courses, and certificate_courses, show all courses
     if (courseType === "marketplace" || courseType === "my_courses" || courseType === "certificate_courses") {
-      return { paidCourses: courses, unpaidCourses: [] };
+      return { paidCourses: courses, allCoursesUnpaid: false };
     }
 
     // For allocated courses, filter by paid status
     const paid: any[] = [];
-    const unpaid: any[] = [];
     
     courses.forEach((course) => {
       // Strict check: only true (boolean or string "true") is considered paid
@@ -126,12 +128,13 @@ const Home = () => {
       
       if (isPaid) {
         paid.push(course);
-      } else {
-        unpaid.push(course);
       }
     });
     
-    return { paidCourses: paid, unpaidCourses: unpaid };
+    // Check if ALL courses are unpaid (no course has paid === true)
+    const allUnpaid = courses.length > 0 && paid.length === 0;
+    
+    return { paidCourses: paid, allCoursesUnpaid: allUnpaid };
   }, [courses, courseType]);
 
   // Filter paid courses based on search query
@@ -591,10 +594,9 @@ const Home = () => {
           </Alert>
         )}
 
-        {/* Unpaid Courses Alert - Only for allocated courses */}
-        {courseType === "allocated" && unpaidCourses.length > 0 && showUnpaidAlert && (
+        {/* Unpaid Courses Alert - Only for allocated courses, show only if ALL courses are unpaid */}
+        {courseType === "allocated" && allCoursesUnpaid && showUnpaidAlert && (
           <UnpaidCoursesAlert
-            count={unpaidCourses.length}
             onDismiss={() => setShowUnpaidAlert(false)}
             onCompleteRegistration={() => navigate('/allocated-courses')}
           />
@@ -867,93 +869,105 @@ const Home = () => {
       </div>
 
       {/* Notice Details Dialog */}
-      <NoticeDetailsDialog
-        notice={selectedNotice}
-        open={isNoticeDialogOpen}
-        onOpenChange={setIsNoticeDialogOpen}
-      />
+      {isNoticeDialogOpen && (
+        <Suspense fallback={null}>
+          <NoticeDetailsDialog
+            notice={selectedNotice}
+            open={isNoticeDialogOpen}
+            onOpenChange={setIsNoticeDialogOpen}
+          />
+        </Suspense>
+      )}
 
       {/* Upload Documents Dialog */}
-      <UploadDocumentsDialog
-        open={uploadDocumentsDialogOpen}
-        onOpenChange={setUploadDocumentsDialogOpen}
-        onUploadSuccess={async () => {
-          // Refresh KYC documents after upload
-          try {
-            const authApi = new AuthApi();
-            const response: any = await authApi.getKycDocuments();
-            
-            if (response?.data?.success && response?.data?.data?.documents) {
-              const documents: Record<string, {
-                url: string | null;
-                status: string | null;
-                rejection_reason: string | null;
-                reviewed_at: string | null;
-              }> = {};
-              
-              Object.entries(response.data.data.documents).forEach(([key, value]: [string, any]) => {
-                documents[key] = {
-                  url: value?.url || null,
-                  status: value?.status || null,
-                  rejection_reason: value?.rejection_reason || null,
-                  reviewed_at: value?.reviewed_at || null,
-                };
-              });
-              
-              setKycDocuments(documents);
-            }
-          } catch (err: any) {
-            console.error("Error refreshing KYC documents:", err);
-          }
-        }}
-      />
+      {uploadDocumentsDialogOpen && (
+        <Suspense fallback={null}>
+          <UploadDocumentsDialog
+            open={uploadDocumentsDialogOpen}
+            onOpenChange={setUploadDocumentsDialogOpen}
+            onUploadSuccess={async () => {
+              // Refresh KYC documents after upload
+              try {
+                const authApi = new AuthApi();
+                const response: any = await authApi.getKycDocuments();
+                
+                if (response?.data?.success && response?.data?.data?.documents) {
+                  const documents: Record<string, {
+                    url: string | null;
+                    status: string | null;
+                    rejection_reason: string | null;
+                    reviewed_at: string | null;
+                  }> = {};
+                  
+                  Object.entries(response.data.data.documents).forEach(([key, value]: [string, any]) => {
+                    documents[key] = {
+                      url: value?.url || null,
+                      status: value?.status || null,
+                      rejection_reason: value?.rejection_reason || null,
+                      reviewed_at: value?.reviewed_at || null,
+                    };
+                  });
+                  
+                  setKycDocuments(documents);
+                }
+              } catch (err: any) {
+                console.error("Error refreshing KYC documents:", err);
+              }
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* Purchase Course Dialog */}
-      <PurchaseCourseDialog
-        open={purchaseDialogOpen}
-        onOpenChange={setPurchaseDialogOpen}
-        course={selectedCourseForPurchase}
-        onPurchaseSuccess={async () => {
-          // Refresh courses after successful purchase
-          try {
-            setIsLoading(true);
-            if (courseType === "certificate_courses") {
-              // Refresh marketplace courses
-              const response = await api.marketplace.GetMarketplaceCourses({
-                page: 1,
-                limit: 100,
-              });
-              if (response.data && response.data.data) {
-                setCourses(Array.isArray(response.data.data) ? response.data.data : []);
-              }
-            } else if (courseType === "my_courses" || (courseType === "marketplace" && isAccountActive)) {
-              // Refresh purchased courses (for my_courses or marketplace for active students)
-              const response = await api.marketplace.GetMyCourses();
-              if (response.data) {
-                const coursesData = response.data.data || response.data;
-                if (Array.isArray(coursesData)) {
-                  setCourses(coursesData);
-                } else {
-                  setCourses([]);
+      {purchaseDialogOpen && (
+        <Suspense fallback={null}>
+          <PurchaseCourseDialog
+            open={purchaseDialogOpen}
+            onOpenChange={setPurchaseDialogOpen}
+            course={selectedCourseForPurchase}
+            onPurchaseSuccess={async () => {
+              // Refresh courses after successful purchase
+              try {
+                setIsLoading(true);
+                if (courseType === "certificate_courses") {
+                  // Refresh marketplace courses
+                  const response = await api.marketplace.GetMarketplaceCourses({
+                    page: 1,
+                    limit: 100,
+                  });
+                  if (response.data && response.data.data) {
+                    setCourses(Array.isArray(response.data.data) ? response.data.data : []);
+                  }
+                } else if (courseType === "my_courses" || (courseType === "marketplace" && isAccountActive)) {
+                  // Refresh purchased courses (for my_courses or marketplace for active students)
+                  const response = await api.marketplace.GetMyCourses();
+                  if (response.data) {
+                    const coursesData = response.data.data || response.data;
+                    if (Array.isArray(coursesData)) {
+                      setCourses(coursesData);
+                    } else {
+                      setCourses([]);
+                    }
+                  }
+                } else if (courseType === "marketplace" && !isAccountActive) {
+                  // Refresh marketplace courses for inactive students
+                  const response = await api.marketplace.GetMarketplaceCourses({
+                    page: 1,
+                    limit: 100,
+                  });
+                  if (response.data && response.data.data) {
+                    setCourses(Array.isArray(response.data.data) ? response.data.data : []);
+                  }
                 }
+              } catch (error) {
+                console.error("Error refreshing courses after purchase:", error);
+              } finally {
+                setIsLoading(false);
               }
-            } else if (courseType === "marketplace" && !isAccountActive) {
-              // Refresh marketplace courses for inactive students
-              const response = await api.marketplace.GetMarketplaceCourses({
-                page: 1,
-                limit: 100,
-              });
-              if (response.data && response.data.data) {
-                setCourses(Array.isArray(response.data.data) ? response.data.data : []);
-              }
-            }
-          } catch (error) {
-            console.error("Error refreshing courses after purchase:", error);
-          } finally {
-            setIsLoading(false);
-          }
-        }}
-      />
+            }}
+          />
+        </Suspense>
+      )}
 
       {/* Confirm Apply to Program Dialog */}
       <AlertDialog open={confirmApplyDialogOpen} onOpenChange={setConfirmApplyDialogOpen}>

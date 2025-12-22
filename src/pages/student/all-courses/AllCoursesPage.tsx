@@ -1,6 +1,6 @@
 import Navbar from "@/Components/navbar";
 import { Api } from "@/api/index";
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, lazy, Suspense } from "react";
 import type { MarketplaceTutor, MarketplaceProgram } from "@/api/marketplace";
 import {
   Card,
@@ -21,7 +21,9 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/Components/ui/select";
-import PurchaseCourseDialog from "./components/PurchaseCourseDialog";
+
+// Lazy load heavy dialog component
+const PurchaseCourseDialog = lazy(() => import("./components/PurchaseCourseDialog"));
 
 interface Instructor {
   id: number;
@@ -527,12 +529,16 @@ const AllCoursesPage = () => {
       </div>
 
       {/* Purchase Course Dialog */}
-      <PurchaseCourseDialog
-        open={purchaseDialogOpen}
-        onOpenChange={setPurchaseDialogOpen}
-        course={selectedCourse}
-        onPurchaseSuccess={handlePurchaseSuccess}
-      />
+      {purchaseDialogOpen && (
+        <Suspense fallback={null}>
+          <PurchaseCourseDialog
+            open={purchaseDialogOpen}
+            onOpenChange={setPurchaseDialogOpen}
+            course={selectedCourse}
+            onPurchaseSuccess={handlePurchaseSuccess}
+          />
+        </Suspense>
+      )}
 
     </div>
   );

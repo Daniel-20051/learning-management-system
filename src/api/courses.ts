@@ -302,18 +302,20 @@ export class CoursesApi {
   }
 
   /**
-   * Register for all allocated courses in the current active semester.
+   * Register for selected allocated courses in the current active semester.
    * 
-   * This endpoint allows students to register for all courses that have been
+   * This endpoint allows students to register for selected courses that have been
    * allocated to them. The registration fee will be deducted from the student's wallet.
    * 
+   * @param allocationIds - Array of allocation IDs to register for. If not provided, registers all allocated courses.
    * @returns Response containing order details, payment information, and registered courses
    */
-  async RegisterAllocatedCourses() {
+  async RegisterAllocatedCourses(allocationIds?: number[]) {
     try {
+      const payload = allocationIds ? { allocation_ids: allocationIds } : {};
       const response = await axios.post(
         `${BASE_URL}/api/courses/register-allocated`,
-        {},
+        payload,
         {
           headers: getAuthHeaders()
         }

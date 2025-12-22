@@ -3,19 +3,16 @@ import { Button } from "@/Components/ui/button";
 import { cn } from "@/lib/utils";
 
 interface UnpaidCoursesAlertProps {
-  count: number;
   onDismiss: () => void;
   onCompleteRegistration: () => void;
   className?: string;
 }
 
 const UnpaidCoursesAlert = ({
-  count,
   onDismiss,
   onCompleteRegistration,
   className,
 }: UnpaidCoursesAlertProps) => {
-  if (count === 0) return null;
 
   return (
     <div
@@ -46,7 +43,7 @@ const UnpaidCoursesAlert = ({
               <div className="flex items-center gap-2 mb-1">
                 <Sparkles className="h-4 w-4 text-amber-600 dark:text-amber-400 animate-pulse flex-shrink-0" />
                 <h3 className="text-base md:text-lg font-bold text-amber-900 dark:text-amber-100 leading-tight">
-                  You have {count} unregistered course{count !== 1 ? "s" : ""}
+                  Register your courses
                 </h3>
               </div>
               <p className="text-sm md:text-base text-amber-800 dark:text-amber-200 leading-relaxed">
